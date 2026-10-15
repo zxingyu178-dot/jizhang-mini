@@ -41,6 +41,8 @@
     </view>
   </view>
 
+  <view class="pv-diag" bindtap="onCopyDiagnostic">复制脱敏诊断（不含账单内容）</view>
+
   <view class="pv-actions">
     <view class="pv-btn pv-btn-ghost" bindtap="onCancel">取消</view>
     <view class="pv-btn pv-btn-primary" bindtap="onConfirm">

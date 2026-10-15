@@ -95,6 +95,8 @@ global.wx = buildWx();
 const store = require(path.join(ROOT, 'data', 'index'));
 const detector = require(path.join(ROOT, 'packages', 'importer', 'core', 'detector'));
 const commit = require(path.join(ROOT, 'packages', 'importer', 'core', 'commit'));
+const diagnosis = require(path.join(ROOT, 'packages', 'importer', 'core', 'diagnosis'));
+const wechatAdapter = require(path.join(ROOT, 'packages', 'importer', 'adapters', 'wechat'));
 const FIX = path.join(__dirname, 'fixtures');
 
 function freshStore() {
@@ -122,6 +124,13 @@ async function testWechat() {
   eq(session.counts.ready, 4, '微信 ready=4');
   eq(session.counts.needconfirm, 1, '微信 needconfirm=1');
   eq(session.counts.skipped, 0, '微信不计收支不进 bills（不计入）');
+
+  // 脱敏诊断（成功会话）
+  assert(session.diagnostic, '微信成功会话带诊断对象');
+  eq(session.diagnostic.headerFound, true, '微信诊断表头找到');
+  eq(session.diagnostic.source, 'wechat', '诊断来源 wechat');
+  eq(session.diagnostic.fileType, 'xlsx', '诊断文件类型 xlsx');
+  assert(session.diagnostic.totalDataRows >= 5, '微信诊断数据行计数 ≥5');
 
   // 确认导入
   const r = commit.commitImport(session);
@@ -220,6 +229,50 @@ async function testMiniRestore() {
   eq(store.rangeBills().length, 1, '恢复后为备份的 1 笔（覆盖）');
 }
 
+/* ---------- 脱敏诊断：行级收集 + 不外泄敏感内容 ---------- */
+async function testDiagnosis() {
+  const header = ['交易时间', '交易类型', '交易对方', '商品', '收/支', '金额', '支付方式', '当前状态', '交易单号', '商户单号', '备注'];
+  const rows = [
+    ['微信支付账单明细（虚构）'],
+    header,
+    ['2026-10-15 12:31:00', '商户消费', '保密商户张三', '生椰拿铁', '支出', '¥18.00', '零钱', '支付成功', '420001AAA', 'M001', ''],
+    ['2026-10-15 13:00:00', '商户消费', '某公司', '转账', '不计收支', '¥1.00', '零钱', '支付成功', '420001BBB', 'M002', ''],
+    ['2026-10-15 14:00:00', '商户消费', '某公司2', '商品X', '无法识别的值', '¥5.00', '零钱', '支付成功', '420001CCC', 'M003', ''],
+    ['2026-10-15 15:00:00', '商户消费', '某公司3', '商品Y', '支出', '', '零钱', '支付成功', '420001DDD', 'M004', ''],
+  ];
+
+  const diag = diagnosis.newDiagnostic();
+  diag.source = 'wechat';
+  diag.fileType = 'xlsx';
+  const bills = wechatAdapter.parseRows(rows, 'wechat', diag);
+
+  eq(bills.length, 1, '仅 1 条正常支出进入账单');
+  eq(diag.headerFound, true, '表头找到');
+  eq(diag.headerRowIndex, 1, '表头在第 2 行(0-based=1)');
+  eq(diag.totalDataRows, 4, '数据行 4');
+  eq(diag.nonFlowSkipped, 1, '不计收支 1 条');
+  eq(diag.errors.length, 2, '行级错误 2 条（收支未知 + 金额缺失）');
+
+  const text = diagnosis.toText(diag, '解析终止示例');
+  assert(text.indexOf('保密商户张三') < 0, '诊断文本不含商户原文');
+  assert(text.indexOf('生椰拿铁') < 0, '诊断文本不含商品原文');
+  assert(text.indexOf('420001AAA') < 0, '诊断文本不含交易号');
+  assert(text.indexOf('收/支') >= 0, '诊断文本含列名 收/支');
+  assert(text.indexOf('微信账单') >= 0, '诊断文本含来源中文名');
+  assert(text.indexOf('数据行') >= 0 && text.indexOf('4') >= 0, '诊断文本含数据行数');
+
+  // 表头缺失：抛错且标记未找到
+  const bad = diagnosis.newDiagnostic();
+  let threw = false;
+  try {
+    wechatAdapter.parseRows([['乱七八糟'], ['a', 'b']], 'wechat', bad);
+  } catch (e) {
+    threw = true;
+  }
+  assert(threw, '无标准表头时抛错');
+  eq(bad.headerFound, false, '诊断标记表头未找到');
+}
+
 async function run() {
   const tests = [
     testWechat,
@@ -229,6 +282,7 @@ async function run() {
     testDailyValueCsv,
     testDailyValueBackup,
     testMiniRestore,
+    testDiagnosis,
   ];
   for (const t of tests) {
     try {

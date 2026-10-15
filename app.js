@@ -1,10 +1,11 @@
 // app.js
 const store = require('./data/index');
+const { APP_VERSION } = require('./utils/version');
 
 App({
   globalData: {
     appName: '每日的价值',
-    version: '0.2.0'
+    version: APP_VERSION
   },
 
   onLaunch() {

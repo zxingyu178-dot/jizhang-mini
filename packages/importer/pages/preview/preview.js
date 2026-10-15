@@ -2,6 +2,7 @@
 const store = require('../../../../data/index');
 const money = require('../../../../data/money');
 const commit = require('../../core/commit');
+const diagnosis = require('../../core/diagnosis');
 
 const SOURCE_LABEL = {
   wechat: '微信支付账单',
@@ -131,6 +132,20 @@ Page({
         });
       }
     }, 30);
+  },
+
+  /** 复制脱敏诊断（成功预览也可反馈，确认行数/跳过/需确认口径） */
+  onCopyDiagnostic() {
+    const session = this.data.session;
+    const diag = session && session.diagnostic;
+    if (!diag) {
+      wx.showToast({ title: '暂无诊断信息', icon: 'none' });
+      return;
+    }
+    wx.setClipboardData({
+      data: diagnosis.toText(diag, null),
+      success: () => wx.showToast({ title: '诊断已复制', icon: 'none' }),
+    });
   },
 
   onCancel() {

@@ -3,6 +3,7 @@
 // 字段：交易时间/交易分类/交易对方/对方账号/商品说明/收/支/金额/收付款方式/交易状态/交易订单号/商家订单号/备注
 const money = require('../../../data/money');
 const normalizer = require('../core/normalizer');
+const diagnosis = require('../core/diagnosis');
 
 // 支付宝分类 → Mini 分类
 const CATEGORY_MAP = {
@@ -54,9 +55,13 @@ function mapCategory(raw) {
   return hit ? CATEGORY_MAP[hit] : 'c-other';
 }
 
-function parseRows(rows, source) {
+function parseRows(rows, source, diag) {
   const h = findHeader(rows);
-  if (!h) throw new Error('没有找到支付宝账单表头，请确认是支付宝「个人对账」账单');
+  if (!h) {
+    diagnosis.setHeader(diag, false, -1);
+    throw new Error('没有找到支付宝账单表头，请确认是支付宝「个人对账」账单');
+  }
+  diagnosis.setHeader(diag, true, h.index);
   const H = h.headers;
   const ci = {
     time: colIndex(H, '交易时间'),
@@ -74,16 +79,30 @@ function parseRows(rows, source) {
   for (let i = h.index + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every((c) => !String(c).trim())) continue;
+    if (diag) diag.totalDataRows += 1;
 
     const flow = get(r, ci.flow).trim();
     let type;
     if (flow === '支出') type = 'expense';
     else if (flow === '收入') type = 'income';
-    else continue; // 不计收支 / 空
+    else if (flow === '不计收支' || flow === '' || flow === '/' || flow === '-' || flow === '其他' || flow === '资金占用') {
+      if (diag) diag.nonFlowSkipped += 1;
+      continue; // 不计收支 / 占位 / 资金占用 → 正常跳过
+    } else {
+      diagnosis.addError(diag, i, '收/支', ci.flow, '取值无法识别（应为“支出/收入/不计收支”）');
+      continue;
+    }
 
     const amountCents = Math.abs(money.parseAmountToCents(get(r, ci.amount)));
     const occurredAt = normalizer.parseDateTime(get(r, ci.time));
-    if (!amountCents || !occurredAt) continue;
+    if (!occurredAt) {
+      diagnosis.addError(diag, i, '交易时间', ci.time, '缺失或无法解析');
+      continue;
+    }
+    if (!amountCents) {
+      diagnosis.addError(diag, i, '金额', ci.amount, '缺失或无法解析');
+      continue;
+    }
 
     const merchant = get(r, ci.counterpart).trim();
     const goods = get(r, ci.goods).trim();

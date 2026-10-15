@@ -233,6 +233,193 @@ console.log('金额工具边界');
   eq(m.formatCentsWithSymbol(8), '¥0.08', '8分格式化');
 }
 
+/* ---------- v0.2.1 跨月编辑：10月→9月 ---------- */
+console.log('v0.2.1 跨月编辑：10月→9月');
+{
+  const util = require('../utils/util');
+  const wx = buildWx();
+  const store = loadStore(wx);
+  store.init();
+
+  const b = store.addBill({
+    type: 'expense', amountCents: 1800, categoryId: 'c-food', note: '咖啡',
+    occurredAt: new Date(2026, 9, 15, 8, 30).getTime(),
+  });
+  eq(store.monthSummary('2026-10').expense, 1800, '初始 10 月支出 1800');
+  eq(store.monthSummary('2026-09').expense, 0, '初始 9 月支出 0');
+
+  const updated = store.updateBill(b.id, { occurredAt: util.dateWithTime('2026-09-20', 8, 30) });
+  assert(updated, '跨月更新返回账单');
+  eq(updated.id, b.id, '跨月编辑 Bill id 不变');
+  eq(store.monthSummary('2026-10').expense, 0, '10→9 旧月统计减为 0');
+  eq(store.monthSummary('2026-09').expense, 1800, '10→9 新月统计增为 1800');
+  eq(store.ledger.countIdInMonth('2026-10', b.id), 0, '旧月已无该 id');
+  eq(store.ledger.countIdInMonth('2026-09', b.id), 1, '新月恰有该 id 1 条');
+  const d = new Date(updated.occurredAt);
+  eq(d.getMonth() + 1, 9, '落到 9 月');
+  eq(d.getDate(), 20, '日期为 20 日');
+  eq(d.getHours(), 8, '保留原时 8 点');
+  eq(d.getMinutes(), 30, '保留原分 30 分');
+}
+
+/* ---------- v0.2.1 跨月编辑：9月→10月 ---------- */
+console.log('v0.2.1 跨月编辑：9月→10月');
+{
+  const util = require('../utils/util');
+  const wx = buildWx();
+  const store = loadStore(wx);
+  store.init();
+
+  const b = store.addBill({
+    type: 'expense', amountCents: 2350, categoryId: 'c-transport',
+    occurredAt: new Date(2026, 8, 3, 19, 5).getTime(),
+  });
+  eq(store.monthSummary('2026-09').expense, 2350, '初始 9 月支出 2350');
+
+  const updated = store.updateBill(b.id, { occurredAt: util.dateWithTime('2026-10-05', 19, 5) });
+  eq(updated.id, b.id, '9→10 id 不变');
+  eq(store.monthSummary('2026-09').expense, 0, '9→10 旧月统计减 0');
+  eq(store.monthSummary('2026-10').expense, 2350, '9→10 新月统计增 2350');
+  eq(store.ledger.countIdInMonth('2026-09', b.id), 0, '旧月无 id');
+  eq(store.ledger.countIdInMonth('2026-10', b.id), 1, '新月有 id');
+}
+
+/* ---------- v0.2.1 同月原位更新 ---------- */
+console.log('v0.2.1 同月原位更新');
+{
+  const util = require('../utils/util');
+  const wx = buildWx();
+  const store = loadStore(wx);
+  store.init();
+
+  const b = store.addBill({
+    type: 'expense', amountCents: 6000, categoryId: 'c-food',
+    occurredAt: new Date(2026, 9, 10, 12, 0).getTime(),
+  });
+  const updated = store.updateBill(b.id, {
+    note: '改了备注',
+    occurredAt: util.dateWithTime('2026-10-28', 12, 0), // 仍在 10 月
+  });
+  eq(updated.note, '改了备注', '同月更新备注');
+  eq(updated.id, b.id, '同月更新 id 不变');
+  eq(store.monthSummary('2026-10').expense, 6000, '同月改日期统计不变');
+  eq(store.ledger.countIdInMonth('2026-10', b.id), 1, '同月仅 1 条');
+  eq(store.listMonths().length, 1, '只存在一个月份分片');
+}
+
+/* ---------- v0.2.1 跨月编辑失败回滚 ---------- */
+console.log('v0.2.1 跨月编辑失败回滚');
+{
+  const util = require('../utils/util');
+  const wx = buildWx();
+  const store = loadStore(wx);
+  store.init();
+
+  const b = store.addBill({
+    type: 'expense', amountCents: 1800, categoryId: 'c-food',
+    occurredAt: new Date(2026, 9, 15, 8, 30).getTime(),
+  });
+
+  const fs = store.fs;
+  const origWrite = fs.writeJSON;
+  let hit = false;
+  fs.writeJSON = function (p, o) {
+    const pp = String(p).replace(/\\/g, '/');
+    if (!hit && pp.indexOf('/bills/2026-09') >= 0) {
+      hit = true;
+      throw new Error('INJECTED_MOVE');
+    }
+    return origWrite(p, o);
+  };
+
+  let caught = '';
+  try {
+    // 10 月 → 9 月，写新分片(9月)时注入失败
+    store.updateBill(b.id, { occurredAt: util.dateWithTime('2026-09-01', 8, 30) });
+  } catch (e) {
+    caught = e.message;
+  }
+  fs.writeJSON = origWrite;
+
+  assert(caught.indexOf('INJECTED_MOVE') >= 0, '跨月写入失败向上抛错');
+  eq(store.monthSummary('2026-10').expense, 1800, '回滚后旧月仍为 1800');
+  eq(store.ledger.countIdInMonth('2026-10', b.id), 1, '回滚后旧月仍持有该 id');
+  eq(store.ledger.countIdInMonth('2026-09', b.id), 0, '回滚后新月无该 id');
+  // 回滚后可正常重试
+  const retry = store.updateBill(b.id, { occurredAt: util.dateWithTime('2026-09-01', 8, 30) });
+  eq(retry.id, b.id, '回滚后重试成功');
+  eq(store.ledger.countIdInMonth('2026-09', b.id), 1, '重试后新月 1 条');
+}
+
+/* ---------- v0.2.1 迁移：注入失败→0 污染→重跑成功无重复 ---------- */
+console.log('v0.2.1 迁移失败回滚 + 幂等重跑');
+{
+  const legacy = [
+    { id: 'a1', createdAt: 1760000000000, type: 'expense', amount: 10, category: 'food', date: '2026-10-01' },
+    { id: 'a2', createdAt: 1760000001000, type: 'expense', amount: 20, category: 'transport', date: '2026-09-01' },
+    { id: 'a3', createdAt: 1760000002000, type: 'income', amount: 500, category: 'salary', date: '2026-10-02' },
+  ];
+  const wx = buildWx({ jm_records: legacy });
+  const store = loadStore(wx);
+  const fs = store.fs;
+  const origWrite = fs.writeJSON;
+
+  // 第一次写非空 bills 分片即注入失败
+  let injected = false;
+  fs.writeJSON = function (p, o) {
+    const pp = String(p).replace(/\\/g, '/');
+    if (!injected && pp.indexOf('/bills/') >= 0 && o && Array.isArray(o.bills) && o.bills.length) {
+      injected = true;
+      throw new Error('INJECTED_MIG');
+    }
+    return origWrite(p, o);
+  };
+
+  let caught = '';
+  try {
+    store.init();
+  } catch (e) {
+    caught = e.message;
+  }
+  assert(caught.indexOf('INJECTED_MIG') >= 0, '迁移写入被人为注入失败');
+  eq(store.rangeBills().length, 0, '迁移失败后账本 0 污染');
+  eq(store.manifest.getMigration('jmRecords').status, 'failed', '迁移状态标记 failed');
+
+  // 恢复写入，重新执行迁移
+  fs.writeJSON = origWrite;
+  const again = store.init();
+  eq(again.migration.status, 'done', '重跑迁移成功 done');
+  eq(again.migration.recordCount, 3, '重跑迁移 3 条');
+  eq(store.rangeBills().length, 3, '重跑后恰好 3 条（无重复）');
+  ['mig-a1', 'mig-a2', 'mig-a3'].forEach((id) => {
+    const n = store.rangeBills().filter((b) => b.id === id).length;
+    eq(n, 1, id + ' 重跑后恰好 1 条');
+  });
+  // 连续重启（再次 init）不重复
+  store.init();
+  store.init();
+  eq(store.rangeBills().length, 3, '连续 init 不产生重复记录');
+  // 总额正确
+  eq(store.monthSummary('2026-10').expense, 1000, '10 月支出 1000');
+  eq(store.monthSummary('2026-09').expense, 2000, '9 月支出 2000');
+  eq(store.monthSummary('2026-10').income, 50000, '10 月收入 50000');
+}
+
+/* ---------- v0.2.1 编辑保留原始时分纯函数 ---------- */
+console.log('v0.2.1 dateWithTime 合并日期与时分');
+{
+  const util = require('../utils/util');
+  const d = new Date(util.dateWithTime('2026-09-01', 8, 5));
+  eq(d.getFullYear(), 2026, '年 2026');
+  eq(d.getMonth() + 1, 9, '月 9');
+  eq(d.getDate(), 1, '日 1');
+  eq(d.getHours(), 8, '时 8');
+  eq(d.getMinutes(), 5, '分 5（个位数保留）');
+  const d2 = new Date(util.dateWithTime('2026-12-31', 23, 59));
+  eq(d2.getHours(), 23, '23 时');
+  eq(d2.getMinutes(), 59, '59 分');
+}
+
 /* ---------- 结果 ---------- */
 console.log('\n==============================');
 console.log('PASS: ' + pass + '  FAIL: ' + fail);

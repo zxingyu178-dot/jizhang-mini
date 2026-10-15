@@ -2,6 +2,7 @@
 // 设置：数据导入入口、备份/恢复（.dvmini.json）、导入历史、关于。
 const store = require('../../data/index');
 const device = require('../../utils/device');
+const { APP_VERSION } = require('../../utils/version');
 
 const SOURCE_META = {
   wechat: { icon: '💚', name: '微信账单' },
@@ -23,7 +24,7 @@ Page({
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
-    version: '0.2.0',
+    version: APP_VERSION,
     history: [],
   },
   onLoad() {

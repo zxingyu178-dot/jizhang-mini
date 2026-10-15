@@ -5,6 +5,7 @@
 // 字段依据 daily-value-v2 最新 main（types.ts / category-defs.ts / backup.ts / csv.ts），禁止凭旧字段猜。
 const money = require('../../../data/money');
 const normalizer = require('../core/normalizer');
+const diagnosis = require('../core/diagnosis');
 
 // Android 分类中文名 → Mini 分类 id
 const NAME_TO_ID = {
@@ -46,30 +47,48 @@ function nameToId(name) {
 }
 
 /** Android CSV 解析 */
-function parseRows(rows, source) {
+function parseRows(rows, source, diag) {
   const h = findHeader(rows);
-  if (!h) throw new Error('没有找到 DailyValue CSV 表头，请确认是 DailyValue 导出的账单 CSV');
+  if (!h) {
+    diagnosis.setHeader(diag, false, -1);
+    throw new Error('没有找到 DailyValue CSV 表头，请确认是 DailyValue 导出的账单 CSV');
+  }
+  diagnosis.setHeader(diag, true, h.index);
   const H = h.headers;
   const bills = [];
 
   for (let i = h.index + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every((c) => !String(c).trim())) continue;
+    if (diag) diag.totalDataRows += 1;
 
     const typeText = get(r, H, '类型').trim();
     const ledgerText = get(r, H, '账本影响').trim();
     let type;
     if (typeText === '支出') type = 'expense';
     else if (typeText === '收入') type = 'income';
-    else continue;
+    else {
+      if (diag) diag.nonFlowSkipped += 1;
+      continue;
+    }
 
-    if (ledgerText === '仅日价') continue; // 本版本不开发日价，仅日价账不导入
+    if (ledgerText === '仅日价') {
+      if (diag) diag.nonFlowSkipped += 1;
+      continue; // 本版本不开发日价，仅日价账不导入
+    }
 
     const date = get(r, H, '日期').trim();
     const time = get(r, H, '时间').trim();
     const occurredAt = normalizer.parseDateTime(date + ' ' + time);
     const amountCents = Math.abs(money.parseAmountToCents(get(r, H, '金额')));
-    if (!amountCents || !occurredAt) continue;
+    if (!occurredAt) {
+      diagnosis.addError(diag, i, '日期/时间', -1, '缺失或无法解析');
+      continue;
+    }
+    if (!amountCents) {
+      diagnosis.addError(diag, i, '金额', H.indexOf('金额'), '缺失或无法解析');
+      continue;
+    }
 
     const categoryId = nameToId(get(r, H, '分类'));
     const note = get(r, H, '备注').trim();

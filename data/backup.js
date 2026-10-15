@@ -12,10 +12,10 @@ const paths = require('./paths');
 const ledger = require('./ledger');
 const categories = require('./categories');
 const settings = require('./settings');
+const { APP_VERSION } = require('../utils/version');
 
 const FORMAT = 'daily-value-mini-backup';
 const SCHEMA_VERSION = 1;
-const APP_VERSION = '0.2.0';
 
 /** 构造备份对象（读取全部账本） */
 function buildBackup() {

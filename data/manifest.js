@@ -7,9 +7,9 @@
  */
 const fs = require('./fs');
 const paths = require('./paths');
+const { APP_VERSION } = require('../utils/version');
 
 const SCHEMA_VERSION = 1;
-const APP_VERSION = '0.2.0';
 
 function ensureManifest() {
   const existing = fs.readJSON(paths.FILE.manifest, null);

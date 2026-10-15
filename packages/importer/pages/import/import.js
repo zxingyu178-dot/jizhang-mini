@@ -2,6 +2,7 @@
 // 导入入口：三个来源 + 导出方法说明 + 从微信文件选择。
 const device = require('../../../../utils/device');
 const detector = require('../../core/detector');
+const diagnosis = require('../../core/diagnosis');
 
 const SOURCES = [
   {
@@ -87,10 +88,25 @@ Page({
           })
           .catch((err) => {
             wx.hideLoading();
+            const message = (err && err.message) || '文件格式无法识别，请确认是账单导出文件。';
+            const diag = err && err.diagnostic;
+            if (!diag) {
+              wx.showModal({ title: '无法解析', content: message, showCancel: false });
+              return;
+            }
+            // 有脱敏诊断：提供“复制诊断”，用户可在不提供真实账单的前提下反馈
             wx.showModal({
               title: '无法解析',
-              content: (err && err.message) || '文件格式无法识别，请确认是账单导出文件。',
-              showCancel: false,
+              content: message + '\n\n可复制脱敏诊断（不含姓名、商户、账号、交易号、金额）后反馈。',
+              confirmText: '复制诊断',
+              cancelText: '关闭',
+              success: (r) => {
+                if (!r.confirm) return;
+                wx.setClipboardData({
+                  data: diagnosis.toText(diag, message),
+                  success: () => wx.showToast({ title: '诊断已复制', icon: 'none' }),
+                });
+              },
             });
           });
       },

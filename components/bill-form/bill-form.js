@@ -17,16 +17,11 @@ function catsFor(type) {
   return ids.map((id) => all.find((c) => c.id === id)).filter(Boolean);
 }
 
-/** 'YYYY-MM-DD' -> 本地时间戳（保留当前时分） */
-function dateToTs(s) {
-  const p = String(s).split('-').map(Number);
-  const now = new Date();
-  return new Date(p[0], p[1] - 1, p[2], now.getHours(), now.getMinutes()).getTime();
-}
-
 Component({
   data: {
     editingId: null,
+    editingHours: null,
+    editingMinutes: null,
     type: 'expense',
     amountText: '',
     categoryId: 'c-food',
@@ -47,6 +42,8 @@ Component({
     reset() {
       this.setData({
         editingId: null,
+        editingHours: null,
+        editingMinutes: null,
         type: 'expense',
         amountText: '',
         categoryId: 'c-food',
@@ -68,6 +65,9 @@ Component({
       const d = new Date(bill.occurredAt);
       this.setData({
         editingId: bill.id,
+        // 记录原始时分：改日期时与新日期合并，不被改成编辑时间
+        editingHours: d.getHours(),
+        editingMinutes: d.getMinutes(),
         type: bill.type,
         amountText: money.formatCents(Math.abs(bill.amountCents)),
         categoryId: bill.categoryId,
@@ -130,11 +130,17 @@ Component({
       if (!this.data.canSubmit) return;
       const cents = Math.abs(money.parseAmountToCents(this.data.amountText));
       if (!cents) return;
+      const isEditing = !!this.data.editingId;
       const payload = {
         type: this.data.type,
         amountCents: cents,
         categoryId: this.data.categoryId,
-        occurredAt: dateToTs(this.data.dateStr),
+        // 编辑时合并原始时分；新增时用当前时分
+        occurredAt: util.dateWithTime(
+          this.data.dateStr,
+          isEditing ? this.data.editingHours : null,
+          isEditing ? this.data.editingMinutes : null
+        ),
         merchant: this.data.merchant.trim(),
         note: this.data.note.trim(),
       };

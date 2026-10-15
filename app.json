@@ -19,9 +19,7 @@
       "sdkVersionBegin": "3.0.0",
       "sdkVersionEnd": "15.255.255",
       "defaultDisplayBlock": true,
-      "defaultContentBox": true,
-      "tagNameStyleIsolation": "legacy",
-      "enableScrollViewAutoSize": true
+      "defaultContentBox": true
     }
   },
   "subpackages": [
@@ -36,7 +34,7 @@
     }
   ],
   "preloadRule": {
-    "pages/main/main": {
+    "pages/settings/settings": {
       "network": "all",
       "packages": ["importer"]
     }

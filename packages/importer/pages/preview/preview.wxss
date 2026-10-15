@@ -158,6 +158,14 @@
   color: #ff6b6b;
 }
 
+.pv-diag {
+  margin: 12rpx 8rpx 180rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: rgba(198, 204, 228, 0.55);
+  padding: 16rpx;
+}
+
 .pv-actions {
   position: fixed;
   left: 0;
