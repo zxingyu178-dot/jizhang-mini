@@ -16,22 +16,27 @@ function shiftYM(ym, delta) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
-/** 账单 → 分类明细列表项（点击排行时弹） */
+// 柱区可用高度（rpx）：容器高 - 标签高 - 少量顶部间隙。固定值，避免 height:% 解析问题。
+var BAR_ZONE_DAILY_RPX = 180; // 220(容器) - 34(标签) - 6(间隙)
+var BAR_ZONE_MONTH_RPX = 200; // 240(容器) - 34(标签) - 6(间隙)
+function withBarHeight(points, zoneRpx) {
+  return points.map((p) => Object.assign({}, p, {
+    barHeightRpx: Math.round((p.percent / 100) * zoneRpx),
+  }));
+}
+
+/** 账单 → 分类明细列表项（点击支出排行时弹；只含该分类支出，收入不混入） */
 function toCatItems(bills, catId) {
-  return bills
-    .filter((b) => b.categoryId === catId && b.ledgerImpact !== 'daily-value-only')
-    .slice()
-    .sort((a, b) => b.occurredAt - a.occurredAt)
-    .map((b) => {
-      const d = new Date(b.occurredAt);
-      return {
-        id: b.id,
-        date: d.getMonth() + 1 + '月' + d.getDate() + '日',
-        amountText: (b.type === 'expense' ? '-' : '+') + money.formatCents(b.amountCents),
-        isExpense: b.type === 'expense',
-        note: b.note || b.merchant || '',
-      };
-    });
+  return M.listCategoryExpenseBills(bills, catId).map((b) => {
+    const d = new Date(b.occurredAt);
+    return {
+      id: b.id,
+      date: d.getMonth() + 1 + '月' + d.getDate() + '日',
+      amountText: '-' + money.formatCents(b.amountCents),
+      isExpense: true,
+      note: b.note || b.merchant || '',
+    };
+  });
 }
 
 Component({
@@ -59,15 +64,24 @@ Component({
     lowest: '',
     monthly: [],
     yearRank: [],
-    // 分类明细弹层
-    catDetail: { show: false, title: '', items: [] },
   },
   lifetimes: {
     attached() {
-      this.loadMonth(currentYM());
+      // 不在此加载：组件位于 swiper-item 中，未激活时其布局尺寸未就绪，
+      // 此时取数会让柱状图首次渲染异常。等 main 在该 item 首次激活时调用 activate()。
     },
   },
   methods: {
+    /** 由 main 在 swiper-item 首次激活时调用；仅首次执行初始取数 */
+    activate() {
+      if (this._activated) return;
+      this._activated = true;
+      // 等 swiper 切换动画结束、布局稳定后再取数，确保图表能正常渲染
+      setTimeout(() => {
+        if (this.data.mode === 'year') this.loadYear(this.data.year || new Date().getFullYear());
+        else this.loadMonth(this.data.ym || currentYM());
+      }, 220);
+    },
     refresh() {
       if (this.data.mode === 'year') this.loadYear(this.data.year);
       else this.loadMonth(this.data.ym);
@@ -88,7 +102,7 @@ Component({
       const bills = store.rangeBills(ym, ym);
       const [y, m] = ym.split('-').map(Number);
       const ov = M.computeMonthOverview(bills);
-      const daily = M.computeDailyExpenseTrend(bills, y, m).points;
+      const daily = withBarHeight(M.computeDailyExpenseTrend(bills, y, m).points, BAR_ZONE_DAILY_RPX);
       const rank = M.computeCategoryRanking(bills, store.getCategory.bind(store)).top.map((x) => ({
         ...x,
         centsText: money.formatCents(x.cents),
@@ -122,7 +136,7 @@ Component({
     loadYear(year) {
       const bills = store.rangeBills(year + '-01', year + '-12');
       const ov = Y.computeYearOverview(bills, year);
-      const monthly = Y.computeMonthlyTrend(bills, year).points;
+      const monthly = withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX);
       const ext = Y.computeExpenseExtremes(bills, year);
       const yearRank = Y.computeYearCategoryRanking(bills, store.getCategory.bind(store)).top.map((x) => ({
         ...x,
@@ -149,26 +163,21 @@ Component({
       if (!this.data.canNextYear) return;
       this.loadYear(this.data.year + 1);
     },
-    /* ---------- 分类明细弹层 ---------- */
+    /* ---------- 分类明细：组装数据后交由 main 页面弹层展示 ----------
+       （弹层需在页面级 fixed，组件内 fixed 会相对 swiper-item 定位错乱） */
     onTapMonthCat(e) {
       const catId = e.currentTarget.dataset.id;
       const bills = store.rangeBills(this.data.ym, this.data.ym);
       const items = toCatItems(bills, catId);
       const title = (store.getCategory(catId).name || '分类') + ' · ' + this.data.monthLabel;
-      this.setData({ catDetail: { show: true, title, items } });
+      this.triggerEvent('categorydetail', { title, items });
     },
     onTapYearCat(e) {
       const catId = e.currentTarget.dataset.id;
       const bills = store.rangeBills(this.data.year + '-01', this.data.year + '-12');
       const items = toCatItems(bills, catId);
       const title = (store.getCategory(catId).name || '分类') + ' · ' + this.data.year + '年';
-      this.setData({ catDetail: { show: true, title, items } });
-    },
-    onCloseCat() {
-      this.setData({ 'catDetail.show': false });
-    },
-    noop() {
-      /* 阻止明细弹层内部点击冒泡到遮罩 */
+      this.triggerEvent('categorydetail', { title, items });
     },
   },
 });

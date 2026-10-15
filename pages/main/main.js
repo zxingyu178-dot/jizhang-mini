@@ -19,6 +19,8 @@ Page({
     menuPad: 16, // 自定义 Header 右侧避让系统胶囊的内边距（px）
     sheetShow: false,
     sheetTitle: '记一笔',
+    // 分类明细弹层（页面级 fixed）
+    catDetail: { show: false, title: '', items: [] },
   },
   onLoad() {
     const info = device.measure();
@@ -38,12 +40,26 @@ Page({
       swiperHeight: info.windowHeight - info.headerHeight - TABS_HEIGHT,
     });
   },
+  onReady() {
+    this.activatePanel(this.data.current);
+  },
   onTab(e) {
     const i = Number(e.currentTarget.dataset.i);
-    if (i !== this.data.current) this.setData({ current: i });
+    if (i !== this.data.current) {
+      this.setData({ current: i });
+      this.activatePanel(i);
+    }
   },
   onSwiperChange(e) {
-    this.setData({ current: e.detail.current });
+    const i = e.detail.current;
+    this.setData({ current: i });
+    this.activatePanel(i);
+  },
+  /** 当前 Panel 首次进入可视区时通知它做初始加载（组件内部保证只加载一次） */
+  activatePanel(i) {
+    const sel = ['#statisticsPanel', '#accountingPanel', '#dailyValuePanel'][i];
+    const comp = this.selectComponent(sel);
+    if (comp && typeof comp.activate === 'function') comp.activate();
   },
   onSearch() {
     wx.navigateTo({ url: '/pages/search/search' });
@@ -77,6 +93,17 @@ Page({
     this.setData({ sheetShow: false });
     this.refreshPanels();
   },
+  /** 统计 Panel 请求展示某分类明细 */
+  onShowCategoryDetail(e) {
+    const { title, items } = e.detail;
+    this.setData({ catDetail: { show: true, title, items } });
+  },
+  /** 关闭分类明细弹层 */
+  onCloseCat() {
+    this.setData({ 'catDetail.show': false });
+  },
+  /** 阻止弹层内部点击冒泡到遮罩 */
+  noop() {},
   /** 刷新三个 Panel（数据变化后调用） */
   refreshPanels() {
     const acc = this.selectComponent('#accountingPanel');

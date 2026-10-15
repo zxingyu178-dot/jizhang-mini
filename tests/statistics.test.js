@@ -113,7 +113,43 @@ console.log('年度概览');
   eq(o.income, 10000, '全年收入 100.00');
   eq(o.balance, -2500, '全年结余 -25.00');
   eq(o.count, 6, '全年 6 笔');
-  eq(o.monthlyAvg, 1042, '月均支出 10.42');
+  eq(o.activeMonths, 2, '有支出的月份为 2 个（9、10 月）');
+  eq(o.monthlyAvg, 6250, '月均支出 = 125/2 = 62.50（不除以 12）');
+}
+
+console.log('月均支出口径（active months）');
+{
+  // 只在 1、2、3 月有支出：10 + 20 + 30 = 60 → 月均 20
+  const partial = [
+    bill('expense', 10, 2026, 1, 1, 'c-food'),
+    bill('expense', 20, 2026, 2, 1, 'c-food'),
+    bill('expense', 30, 2026, 3, 1, 'c-food'),
+  ];
+  const o = Y.computeYearOverview(partial, 2026);
+  eq(o.expense, 6000, '有支出三月合计 60.00');
+  eq(o.activeMonths, 3, 'activeMonths 3');
+  eq(o.monthlyAvg, 2000, '月均 60/3 = 20.00（不除以 12）');
+  // 全年无支出 → 0
+  const onlyIncome = Y.computeYearOverview([bill('income', 500, 2026, 6, 1, 'c-salary')], 2026);
+  eq(onlyIncome.activeMonths, 0, '仅收入年 activeMonths 0');
+  eq(onlyIncome.monthlyAvg, 0, '无支出月均为 0');
+}
+
+console.log('分类明细只含支出（收入不混入）');
+{
+  const mix = [
+    bill('expense', 12, 2026, 10, 2, 'c-other'),
+    bill('income', 8, 2026, 10, 3, 'c-other'), // 同分类收入，必须排除
+    bill('expense', 5, 2026, 10, 1, 'c-other'),
+    bill('expense', 999, 2026, 10, 4, 'c-other', 'daily-value-only'), // 不进账
+    bill('expense', 7, 2026, 10, 5, 'c-food'), // 其它分类
+  ];
+  const items = M.listCategoryExpenseBills(mix, 'c-other');
+  eq(items.length, 2, 'c-other 明细只返回 2 笔支出（收入/日价单均排除）');
+  eq(items[0].amountCents, 1200, '倒序：第1 为 10-02 的 12.00');
+  eq(items[1].amountCents, 500, '倒序：第2 为 10-01 的 5.00');
+  const hasIncome = items.some((b) => b.type === 'income');
+  assert(!hasIncome, '明细中不含任何收入账单');
 }
 
 console.log('12 个月趋势');

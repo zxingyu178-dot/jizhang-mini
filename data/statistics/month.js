@@ -99,6 +99,19 @@ function computeCategoryRanking(bills, resolveCategory) {
 }
 
 /**
+ * 某分类的「支出」账单明细（点击支出排行时用）。
+ * 只返回计入账本、type==='expense' 且分类匹配的账单，按时间倒序；
+ * 收入账单不得混入（即便它和支出属于同一分类）。
+ * @returns {Array}
+ */
+function listCategoryExpenseBills(bills, catId) {
+  return (bills || [])
+    .filter((b) => inLedger(b) && b.type === 'expense' && (b.categoryId || 'c-other') === catId)
+    .slice()
+    .sort((a, b) => b.occurredAt - a.occurredAt);
+}
+
+/**
  * 收入 / 支出对比（两根相对条）
  * @returns {{income:number, expense:number, incomeBar:number, expenseBar:number}}
  */
@@ -118,5 +131,6 @@ module.exports = {
   computeMonthOverview,
   computeDailyExpenseTrend,
   computeCategoryRanking,
+  listCategoryExpenseBills,
   computeIncomeExpenseCompare,
 };

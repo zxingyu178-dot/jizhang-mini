@@ -14,11 +14,22 @@ function computeYearOverview(bills, year) {
   let income = 0;
   let expense = 0;
   let count = 0;
+  // 每月支出合计（用于「有支出的月份」计数）
+  const monthExpense = new Array(12).fill(0);
   (bills || []).forEach((b) => {
     if (!month.inLedger(b)) return;
     count += 1;
-    if (b.type === 'income') income += b.amountCents;
-    else expense += b.amountCents;
+    if (b.type === 'income') {
+      income += b.amountCents;
+    } else {
+      expense += b.amountCents;
+      monthExpense[new Date(b.occurredAt).getMonth()] += b.amountCents;
+    }
+  });
+  // 月均支出 = 有支出月份的总支出 / 有支出月份数（不固定除以 12）
+  let activeMonths = 0;
+  monthExpense.forEach((c) => {
+    if (c > 0) activeMonths += 1;
   });
   return {
     year,
@@ -26,7 +37,8 @@ function computeYearOverview(bills, year) {
     expense,
     balance: income - expense,
     count,
-    monthlyAvg: Math.round(expense / 12),
+    activeMonths,
+    monthlyAvg: activeMonths ? Math.round(expense / activeMonths) : 0,
   };
 }
 
