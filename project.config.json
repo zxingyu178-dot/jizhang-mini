@@ -2,10 +2,13 @@
   "description": "记账mini —— 原生微信小程序，本地记账，无后端、无网络依赖",
   "packOptions": {
     "ignore": [
-      {
-        "value": ".eslintrc.js",
-        "type": "file"
-      }
+      { "value": ".eslintrc.js", "type": "file" },
+      { "value": ".gitignore", "type": "file" },
+      { "value": "README.md", "type": "file" },
+      { "value": "package.json", "type": "file" },
+      { "value": "package-lock.json", "type": "file" },
+      { "value": "docs", "type": "folder" },
+      { "value": "tests", "type": "folder" }
     ],
     "include": []
   },
