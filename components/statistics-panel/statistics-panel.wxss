@@ -1,38 +1,359 @@
 .panel-scroll {
   height: 100%;
 }
-.stat {
+.sta {
   padding: 12rpx 28rpx 48rpx;
 }
-.stat__month {
+
+/* ---- 月度 / 年度 分段控件 ---- */
+.seg {
+  display: flex;
+  flex-direction: row;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999rpx;
+  padding: 6rpx;
+  margin: 8rpx 0 20rpx;
+}
+.seg__item {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  padding: 12rpx 0;
+  border-radius: 999rpx;
+  transition: all 0.18s;
+}
+.seg__item--active {
+  color: #fff;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+  box-shadow: 0 6rpx 18rpx var(--primary-glow);
+}
+
+/* ---- 月份 / 年份 切换 ---- */
+.month-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8rpx 0 20rpx;
+}
+.month-title__text {
   font-size: 36rpx;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 8rpx 0 20rpx;
 }
-.stat__row {
+.month-arrow {
+  width: 64rpx;
+  height: 64rpx;
   display: flex;
   align-items: center;
-  padding: 28rpx;
-  margin-bottom: 24rpx;
+  justify-content: center;
+  font-size: 44rpx;
+  color: var(--text-secondary);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
 }
-.stat__half {
+.month-arrow--disabled {
+  opacity: 0.3;
+}
+
+/* ---- Hero 主卡 ---- */
+.hero {
+  padding: 32rpx;
+  margin-bottom: 28rpx;
+}
+.hero__label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.hero__big {
+  display: block;
+  font-size: 72rpx;
+  font-weight: 800;
+  margin: 12rpx 0 24rpx;
+  letter-spacing: 1rpx;
+}
+.hero__foot {
+  display: flex;
+  flex-direction: row;
+  padding-top: 22rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.07);
+}
+.hero__half {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  min-width: 0;
 }
-.stat__divider {
-  width: 1rpx;
-  align-self: stretch;
-  background: rgba(255, 255, 255, 0.1);
+.hero__sub-label {
+  font-size: 22rpx;
+  color: var(--text-faint);
 }
-.stat__label {
+.hero__sub {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 6rpx;
+}
+
+/* ---- 图表卡 ---- */
+.chart {
+  padding: 28rpx;
+  margin-bottom: 28rpx;
+}
+.chart__title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 24rpx;
+}
+.chart__empty {
   font-size: 24rpx;
-  color: var(--text-secondary);
+  color: var(--text-faint);
+  padding: 24rpx 0;
+  text-align: center;
+}
+
+/* ---- 柱状图（纯 WXSS） ---- */
+.chart__bars {
+  display: flex;
+  flex-direction: row;
+}
+.chart__bars--daily {
+  height: 220rpx;
+}
+.chart__bars--month {
+  height: 240rpx;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+.bar-zone {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.bar {
+  width: 70%;
+  border-radius: 8rpx 8rpx 0 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+.bar--min {
+  min-height: 6rpx;
+}
+.bar--exp {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
+  box-shadow: 0 0 12rpx var(--primary-glow);
+}
+.bar-label {
+  height: 34rpx;
+  line-height: 34rpx;
+  font-size: 18rpx;
+  color: var(--text-faint);
+  text-align: center;
+}
+.bar-label--hide {
+  opacity: 0;
+}
+
+/* ---- 分类排行 ---- */
+.rank-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 18rpx 0;
+}
+.rank-emoji {
+  font-size: 36rpx;
+  width: 56rpx;
+}
+.rank-main {
+  flex: 1;
+  min-width: 0;
+  margin: 0 16rpx;
+}
+.rank-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   margin-bottom: 10rpx;
 }
-.stat__value {
-  font-size: 38rpx;
-  font-weight: 700;
+.rank-name {
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+.rank-amount {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.rank-bar {
+  height: 10rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.rank-bar__fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, var(--primary), var(--primary-deep));
+}
+.rank-percent {
+  width: 64rpx;
+  text-align: right;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* ---- 收入 / 支出对比 ---- */
+.cmp-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12rpx 0;
+}
+.cmp-label {
+  width: 72rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.cmp-track {
+  flex: 1;
+  height: 20rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  margin: 0 16rpx;
+}
+.cmp-fill {
+  height: 100%;
+  border-radius: 999rpx;
+}
+.cmp-fill--exp {
+  background: var(--expense);
+}
+.cmp-fill--inc {
+  background: var(--income);
+}
+.cmp-val {
+  width: 140rpx;
+  text-align: right;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* ---- 极值 ---- */
+.ext-row {
+  display: flex;
+  flex-direction: row;
+}
+.ext-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ext-label {
+  font-size: 22rpx;
+  color: var(--text-faint);
+}
+.ext-val {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 8rpx;
+}
+
+/* ---- 分类明细弹层 ---- */
+.cat-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0);
+  display: flex;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.cat-mask--show {
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+.cat-sheet {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 36rpx 36rpx 0 0;
+  background: linear-gradient(180deg, rgba(26, 30, 48, 0.98), rgba(12, 14, 24, 0.98));
+  transform: translateY(100%);
+  transition: transform 0.22s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+.cat-mask--show .cat-sheet {
+  transform: translateY(0);
+}
+.cat-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+.cat-sheet__title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cat-sheet__close {
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  font-size: 44rpx;
+  color: var(--text-secondary);
+}
+.cat-sheet__scroll {
+  max-height: 60vh;
+  padding: 0 32rpx;
+}
+.cat-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.05);
+}
+.cat-item__date {
+  width: 120rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.cat-item__main {
+  flex: 1;
+  min-width: 0;
+  margin: 0 16rpx;
+}
+.cat-item__note {
+  font-size: 24rpx;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cat-item__amount {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.cat-empty {
+  padding: 60rpx 0;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--text-faint);
+}
+
+.sta__bottom {
+  height: 40rpx;
 }

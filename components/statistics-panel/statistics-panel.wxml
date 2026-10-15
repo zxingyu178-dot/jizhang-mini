@@ -1,21 +1,200 @@
-<scroll-view scroll-y class="panel-scroll" type="list" enhanced show-scrollbar="{{false}}">
-  <view class="stat">
-    <view class="stat__month">{{monthLabel}}</view>
-    <view class="glass-card stat__row">
-      <view class="stat__half">
-        <text class="stat__label">本月支出</text>
-        <text class="stat__value money-expense">¥{{monthExpense}}</text>
-      </view>
-      <view class="stat__divider"></view>
-      <view class="stat__half">
-        <text class="stat__label">本月收入</text>
-        <text class="stat__value money-income">¥{{monthIncome}}</text>
-      </view>
+<scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
+  <view class="sta">
+    <!-- 月度 / 年度切换 -->
+    <view class="seg">
+      <view class="seg__item {{mode==='month'?'seg__item--active':''}}" bindtap="onModeMonth">月度</view>
+      <view class="seg__item {{mode==='year'?'seg__item--active':''}}" bindtap="onModeYear">年度</view>
     </view>
-    <view class="glass-empty">
-      <text class="emoji">📊</text>
-      <text class="tip">年度统计与高级图表</text>
-      <text class="tip">将在后续版本提供</text>
-    </view>
+
+    <!-- ================= 月度 ================= -->
+    <block wx:if="{{mode==='month'}}">
+      <view class="month-title">
+        <view class="month-arrow" bindtap="onPrevMonth">‹</view>
+        <text class="month-title__text">{{monthLabel}}</text>
+        <view class="month-arrow {{canNextMonth?'':'month-arrow--disabled'}}" bindtap="onNextMonth">›</view>
+      </view>
+
+      <!-- Hero -->
+      <view class="glass-card hero">
+        <text class="hero__label">本月支出</text>
+        <text class="hero__big money-expense">¥{{mExpense}}</text>
+        <view class="hero__foot">
+          <view class="hero__half">
+            <text class="hero__sub-label">收入</text>
+            <text class="hero__sub money-income">¥{{mIncome}}</text>
+          </view>
+          <view class="hero__half">
+            <text class="hero__sub-label">结余</text>
+            <text class="hero__sub">¥{{mBalance}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 每日花费趋势 -->
+      <view class="glass-card chart">
+        <text class="chart__title">每日花费趋势</text>
+        <view class="chart__bars chart__bars--daily">
+          <view class="bar-col" wx:for="{{daily}}" wx:key="day">
+            <view class="bar-zone">
+              <view class="bar bar--exp {{item.cents>0?'bar--min':''}}" style="height:{{item.percent}}%;"></view>
+            </view>
+            <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 分类支出排行 -->
+      <view class="glass-card chart">
+        <text class="chart__title">分类支出排行 Top 5</text>
+        <block wx:if="{{rank.length}}">
+          <view
+            class="rank-item"
+            wx:for="{{rank}}"
+            wx:key="categoryId"
+            data-id="{{item.categoryId}}"
+            bindtap="onTapMonthCat"
+          >
+            <text class="rank-emoji">{{item.emoji}}</text>
+            <view class="rank-main">
+              <view class="rank-line">
+                <text class="rank-name">{{item.name}}</text>
+                <text class="rank-amount money-expense">¥{{item.centsText}}</text>
+              </view>
+              <view class="rank-bar">
+                <view class="rank-bar__fill" style="width:{{item.barPercent}}%;"></view>
+              </view>
+            </view>
+            <text class="rank-percent">{{item.percent}}%</text>
+          </view>
+        </block>
+        <view class="chart__empty" wx:else>本月还没有支出</view>
+      </view>
+
+      <!-- 收入 / 支出对比 -->
+      <view class="glass-card chart">
+        <text class="chart__title">收入 / 支出对比</text>
+        <view class="cmp-row">
+          <text class="cmp-label">支出</text>
+          <view class="cmp-track"><view class="cmp-fill cmp-fill--exp" style="width:{{cmp.expenseBar}}%;"></view></view>
+          <text class="cmp-val money-expense">¥{{cmp.expense}}</text>
+        </view>
+        <view class="cmp-row">
+          <text class="cmp-label">收入</text>
+          <view class="cmp-track"><view class="cmp-fill cmp-fill--inc" style="width:{{cmp.incomeBar}}%;"></view></view>
+          <text class="cmp-val money-income">¥{{cmp.income}}</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- ================= 年度 ================= -->
+    <block wx:if="{{mode==='year'}}">
+      <view class="month-title">
+        <view class="month-arrow" bindtap="onPrevYear">‹</view>
+        <text class="month-title__text">{{year}}年</text>
+        <view class="month-arrow {{canNextYear?'':'month-arrow--disabled'}}" bindtap="onNextYear">›</view>
+      </view>
+
+      <!-- Hero -->
+      <view class="glass-card hero">
+        <text class="hero__label">{{year}}年支出</text>
+        <text class="hero__big money-expense">¥{{yExpense}}</text>
+        <view class="hero__foot">
+          <view class="hero__half">
+            <text class="hero__sub-label">收入</text>
+            <text class="hero__sub money-income">¥{{yIncome}}</text>
+          </view>
+          <view class="hero__half">
+            <text class="hero__sub-label">结余</text>
+            <text class="hero__sub">¥{{yBalance}}</text>
+          </view>
+        </view>
+        <view class="hero__foot">
+          <view class="hero__half">
+            <text class="hero__sub-label">记录</text>
+            <text class="hero__sub">{{yCount}} 笔</text>
+          </view>
+          <view class="hero__half">
+            <text class="hero__sub-label">月均支出</text>
+            <text class="hero__sub">¥{{yAvg}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 极值 -->
+      <view class="glass-card chart">
+        <view class="ext-row">
+          <view class="ext-half">
+            <text class="ext-label">最高消费月</text>
+            <text class="ext-val">{{highest}}</text>
+          </view>
+          <view class="ext-half">
+            <text class="ext-label">最低消费月</text>
+            <text class="ext-val">{{lowest}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 12 个月趋势 -->
+      <view class="glass-card chart">
+        <text class="chart__title">12 个月支出趋势</text>
+        <view class="chart__bars chart__bars--month">
+          <view class="bar-col" wx:for="{{monthly}}" wx:key="month">
+            <view class="bar-zone">
+              <view class="bar bar--exp {{item.expense>0?'bar--min':''}}" style="height:{{item.percent}}%;"></view>
+            </view>
+            <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 全年 Top 分类 -->
+      <view class="glass-card chart">
+        <text class="chart__title">全年分类 Top 5</text>
+        <block wx:if="{{yearRank.length}}">
+          <view
+            class="rank-item"
+            wx:for="{{yearRank}}"
+            wx:key="categoryId"
+            data-id="{{item.categoryId}}"
+            bindtap="onTapYearCat"
+          >
+            <text class="rank-emoji">{{item.emoji}}</text>
+            <view class="rank-main">
+              <view class="rank-line">
+                <text class="rank-name">{{item.name}}</text>
+                <text class="rank-amount money-expense">¥{{item.centsText}}</text>
+              </view>
+              <view class="rank-bar">
+                <view class="rank-bar__fill" style="width:{{item.barPercent}}%;"></view>
+              </view>
+            </view>
+            <text class="rank-percent">{{item.percent}}%</text>
+          </view>
+        </block>
+        <view class="chart__empty" wx:else>这一年还没有支出</view>
+      </view>
+    </block>
+
+    <view class="sta__bottom"></view>
   </view>
 </scroll-view>
+
+<!-- 分类明细弹层 -->
+<view class="cat-mask {{catDetail.show?'cat-mask--show':''}}" bindtap="onCloseCat">
+  <view class="cat-sheet glass-card" catchtap="noop">
+    <view class="cat-sheet__head">
+      <text class="cat-sheet__title">{{catDetail.title}}</text>
+      <view class="cat-sheet__close" bindtap="onCloseCat">×</view>
+    </view>
+    <scroll-view scroll-y class="cat-sheet__scroll">
+      <view class="cat-item" wx:for="{{catDetail.items}}" wx:key="id">
+        <text class="cat-item__date">{{item.date}}</text>
+        <view class="cat-item__main">
+          <text class="cat-item__note" wx:if="{{item.note}}">{{item.note}}</text>
+        </view>
+        <text class="cat-item__amount {{item.isExpense?'money-expense':'money-income'}}">{{item.amountText}}</text>
+      </view>
+      <view class="cat-empty" wx:if="{{!catDetail.items.length}}">该分类没有账单</view>
+    </scroll-view>
+  </view>
+</view>

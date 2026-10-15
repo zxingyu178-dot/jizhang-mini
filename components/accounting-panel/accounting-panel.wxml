@@ -1,5 +1,5 @@
 <scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
-  <view class="acc">
+  <view class="acc" style="padding-bottom:{{listPadBottom}}px;">
     <view class="month-title">
       <view class="month-arrow" bindtap="onPrevMonth">‹</view>
       <text class="month-title__text">{{monthLabel}}</text>

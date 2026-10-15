@@ -3,6 +3,7 @@
 // 数据来自正式本地数据层（data/index，Bill V1 / 整数分 / 月份分片）。
 const store = require('../../data/index');
 const money = require('../../data/money');
+const device = require('../../utils/device');
 
 function currentYM() {
   const d = new Date();
@@ -20,9 +21,15 @@ Component({
     groups: [],
     isEmpty: true,
     canNext: false,
+    listPadBottom: 0, // 底部为 FAB 预留安全区（px）
   },
   lifetimes: {
     attached() {
+      // 底部 padding = safeBottom + FAB 高度(104rpx→px) + 24px
+      const info = device.measure();
+      const fabPx = (104 * info.windowWidth) / 750;
+      const listPadBottom = Math.round(info.safeBottom + fabPx + 24);
+      this.setData({ listPadBottom });
       this.loadData();
     },
   },
