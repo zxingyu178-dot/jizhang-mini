@@ -1,0 +1,79 @@
+/* app.wxss 全局样式 */
+page {
+  --color-primary: #07c160;
+  --color-expense: #fa5151;
+  --color-income: #07c160;
+  --color-text: #1f2329;
+  --color-text-secondary: #8a8f99;
+  --color-border: #ebedf0;
+  --color-bg: #f5f6f8;
+  --color-card: #ffffff;
+
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-size: 28rpx;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.container {
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: var(--color-card);
+  border-radius: 20rpx;
+  padding: 28rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+  font-size: 24rpx;
+}
+
+.money-expense {
+  color: var(--color-expense);
+}
+
+.money-income {
+  color: var(--color-income);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+  color: var(--color-text-secondary);
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
