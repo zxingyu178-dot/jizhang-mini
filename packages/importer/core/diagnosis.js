@@ -14,11 +14,20 @@ function newDiagnostic() {
     headerFound: false,
     headerRowIndex: -1, // 0-based
     totalDataRows: 0, // 表头之后非空数据行
-    nonFlowSkipped: 0, // 不计收支 / 与收支无关，正常跳过
+    nonFlowSkipped: 0, // 不计收支 / 中性，正常跳过
+    expenseRows: 0, // 收/支=支出 的数据行
+    incomeRows: 0, // 收/支=收入 的数据行
+    missingColumns: [], // 表头已识别但缺失的关键列主名（如「金额」）
     // 去重 / 校验后由 detector 填充
     counts: null,
     errors: [], // {row, columnName, columnIndex, reason}
   };
+}
+
+/** 记录表头已识别但缺失的关键列（主名），用于“列格式变化”诊断 */
+function setMissingColumns(diag, arr) {
+  if (!diag) return;
+  diag.missingColumns = Array.isArray(arr) ? arr : [];
 }
 
 /**
@@ -85,7 +94,12 @@ function toText(diag, fatalMessage) {
   if (diag.headerRowIndex >= 0) {
     out.push(line('表头所在行', '第 ' + (diag.headerRowIndex + 1) + ' 行'));
   }
+  if (diag.missingColumns && diag.missingColumns.length) {
+    out.push(line('缺失必需列', diag.missingColumns.join('、')));
+  }
   out.push(line('数据行', diag.totalDataRows));
+  // 结构摘要（按官方「收/支」字段统计，不含金额明细）
+  out.push(line('结构摘要', '支出 ' + (diag.expenseRows || 0) + ' / 收入 ' + (diag.incomeRows || 0) + ' / 中性 ' + (diag.nonFlowSkipped || 0)));
   if (diag.counts) {
     out.push(line('准备导入', c.ready || 0));
     out.push(line('疑似重复（默认不导）', c.suspect || 0));
@@ -112,6 +126,7 @@ module.exports = {
   newDiagnostic,
   addError,
   setHeader,
+  setMissingColumns,
   toText,
   MAX_ERRORS,
 };

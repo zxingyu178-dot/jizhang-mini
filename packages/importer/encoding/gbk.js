@@ -1,6 +1,45 @@
 // packages/importer/encoding/gbk.js
 // 账单文本编码处理：UTF-8（BOM/严格校验）与 GBK/GB18030。
-// 优先使用运行时 TextDecoder('gb18030')；无 Node Buffer/fs。
+// 优先使用运行时 TextDecoder('gb18030')；不支持时使用项目自有的纯 JS CP936 解码。
+// 无 Node Buffer/fs。
+const cp936 = require('./cp936');
+
+const REPLACEMENT = '�';
+
+/**
+ * 纯 JS GBK/CP936 解码（不依赖系统 TextDecoder，也不依赖 SheetJS 运行时）。
+ * 单字节 0x00-0x7F 按 ASCII；双字节按 CP936 码表（索引 = (b1<<8)|b2）。
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+function decodeGbkFallback(bytes) {
+  const dec = cp936.dec;
+  let out = '';
+  let i = 0;
+  while (i < bytes.length) {
+    const b = bytes[i];
+    if (b < 0x80) {
+      out += String.fromCharCode(b);
+      i++;
+      continue;
+    }
+    if (i + 1 >= bytes.length) {
+      out += REPLACEMENT;
+      i++;
+      continue;
+    }
+    const b2 = bytes[i + 1];
+    const ch = dec[(b << 8) | b2];
+    if (ch) {
+      out += ch;
+      i += 2;
+    } else {
+      out += REPLACEMENT;
+      i++;
+    }
+  }
+  return out;
+}
 
 /** 严格按 UTF-8 解码；任何非法序列返回 {ok:false} */
 function tryUtf8(bytes) {
@@ -58,16 +97,19 @@ function tryUtf8(bytes) {
   return { ok: true, text: result };
 }
 
-/** 用 TextDecoder 解码 GB18030；不支持时抛错 */
+/**
+ * 解码 GB18030：优先系统 TextDecoder；不支持或失败时用纯 JS CP936 fallback。
+ * 不再要求用户去电脑转 UTF-8。
+ */
 function gbDecode(bytes) {
   if (typeof TextDecoder !== 'undefined') {
     try {
       return new TextDecoder('gb18030').decode(bytes);
     } catch (e) {
-      /* 继续 fallback */
+      /* 继续纯 JS fallback */
     }
   }
-  throw new Error('GBK_UNSUPPORTED');
+  return decodeGbkFallback(bytes);
 }
 
 /** 当前环境是否支持 GB18030 解码 */
@@ -106,6 +148,7 @@ function decodeBytes(buffer) {
 
 module.exports = {
   decodeBytes,
+  decodeGbkFallback,
   tryUtf8,
   hasGbkSupport,
 };

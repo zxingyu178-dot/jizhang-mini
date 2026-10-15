@@ -91,16 +91,8 @@ function doParse(buffer, file, lower, diag) {
     bills = adapter.parseRows(rows, source, diag);
   } else if (lower.endsWith('.csv')) {
     diag.fileType = 'csv';
-    const decoded = (function decodeCsv() {
-      try {
-        return gbkEnc.decodeBytes(buffer);
-      } catch (e) {
-        if (e && e.message === 'GBK_UNSUPPORTED') {
-          throw new Error('当前环境不支持该 CSV 编码，请在电脑上把账单另存为 UTF-8 后再导入');
-        }
-        throw e;
-      }
-    })();
+    // UTF-8 自动识别；GBK 先系统 TextDecoder，不支持则纯 JS CP936 fallback，无需用户转码
+    const decoded = gbkEnc.decodeBytes(buffer);
     diag.encoding = decoded.encoding || 'unknown';
     const rows = csvEnc.parseCSV(decoded.text);
     source = source || detectTableSource(rows);

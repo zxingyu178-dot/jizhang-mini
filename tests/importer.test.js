@@ -121,8 +121,9 @@ function runParse(store, fileName, hintedSource) {
 async function testWechat() {
   const store = freshStore();
   const session = await runParse(store, 'wechat-current.xlsx', 'wechat');
-  eq(session.counts.ready, 4, '微信 ready=4');
-  eq(session.counts.needconfirm, 1, '微信 needconfirm=1');
+  // v0.2.2：「支出 5.00 已全额退款」收/支明确，按官方正常入账 → ready=5、needconfirm=0
+  eq(session.counts.ready, 5, '微信 ready=5');
+  eq(session.counts.needconfirm, 0, '微信 needconfirm=0（退款不拦截）');
   eq(session.counts.skipped, 0, '微信不计收支不进 bills（不计入）');
 
   // 脱敏诊断（成功会话）
@@ -134,23 +135,23 @@ async function testWechat() {
 
   // 确认导入
   const r = commit.commitImport(session);
-  eq(r.imported, 4, '微信导入 4 笔');
+  eq(r.imported, 5, '微信导入 5 笔');
   const all = store.rangeBills();
-  eq(all.length, 4, '账本 4 笔');
+  eq(all.length, 5, '账本 5 笔');
 
-  // 支出 54.1、收入 88.88
+  // 支出 59.10、收入 88.88
   let exp = 0;
   let inc = 0;
   all.forEach((b) => {
     if (b.type === 'expense') exp += b.amountCents;
     else inc += b.amountCents;
   });
-  eq(exp, 5410, '微信支出合计 54.10');
+  eq(exp, 5910, '微信支出合计 59.10');
   eq(inc, 8888, '微信收入合计 88.88');
 
   // 重复导入：全部 existing
   const session2 = await runParse(store, 'wechat-current.xlsx', 'wechat');
-  eq(session2.counts.existing, 4, '重复导入全部 existing');
+  eq(session2.counts.existing, 5, '重复导入全部 existing');
 }
 
 async function testWechatCsv() {
@@ -159,6 +160,49 @@ async function testWechatCsv() {
   eq(session.counts.ready, 2, '微信 CSV ready=2（表头位置变化）');
   commit.commitImport(session);
   eq(store.rangeBills().length, 2, '微信 CSV 导入 2 笔');
+}
+
+async function testWechatRealLayout() {
+  const store = freshStore();
+  const session = await runParse(store, 'wechat-real-layout.xlsx', 'wechat');
+  const d = session.diagnostic;
+
+  // 真实布局：1~17 行说明，第 18 行表头(index 17)，金额列=金额(元)
+  eq(d.headerFound, true, '真实布局表头找到');
+  eq(d.headerRowIndex, 17, '表头第 18 行(index 17)');
+  // 数据行 66 = 支出 45 + 收入 21 + 中性 0
+  eq(d.totalDataRows, 66, '数据行 66');
+  eq(d.expenseRows, 45, '支出 45');
+  eq(d.incomeRows, 21, '收入 21');
+  eq(d.nonFlowSkipped, 0, '中性 0');
+  eq(d.missingColumns.length, 0, '金额(元) 已识别，无缺失关键列');
+
+  // 全部 ready，无 needconfirm（退款行不被大面积拦截）
+  eq(session.counts.ready, 66, '66 笔全部 ready');
+  eq(session.counts.needconfirm, 0, 'needconfirm=0');
+
+  const ready = session.bills.filter((b) => b.status === 'ready');
+  // 部分退款原支出：expense 1.00；退款收入：income 0.05
+  const refundOrig = ready.find((b) => b.type === 'expense' && b.amountCents === 100);
+  const refundIncome = ready.find((b) => b.type === 'income' && b.amountCents === 5);
+  assert(!!refundOrig, '部分退款原支出 expense 1.00 正常入账');
+  assert(!!refundIncome, '退款收入 income 0.05 正常入账');
+
+  // 收支总额：支出 43×10 + 1 + 50 = 481.00；收入 19×20 + 0.05 + 100 = 480.05
+  let exp = 0;
+  let inc = 0;
+  ready.forEach((b) => {
+    if (b.type === 'expense') exp += b.amountCents;
+    else inc += b.amountCents;
+  });
+  eq(exp, 48100, '真实布局支出合计 481.00');
+  eq(inc, 48005, '真实布局收入合计 480.05');
+
+  // 提交 + 重复导入全部 existing
+  commit.commitImport(session);
+  eq(store.rangeBills().length, 66, '导入 66 笔');
+  const session2 = await runParse(store, 'wechat-real-layout.xlsx', 'wechat');
+  eq(session2.counts.existing, 66, '同一文件导入两次全部 existing');
 }
 
 async function testAlipay() {
@@ -277,6 +321,7 @@ async function run() {
   const tests = [
     testWechat,
     testWechatCsv,
+    testWechatRealLayout,
     testAlipay,
     testAlipayGbk,
     testDailyValueCsv,

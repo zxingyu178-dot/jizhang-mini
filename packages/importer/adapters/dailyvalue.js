@@ -1,11 +1,12 @@
 // packages/importer/adapters/dailyvalue.js
 // Android DailyValue 数据迁移 Adapter：
-//   - CSV：表头 日期,时间,类型,金额,分类,备注,来源,账本影响（UTF-8 BOM）
+//   - CSV：表头 日期,时间,类型,金额,分类,备注,来源,账本影响（UTF-8 BOM），使用共享 header
 //   - .dvbackup：DailyValueBackupV1，data.bills / categories
 // 字段依据 daily-value-v2 最新 main（types.ts / category-defs.ts / backup.ts / csv.ts），禁止凭旧字段猜。
 const money = require('../../../data/money');
 const normalizer = require('../core/normalizer');
 const diagnosis = require('../core/diagnosis');
+const header = require('../core/header');
 
 // Android 分类中文名 → Mini 分类 id
 const NAME_TO_ID = {
@@ -23,18 +24,22 @@ const NAME_TO_ID = {
   其他: 'c-other',
 };
 
-function findHeader(rows) {
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i].map((c) => String(c).trim());
-    if (r.includes('日期') && r.includes('类型') && r.includes('金额')) {
-      return { index: i, headers: r };
-    }
-  }
-  return null;
-}
+const ALIASES = {
+  date: ['日期'],
+  time: ['时间'],
+  type: ['类型'],
+  amount: ['金额', '金额(元)', '交易金额'],
+  category: ['分类'],
+  note: ['备注'],
+  source: ['来源'],
+  ledger: ['账本影响'],
+};
 
-function get(row, headers, name) {
-  const idx = headers.indexOf(name);
+const ANCHOR = [ALIASES.date, ALIASES.type];
+const REQUIRED = [ALIASES.date, ALIASES.type, ALIASES.amount];
+const PRIMARY = ['日期', '类型', '金额'];
+
+function get(row, idx) {
   if (idx < 0) return '';
   return String(row[idx] == null ? '' : row[idx]);
 }
@@ -48,26 +53,46 @@ function nameToId(name) {
 
 /** Android CSV 解析 */
 function parseRows(rows, source, diag) {
-  const h = findHeader(rows);
-  if (!h) {
+  const anchor = header.findHeaderRow(rows, ANCHOR);
+  if (!anchor) {
     diagnosis.setHeader(diag, false, -1);
     throw new Error('没有找到 DailyValue CSV 表头，请确认是 DailyValue 导出的账单 CSV');
   }
-  diagnosis.setHeader(diag, true, h.index);
-  const H = h.headers;
-  const bills = [];
+  diagnosis.setHeader(diag, true, anchor.index);
+  const H = anchor.headers;
 
-  for (let i = h.index + 1; i < rows.length; i++) {
+  const ci = {
+    date: header.findColumn(H, ALIASES.date),
+    time: header.findColumn(H, ALIASES.time),
+    type: header.findColumn(H, ALIASES.type),
+    amount: header.findColumn(H, ALIASES.amount),
+    category: header.findColumn(H, ALIASES.category),
+    note: header.findColumn(H, ALIASES.note),
+    ledger: header.findColumn(H, ALIASES.ledger),
+  };
+
+  const missing = header.missingColumns(H, REQUIRED, PRIMARY);
+  if (missing.length) {
+    diagnosis.setMissingColumns(diag, missing);
+    throw new Error('账单格式已识别，但“' + missing.join('、') + '”列格式发生变化，请点「复制诊断」反馈');
+  }
+
+  const bills = [];
+  for (let i = anchor.index + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every((c) => !String(c).trim())) continue;
     if (diag) diag.totalDataRows += 1;
 
-    const typeText = get(r, H, '类型').trim();
-    const ledgerText = get(r, H, '账本影响').trim();
+    const typeText = get(r, ci.type).trim();
+    const ledgerText = get(r, ci.ledger).trim();
     let type;
-    if (typeText === '支出') type = 'expense';
-    else if (typeText === '收入') type = 'income';
-    else {
+    if (typeText === '支出') {
+      type = 'expense';
+      if (diag) diag.expenseRows += 1;
+    } else if (typeText === '收入') {
+      type = 'income';
+      if (diag) diag.incomeRows += 1;
+    } else {
       if (diag) diag.nonFlowSkipped += 1;
       continue;
     }
@@ -77,29 +102,28 @@ function parseRows(rows, source, diag) {
       continue; // 本版本不开发日价，仅日价账不导入
     }
 
-    const date = get(r, H, '日期').trim();
-    const time = get(r, H, '时间').trim();
+    const date = get(r, ci.date).trim();
+    const time = get(r, ci.time).trim();
     const occurredAt = normalizer.parseDateTime(date + ' ' + time);
-    const amountCents = Math.abs(money.parseAmountToCents(get(r, H, '金额')));
+    const amountCents = Math.abs(money.parseAmountToCents(get(r, ci.amount)));
     if (!occurredAt) {
-      diagnosis.addError(diag, i, '日期/时间', -1, '缺失或无法解析');
+      diagnosis.addError(diag, i, '日期/时间', ci.date, '缺失或无法解析');
       continue;
     }
     if (!amountCents) {
-      diagnosis.addError(diag, i, '金额', H.indexOf('金额'), '缺失或无法解析');
+      diagnosis.addError(diag, i, '金额', ci.amount, '缺失或无法解析');
       continue;
     }
 
-    const categoryId = nameToId(get(r, H, '分类'));
-    const note = get(r, H, '备注').trim();
-    const merchant = '';
+    const categoryId = nameToId(get(r, ci.category));
+    const note = get(r, ci.note).trim();
 
     const b = normalizer.makeBill({
       type,
       amountCents,
       categoryId,
       occurredAt,
-      merchant,
+      merchant: '',
       note,
       source,
       sourceTxnId: '', // CSV 无流水号，走 fingerprint
@@ -115,7 +139,6 @@ function resolveBackupCategoryId(categoryId, categories) {
   if (categoryId && NAME_TO_ID_RAW.has(categoryId)) return categoryId;
   const known = new Set(Object.values(NAME_TO_ID));
   if (known.has(categoryId)) return categoryId;
-  // 用户自建分类（backup categories 里存在但 Mini 无对应）→ c-other
   return 'c-other';
 }
 const NAME_TO_ID_RAW = new Set([

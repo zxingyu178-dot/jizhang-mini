@@ -171,7 +171,7 @@ const miniBackup = {
         id: 'm-bill-1', type: 'expense', amountCents: 2500, categoryId: 'c-food',
         occurredAt: new Date(2026, 9, 14, 12, 30).getTime(), merchant: '虚构餐厅',
         note: '午餐', source: 'manual', sourceTxnId: null, importBatchId: null,
-        createdAt: Date.now(), updatedAt: Date.now(), ledgerImpact: 'normal',
+        createdAt: 1792040810699, updatedAt: 1792040810699, ledgerImpact: 'normal',
       },
     ],
     categories: [],
@@ -179,5 +179,72 @@ const miniBackup = {
   },
 };
 fs.writeFileSync(path.join(OUT, 'mini-backup.json'), JSON.stringify(miniBackup, null, 2), 'utf8');
+
+// ---------- 微信真实布局（XLSX，完全虚构）：1~17 行官方说明，第 18 行表头，金额列=金额(元) ----------
+// 口径：数据行 66 = 支出 45 + 收入 21 + 中性 0；含普通支出/收入、部分退款原支出、退款收入、转账。
+const realHeader = [
+  '交易时间', '交易类型', '交易对方', '商品', '收/支', '金额(元)',
+  '支付方式', '当前状态', '交易单号', '商户单号', '备注',
+];
+const realRows = [];
+// 虚构官方说明（1~17 行，index 0-16）
+realRows.push(['微信支付账单明细']);
+realRows.push(['这是用于个人对账的账单（虚构测试数据）']);
+realRows.push(['起始时间：2026-09-01 00:00:00  终止时间：2026-10-15 23:59:59']);
+realRows.push(['导出类型：全部']);
+realRows.push(['共 66 笔记录']);
+realRows.push(['导出时间：2026-10-15 23:59:59']);
+for (let i = realRows.length; i < 17; i++) realRows.push(['']); // 补足到 17 行
+realRows.push(realHeader); // 第 18 行（index 17）
+
+let rseq = 0;
+function rid() {
+  rseq++;
+  return '42000000' + String(20000000 + rseq).padStart(12, '0');
+}
+function mid() {
+  return 'M' + String(30000000 + rseq).padStart(10, '0');
+}
+// 时间基准：2026-09-01 08:00，每行递增 37 分钟
+function tAt(n) {
+  const d = new Date(2026, 8, 1, 8, 0);
+  d.setMinutes(d.getMinutes() + n * 37);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:00`;
+}
+function realRow(type, amount, opt) {
+  return [
+    opt.time,
+    opt.txType || '商户消费',
+    opt.counterpart,
+    opt.goods,
+    type,
+    Number(amount).toFixed(2),
+    opt.payMethod || '零钱',
+    opt.status || '支付成功',
+    rid(),
+    mid(),
+    opt.remark || '',
+  ];
+}
+
+let n = 0;
+// —— 支出 45 ——
+// 43 笔普通支出，每笔 10.00
+for (let i = 0; i < 43; i++) realRows.push(realRow('支出', 10.00, { time: tAt(n++), counterpart: '虚构商户' + (i + 1), goods: '普通消费' }));
+// 1 笔「部分退款原支出」：收/支=支出，金额 1.00，状态已退款 → 仍 expense 1.00
+realRows.push(realRow('支出', 1.00, { time: tAt(n++), txType: '商户消费', counterpart: '虚构小店', goods: '小额消费', status: '已退款(¥0.05)' }));
+// 1 笔转账支出，金额 50.00
+realRows.push(realRow('支出', 50.00, { time: tAt(n++), txType: '转账', counterpart: '示例好友', goods: '转账', status: '支付成功' }));
+
+// —— 收入 21 ——
+// 19 笔普通收入，每笔 20.00
+for (let i = 0; i < 19; i++) realRows.push(realRow('收入', 20.00, { time: tAt(n++), txType: '微信红包', counterpart: '示例好友', goods: '红包', status: '已收钱' }));
+// 1 笔「退款收入」：收/支=收入，金额 0.05，状态已退款 → 仍 income 0.05
+realRows.push(realRow('收入', 0.05, { time: tAt(n++), txType: '退款', counterpart: '虚构小店', goods: '退款', status: '已退款' }));
+// 1 笔转账收入，金额 100.00
+realRows.push(realRow('收入', 100.00, { time: tAt(n++), txType: '转账', counterpart: '示例好友', goods: '转账收款', status: '已收钱' }));
+
+writeXlsx('wechat-real-layout.xlsx', realRows);
 
 console.log('fixtures generated at', OUT);

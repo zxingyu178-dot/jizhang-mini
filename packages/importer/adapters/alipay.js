@@ -1,9 +1,11 @@
 // packages/importer/adapters/alipay.js
-// 支付宝个人对账 Adapter（Excel / CSV，GBK 由 detector 解码）：按表头识别。
+// 支付宝个人对账 Adapter（Excel / CSV，GBK 由 detector 解码，含纯 JS fallback）：
+// 使用共享 header 解析，按表头识别，不按行号。
 // 字段：交易时间/交易分类/交易对方/对方账号/商品说明/收/支/金额/收付款方式/交易状态/交易订单号/商家订单号/备注
 const money = require('../../../data/money');
 const normalizer = require('../core/normalizer');
 const diagnosis = require('../core/diagnosis');
+const header = require('../core/header');
 
 // 支付宝分类 → Mini 分类
 const CATEGORY_MAP = {
@@ -22,25 +24,27 @@ const CATEGORY_MAP = {
   其他: 'c-other',
 };
 
-function findHeader(rows) {
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i].map((c) => String(c).trim());
-    const hasTime = r.some((h) => h.replace(/\s/g, '') === '交易时间');
-    const hasFlow = r.some((h) => h.replace(/\s/g, '') === '收/支' || h === '收支');
-    if (hasTime && hasFlow) return { index: i, headers: r };
-  }
-  return null;
-}
+// 列别名组
+const ALIASES = {
+  time: ['交易时间'],
+  category: ['交易分类'],
+  counterpart: ['交易对方'],
+  account: ['对方账号'],
+  goods: ['商品说明', '商品'],
+  flow: ['收/支', '收支'],
+  amount: ['金额', '金额(元)', '金额（元）', '交易金额', '交易金额(元)'],
+  payMethod: ['收/付款方式', '付款方式', '支付方式'],
+  status: ['交易状态', '当前状态'],
+  txnid: ['交易订单号', '交易单号', '订单号'],
+  mchId: ['商家订单号', '商户单号'],
+  remark: ['备注'],
+};
 
-function colIndex(headers, name) {
-  const target = name.replace(/\s/g, '');
-  let idx = headers.findIndex((h) => h.replace(/\s/g, '') === target);
-  if (idx < 0) {
-    // 模糊匹配：去标点后包含
-    idx = headers.findIndex((h) => h.replace(/[\s/]/g, '') === target.replace(/[\s/]/g, ''));
-  }
-  return idx;
-}
+const ANCHOR = [ALIASES.time, ALIASES.flow];
+const REQUIRED = [ALIASES.time, ALIASES.flow, ALIASES.amount];
+const PRIMARY = ['交易时间', '收/支', '金额'];
+
+const NEUTRAL = ['不计收支', '', '/', '-', '其他', '资金占用'];
 
 function get(row, idx) {
   if (idx < 0) return '';
@@ -50,47 +54,66 @@ function get(row, idx) {
 function mapCategory(raw) {
   const t = String(raw || '').trim();
   if (CATEGORY_MAP[t]) return CATEGORY_MAP[t];
-  // 关键字包含
   const hit = Object.keys(CATEGORY_MAP).find((k) => t.indexOf(k) >= 0 || k.indexOf(t) >= 0);
   return hit ? CATEGORY_MAP[hit] : 'c-other';
 }
 
 function parseRows(rows, source, diag) {
-  const h = findHeader(rows);
-  if (!h) {
+  const anchor = header.findHeaderRow(rows, ANCHOR);
+  if (!anchor) {
     diagnosis.setHeader(diag, false, -1);
     throw new Error('没有找到支付宝账单表头，请确认是支付宝「个人对账」账单');
   }
-  diagnosis.setHeader(diag, true, h.index);
-  const H = h.headers;
+  diagnosis.setHeader(diag, true, anchor.index);
+  const H = anchor.headers;
+
   const ci = {
-    time: colIndex(H, '交易时间'),
-    category: colIndex(H, '交易分类'),
-    counterpart: colIndex(H, '交易对方'),
-    goods: colIndex(H, '商品说明'),
-    flow: colIndex(H, '收/支'),
-    amount: colIndex(H, '金额'),
-    status: colIndex(H, '交易状态'),
-    txnid: colIndex(H, '交易订单号'),
-    remark: colIndex(H, '备注'),
+    time: header.findColumn(H, ALIASES.time),
+    category: header.findColumn(H, ALIASES.category),
+    counterpart: header.findColumn(H, ALIASES.counterpart),
+    account: header.findColumn(H, ALIASES.account),
+    goods: header.findColumn(H, ALIASES.goods),
+    flow: header.findColumn(H, ALIASES.flow),
+    amount: header.findColumn(H, ALIASES.amount),
+    payMethod: header.findColumn(H, ALIASES.payMethod),
+    status: header.findColumn(H, ALIASES.status),
+    txnid: header.findColumn(H, ALIASES.txnid),
+    mchId: header.findColumn(H, ALIASES.mchId),
+    remark: header.findColumn(H, ALIASES.remark),
   };
 
+  const missing = header.missingColumns(H, REQUIRED, PRIMARY);
+  if (missing.length) {
+    diagnosis.setMissingColumns(diag, missing);
+    throw new Error('账单格式已识别，但“' + missing.join('、') + '”列格式发生变化，请点「复制诊断」反馈');
+  }
+
   const bills = [];
-  for (let i = h.index + 1; i < rows.length; i++) {
+  for (let i = anchor.index + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every((c) => !String(c).trim())) continue;
     if (diag) diag.totalDataRows += 1;
 
-    const flow = get(r, ci.flow).trim();
-    let type;
-    if (flow === '支出') type = 'expense';
-    else if (flow === '收入') type = 'income';
-    else if (flow === '不计收支' || flow === '' || flow === '/' || flow === '-' || flow === '其他' || flow === '资金占用') {
+    const flowRaw = get(r, ci.flow).trim();
+    const status = get(r, ci.status).trim();
+
+    let type = null;
+    if (flowRaw === '支出') {
+      type = 'expense';
+      if (diag) diag.expenseRows += 1;
+    } else if (flowRaw === '收入') {
+      type = 'income';
+      if (diag) diag.incomeRows += 1;
+    } else if (NEUTRAL.indexOf(flowRaw) >= 0) {
       if (diag) diag.nonFlowSkipped += 1;
       continue; // 不计收支 / 占位 / 资金占用 → 正常跳过
     } else {
-      diagnosis.addError(diag, i, '收/支', ci.flow, '取值无法识别（应为“支出/收入/不计收支”）');
-      continue;
+      // 收/支无法识别：状态异常才留待 needconfirm；状态正常记解析错误。
+      if (!/退款|撤销|关闭|失败|冻结|异常|未支付|已退回/.test(status)) {
+        diagnosis.addError(diag, i, '收/支', ci.flow, '取值无法识别（应为支出/收入/不计收支）');
+        continue;
+      }
+      // type 保持 null
     }
 
     const amountCents = Math.abs(money.parseAmountToCents(get(r, ci.amount)));
@@ -110,11 +133,10 @@ function parseRows(rows, source, diag) {
     let note = goods;
     if (remark && remark !== goods) note = goods ? goods + ' · ' + remark : remark;
     const txnId = get(r, ci.txnid).trim();
-    const status = get(r, ci.status).trim();
     const category = mapCategory(get(r, ci.category));
 
     const b = normalizer.makeBill({
-      type,
+      type: type || 'expense',
       amountCents,
       categoryId: category,
       occurredAt,
@@ -125,10 +147,16 @@ function parseRows(rows, source, diag) {
     });
     b.fingerprint = normalizer.makeFingerprint(b);
 
-    // 退款 / 关闭 / 失败 / 冻结：现金流不确定 → 需确认
-    if (/退款|关闭|失败|冻结|未支付|已退回|撤销/.test(status)) {
+    // 支付宝保守策略（v0.2.2 未调整支付宝，沿用 v0.2.0）：
+    //  - 收/支明确但状态为「关闭/失败/未支付/冻结/撤销」，可能未发生真实扣款 → needconfirm；
+    //  - 收/支无法识别且状态异常 → needconfirm；
+    //  - 已退款/已退回属真实资金流，官方收/支已体现方向，按官方入账。
+    const conservative = /关闭|失败|未支付|冻结|撤销/;
+    if ((type && conservative.test(status)) || (!type && /退款|退回|关闭|失败|未支付|冻结|撤销|异常/.test(status))) {
       b.status = 'needconfirm';
-      b.statusReason = '交易状态：' + status;
+      b.statusReason = !type
+        ? '收/支未识别且交易状态异常（' + status + '），请确认收入/支出方向'
+        : '交易状态“' + status + '”，可能未发生真实扣款，请确认';
     }
     bills.push(b);
   }
@@ -137,6 +165,6 @@ function parseRows(rows, source, diag) {
 
 module.exports = {
   parseRows,
-  findHeader,
   mapCategory,
+  ALIASES,
 };
