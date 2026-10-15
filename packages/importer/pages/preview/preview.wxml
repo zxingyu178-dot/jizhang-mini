@@ -1,0 +1,50 @@
+<view class="pv-page">
+  <view class="pv-header">
+    <text class="pv-title">{{sourceLabel}}</text>
+    <text wx:if="{{rangeText}}" class="pv-range">{{rangeText}}</text>
+  </view>
+
+  <!-- 完整恢复警告 -->
+  <view wx:if="{{isRestore}}" class="pv-restore-warn">
+    <text class="pv-restore-title">这是完整备份恢复</text>
+    <text class="pv-restore-desc">当前账本 {{currentCount}} 条账单将被备份中的 {{total}} 条完整替换。恢复前会自动创建安全点，失败可回滚。</text>
+  </view>
+
+  <!-- 计数卡片 -->
+  <view wx:if="{{!isRestore}}" class="glass-card pv-counts">
+    <view class="pv-count-row"><text class="pv-count-label">共识别</text><text class="pv-count-value">{{total}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">准备导入</text><text class="pv-count-value pv-go">{{counts.ready}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">已存在</text><text class="pv-count-value">{{counts.existing}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">文件内重复</text><text class="pv-count-value">{{counts.duplicate}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">疑似重复</text><text class="pv-count-value pv-warn">{{counts.suspect}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">需确认</text><text class="pv-count-value pv-warn">{{counts.needconfirm}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">不计收支/异常</text><text class="pv-count-value">{{counts.skipped}} 笔</text></view>
+  </view>
+
+  <!-- 疑似重复开关 -->
+  <view wx:if="{{!isRestore && counts.suspect > 0}}" class="pv-toggle" bindtap="onToggleSuspect">
+    <text class="pv-toggle-text">同时导入 {{counts.suspect}} 笔疑似重复</text>
+    <view class="pv-switch {{includeSuspect ? 'pv-switch-on' : ''}}"><view class="pv-switch-dot"></view></view>
+  </view>
+
+  <!-- 样例 -->
+  <view wx:if="{{samples.length > 0}}" class="pv-samples">
+    <text class="pv-samples-title">账单预览</text>
+    <view class="glass-card pv-sample-card">
+      <view wx:for="{{samples}}" wx:key="index" class="pv-sample-row">
+        <view class="pv-sample-left">
+          <text class="pv-sample-merchant">{{item.merchant}}</text>
+          <text class="pv-sample-cat">{{item.day}} · {{item.category}}</text>
+        </view>
+        <text class="pv-sample-amount {{item.isIncome ? 'pv-income' : 'pv-expense'}}">{{item.amountText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="pv-actions">
+    <view class="pv-btn pv-btn-ghost" bindtap="onCancel">取消</view>
+    <view class="pv-btn pv-btn-primary" bindtap="onConfirm">
+      {{isRestore ? '确认恢复' : '确认导入 ' + counts.ready + ' 笔'}}
+    </view>
+  </view>
+</view>

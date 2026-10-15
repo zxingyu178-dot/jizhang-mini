@@ -1,0 +1,145 @@
+.import-page {
+  position: relative;
+  width: 100%;
+}
+.imp-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #0a0f1e 0%, #05060a 100%);
+}
+.imp-bg__glow {
+  position: absolute;
+  top: -120rpx;
+  left: 50%;
+  margin-left: -250rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 134, 255, 0.16) 0%, transparent 70%);
+}
+
+/* Header */
+.imp-header {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 20rpx;
+  z-index: 10;
+}
+.imp-back {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 52rpx;
+  color: var(--text-primary);
+}
+.imp-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: 8rpx;
+}
+
+.imp-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.imp-intro {
+  padding: 24rpx 36rpx 12rpx;
+}
+.imp-intro__text {
+  font-size: 25rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 来源卡片 */
+.src-card {
+  margin: 20rpx 28rpx;
+  padding: 28rpx;
+}
+.src-card__head {
+  display: flex;
+  align-items: center;
+}
+.src-card__emoji {
+  font-size: 52rpx;
+  margin-right: 20rpx;
+}
+.src-card__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.src-card__name {
+  font-size: 31rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.src-card__desc {
+  font-size: 23rpx;
+  color: var(--text-faint);
+  margin-top: 6rpx;
+}
+
+.src-card__guide {
+  margin-top: 20rpx;
+  padding: 20rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16rpx;
+}
+.guide-steps__text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.guide-tip {
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.07);
+}
+.guide-tip__text {
+  font-size: 23rpx;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+.src-card__actions {
+  display: flex;
+  margin-top: 22rpx;
+}
+.btn {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  font-size: 26rpx;
+  border-radius: 14rpx;
+}
+.btn--ghost {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  margin-right: 16rpx;
+}
+.btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
+}
+
+.imp-foot {
+  padding: 24rpx 40rpx 60rpx;
+}
+.imp-foot__text {
+  font-size: 22rpx;
+  color: var(--text-faint);
+}

@@ -54,9 +54,9 @@ Page({
     wx.navigateBack({ delta: 1 });
   },
 
-  /** 数据导入：M4 统一导入引擎接入 */
+  /** 数据导入：统一导入引擎分包 */
   onImport() {
-    wx.showToast({ title: '导入功能开发中', icon: 'none' });
+    wx.navigateTo({ url: '/packages/importer/pages/import/import' });
   },
 
   /** 备份：生成 .dvmini.json 并分享到微信（文件传输助手） */

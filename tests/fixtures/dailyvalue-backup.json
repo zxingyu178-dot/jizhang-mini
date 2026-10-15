@@ -1,0 +1,53 @@
+{
+  "format": "daily-value-backup",
+  "schemaVersion": 1,
+  "appVersion": "2.21.1",
+  "exportedAt": "2026-10-15T00:00:00.000Z",
+  "data": {
+    "bills": [
+      {
+        "id": "a-bill-1",
+        "type": "expense",
+        "amount": 19.9,
+        "categoryId": "c-food",
+        "categoryEmoji": "🍚",
+        "categoryName": "餐饮",
+        "note": "午餐",
+        "date": "2026-09-20",
+        "timestamp": 1789876800000,
+        "source": "manual",
+        "ledgerImpact": "normal"
+      },
+      {
+        "id": "a-bill-2",
+        "type": "income",
+        "amount": 6000,
+        "categoryId": "c-salary",
+        "categoryEmoji": "💰",
+        "categoryName": "工资",
+        "note": "工资",
+        "date": "2026-09-05",
+        "timestamp": 1788573600000,
+        "source": "manual",
+        "ledgerImpact": "normal"
+      },
+      {
+        "id": "a-bill-3",
+        "type": "expense",
+        "amount": 3999,
+        "categoryId": "c-other",
+        "categoryEmoji": "📦",
+        "categoryName": "其他",
+        "title": "虚构笔记本",
+        "note": "",
+        "date": "2026-09-01",
+        "timestamp": 1788224400000,
+        "source": "manual",
+        "ledgerImpact": "daily-value-only"
+      }
+    ],
+    "categories": [],
+    "recurringRules": [],
+    "settings": {}
+  }
+}

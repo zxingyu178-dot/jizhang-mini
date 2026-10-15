@@ -1,0 +1,55 @@
+/* packages/importer/pages/result/result.wxss */
+.rs-page {
+  min-height: 100vh;
+  padding: calc(env(safe-area-inset-top) + 120rpx) 48rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.rs-icon {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3ddc8f, #2bb874);
+  color: #06100b;
+  font-size: 80rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 36rpx;
+}
+.rs-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #f2f4ff;
+}
+.rs-desc {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #9aa4c8;
+}
+.rs-tip {
+  width: 100%;
+  margin-top: 48rpx;
+  padding: 28rpx;
+}
+.rs-tip-text {
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: #b3bbd8;
+}
+.rs-btn {
+  width: 100%;
+  height: 96rpx;
+  margin-top: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #7c86ff, #5b67f0);
+}

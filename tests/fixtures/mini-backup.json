@@ -1,0 +1,27 @@
+{
+  "format": "daily-value-mini-backup",
+  "schemaVersion": 1,
+  "appVersion": "0.2.0",
+  "exportedAt": "2026-10-15T00:00:00.000Z",
+  "data": {
+    "bills": [
+      {
+        "id": "m-bill-1",
+        "type": "expense",
+        "amountCents": 2500,
+        "categoryId": "c-food",
+        "occurredAt": 1791952200000,
+        "merchant": "虚构餐厅",
+        "note": "午餐",
+        "source": "manual",
+        "sourceTxnId": null,
+        "importBatchId": null,
+        "createdAt": 1792040810699,
+        "updatedAt": 1792040810699,
+        "ledgerImpact": "normal"
+      }
+    ],
+    "categories": [],
+    "settings": {}
+  }
+}

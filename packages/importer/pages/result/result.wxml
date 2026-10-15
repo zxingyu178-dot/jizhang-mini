@@ -1,0 +1,11 @@
+<view class="rs-page">
+  <view class="rs-icon">✓</view>
+  <text class="rs-title">{{isRestore ? '恢复完成' : '导入完成'}}</text>
+  <text class="rs-desc">
+    {{isRestore ? '已恢复 ' + imported + ' 条账单' : '已把 ' + imported + ' 条账单写入本地账本'}}
+  </text>
+  <view class="glass-card rs-tip">
+    <text class="rs-tip-text">账单只保存在这台设备，建议定期在「设置」导出备份。</text>
+  </view>
+  <view class="rs-btn" bindtap="onFinish">回到记账</view>
+</view>

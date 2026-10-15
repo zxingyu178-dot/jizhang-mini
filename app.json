@@ -24,6 +24,23 @@
       "enableScrollViewAutoSize": true
     }
   },
+  "subpackages": [
+    {
+      "root": "packages/importer",
+      "name": "importer",
+      "pages": [
+        "pages/import/import",
+        "pages/preview/preview",
+        "pages/result/result"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/main/main": {
+      "network": "all",
+      "packages": ["importer"]
+    }
+  },
   "componentFramework": "glass-easel",
   "style": "v2",
   "sitemapLocation": "sitemap.json",
