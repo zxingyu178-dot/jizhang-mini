@@ -1,0 +1,27 @@
+{
+  "name": "jizhang-mini",
+  "version": "1.0.0",
+  "description": "一个使用**微信原生小程序**实现的轻量本地记账应用，无后端、无网络请求、无需登录，账单数据仅保存在本机 `wx.Storage`。",
+  "main": "app.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zxingyu178-dot/jizhang-mini.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/zxingyu178-dot/jizhang-mini/issues"
+  },
+  "homepage": "https://github.com/zxingyu178-dot/jizhang-mini#readme",
+  "devDependencies": {
+    "miniprogram-automator": "^0.12.1"
+  }
+}

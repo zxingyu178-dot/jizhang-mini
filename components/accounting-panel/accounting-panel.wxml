@@ -1,0 +1,51 @@
+<scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
+  <view class="acc">
+    <view class="acc__month">{{monthLabel}}</view>
+
+    <view class="glass-card acc__numbers">
+      <view class="num-block">
+        <view class="num-label">本月支出</view>
+        <view class="num-value money-expense">¥{{monthExpense}}</view>
+      </view>
+      <view class="num-row">
+        <view class="num-half">
+          <view class="num-label">收入</view>
+          <view class="num-value money-income">¥{{monthIncome}}</view>
+        </view>
+        <view class="num-half">
+          <view class="num-label">结余</view>
+          <view class="num-value">¥{{monthBalance}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="glass-empty" wx:if="{{isEmpty}}">
+      <text class="emoji">📝</text>
+      <text class="tip">本月还没有账单，点右下角记一笔</text>
+    </view>
+
+    <block wx:for="{{groups}}" wx:key="date" wx:for-item="g">
+      <view class="day-head">
+        <text class="day-head__label">{{g.dateLabel}}</text>
+        <text class="day-head__sum">支出 ¥{{g.dayExpense}}<text wx:if="{{g.dayIncome !== '0.00'}}">　收入 ¥{{g.dayIncome}}</text></text>
+      </view>
+      <view class="glass-card day-card">
+        <view
+          wx:for="{{g.records}}"
+          wx:for-item="r"
+          wx:key="id"
+          class="bill-item"
+          data-id="{{r.id}}"
+          bindtap="onTapBill"
+        >
+          <text class="bill-item__emoji">{{r.emoji}}</text>
+          <view class="bill-item__main">
+            <text class="bill-item__name">{{r.name}}</text>
+            <text class="bill-item__note" wx:if="{{r.note}}">{{r.note}}</text>
+          </view>
+          <text class="bill-item__amount {{r.isExpense ? 'money-expense' : 'money-income'}}">{{r.amountText}}</text>
+        </view>
+      </view>
+    </block>
+  </view>
+</scroll-view>

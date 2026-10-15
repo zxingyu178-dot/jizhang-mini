@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "statistics-panel": "../../components/statistics-panel/statistics-panel",
+    "accounting-panel": "../../components/accounting-panel/accounting-panel",
+    "daily-value-panel": "../../components/daily-value-panel/daily-value-panel"
+  }
+}

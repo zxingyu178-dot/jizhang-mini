@@ -1,0 +1,7 @@
+<scroll-view scroll-y class="panel-scroll" type="list" enhanced show-scrollbar="{{false}}">
+  <view class="glass-empty dv-empty">
+    <text class="emoji">📈</text>
+    <text class="tip">日价功能即将上线</text>
+    <text class="tip">记录每天的价值曲线</text>
+  </view>
+</scroll-view>

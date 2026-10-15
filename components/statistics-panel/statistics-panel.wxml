@@ -1,0 +1,21 @@
+<scroll-view scroll-y class="panel-scroll" type="list" enhanced show-scrollbar="{{false}}">
+  <view class="stat">
+    <view class="stat__month">{{monthLabel}}</view>
+    <view class="glass-card stat__row">
+      <view class="stat__half">
+        <text class="stat__label">本月支出</text>
+        <text class="stat__value money-expense">¥{{monthExpense}}</text>
+      </view>
+      <view class="stat__divider"></view>
+      <view class="stat__half">
+        <text class="stat__label">本月收入</text>
+        <text class="stat__value money-income">¥{{monthIncome}}</text>
+      </view>
+    </view>
+    <view class="glass-empty">
+      <text class="emoji">📊</text>
+      <text class="tip">年度统计与高级图表</text>
+      <text class="tip">将在后续版本提供</text>
+    </view>
+  </view>
+</scroll-view>

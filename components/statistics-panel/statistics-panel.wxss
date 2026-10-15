@@ -1,0 +1,38 @@
+.panel-scroll {
+  height: 100%;
+}
+.stat {
+  padding: 12rpx 28rpx 48rpx;
+}
+.stat__month {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 8rpx 0 20rpx;
+}
+.stat__row {
+  display: flex;
+  align-items: center;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+.stat__half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.stat__divider {
+  width: 1rpx;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.1);
+}
+.stat__label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-bottom: 10rpx;
+}
+.stat__value {
+  font-size: 38rpx;
+  font-weight: 700;
+}

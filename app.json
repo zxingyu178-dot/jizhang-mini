@@ -1,42 +1,28 @@
 {
   "pages": [
-    "pages/index/index",
-    "pages/add/add",
-    "pages/stats/stats"
+    "pages/main/main"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "记账mini",
-    "backgroundColor": "#f5f6f8",
-    "backgroundTextStyle": "dark"
+    "navigationStyle": "custom",
+    "navigationBarTitleText": "每日的价值",
+    "navigationBarBackgroundColor": "#05060a",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#05060a",
+    "backgroundTextStyle": "light"
   },
-  "tabBar": {
-    "color": "#9aa3ad",
-    "selectedColor": "#07c160",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
-    "list": [
-      {
-        "pagePath": "pages/index/index",
-        "text": "明细",
-        "iconPath": "images/tab/list.png",
-        "selectedIconPath": "images/tab/list-active.png"
-      },
-      {
-        "pagePath": "pages/add/add",
-        "text": "记账",
-        "iconPath": "images/tab/add.png",
-        "selectedIconPath": "images/tab/add-active.png"
-      },
-      {
-        "pagePath": "pages/stats/stats",
-        "text": "统计",
-        "iconPath": "images/tab/stats.png",
-        "selectedIconPath": "images/tab/stats-active.png"
-      }
-    ]
+  "renderer": "skyline",
+  "rendererOptions": {
+    "skyline": {
+      "disableABTest": true,
+      "sdkVersionBegin": "3.0.0",
+      "sdkVersionEnd": "15.255.255",
+      "defaultDisplayBlock": true,
+      "defaultContentBox": true,
+      "tagNameStyleIsolation": "legacy",
+      "enableScrollViewAutoSize": true
+    }
   },
+  "componentFramework": "glass-easel",
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"

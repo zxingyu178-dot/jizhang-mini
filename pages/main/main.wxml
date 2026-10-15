@@ -1,0 +1,55 @@
+<view class="shell" style="height:{{windowHeight}}px;">
+  <!-- 背景层：紫黑渐变 + 紫色柔光 -->
+  <view class="shell-bg">
+    <view class="shell-bg__glow shell-bg__glow--1"></view>
+    <view class="shell-bg__glow shell-bg__glow--2"></view>
+  </view>
+
+  <!-- 自定义 Header -->
+  <view class="header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+    <view class="header__bar" style="height:{{navBarHeight}}px;padding-right:{{menuPad}}px;">
+      <text class="header__title">每日的价值</text>
+      <view class="header__actions">
+        <view class="glass-pill header__search" bindtap="onSearch">
+          <text class="header__search-icon">🔍</text>
+          <text class="header__search-text">搜索账单</text>
+        </view>
+        <view class="header__setting" bindtap="onSettings">
+          <text class="header__setting-icon">⚙️</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 顶部 Tabs：统计 / 记账 / 日价 -->
+  <view class="tabs" style="top:{{headerHeight}}px;height:{{tabsHeight}}px;">
+    <view class="tabs__item {{current===0?'active':''}}" data-i="0" bindtap="onTab"><text>统计</text></view>
+    <view class="tabs__item {{current===1?'active':''}}" data-i="1" bindtap="onTab"><text>记账</text></view>
+    <view class="tabs__item {{current===2?'active':''}}" data-i="2" bindtap="onTab"><text>日价</text></view>
+  </view>
+
+  <!-- Swiper 三 Panel -->
+  <swiper
+    class="swiper"
+    style="top:{{swiperTop}}px;height:{{swiperHeight}}px;"
+    current="{{current}}"
+    bindchange="onSwiperChange"
+    duration="180"
+    easing-function="easeOut"
+  >
+    <swiper-item>
+      <statistics-panel id="statisticsPanel" />
+    </swiper-item>
+    <swiper-item>
+      <accounting-panel id="accountingPanel" />
+    </swiper-item>
+    <swiper-item>
+      <daily-value-panel id="dailyValuePanel" />
+    </swiper-item>
+  </swiper>
+
+  <!-- 玻璃 FAB（仅记账 Panel） -->
+  <view class="fab-wrap" wx:if="{{current===1}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
+    <text class="fab-icon">+</text>
+  </view>
+</view>

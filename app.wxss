@@ -1,79 +1,100 @@
-/* app.wxss 全局样式 */
+/* ============================================================
+   每日的价值 · 全局设计 token（紫黑毛玻璃 / Dark Glass）
+   视觉基线对齐 Android DailyValue（data-theme=dark + glass）
+   玻璃卡以「半透明 + 渐变 + 边缘高光 + 轻阴影 + 背景透出」实现，
+   不依赖实时 backdrop-filter，WebView / Skyline 双端视觉稳定。
+   ============================================================ */
 page {
-  --color-primary: #07c160;
-  --color-expense: #fa5151;
-  --color-income: #07c160;
-  --color-text: #1f2329;
-  --color-text-secondary: #8a8f99;
-  --color-border: #ebedf0;
-  --color-bg: #f5f6f8;
-  --color-card: #ffffff;
+  /* ---- 底色 / 背景 ---- */
+  --bg: #05060a;
+  --bg-soft: #0b0d16;
 
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  /* ---- 紫色柔光（无壁纸时的背景光晕） ---- */
+  --glow-1: rgba(124, 134, 255, 0.34);
+  --glow-2: rgba(91, 103, 240, 0.22);
+
+  /* ---- 玻璃 Surface ---- */
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.07);
+  --surface-soft: rgba(255, 255, 255, 0.035);
+  --card-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.03) 100%);
+  --card-border: rgba(255, 255, 255, 0.10);
+  --card-border-hi: rgba(255, 255, 255, 0.18);
+  --card-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.28);
+
+  /* ---- 玻璃胶囊（搜索） ---- */
+  --pill-bg: rgba(255, 255, 255, 0.08);
+  --pill-border: rgba(255, 255, 255, 0.14);
+
+  /* ---- 文字 ---- */
+  --text-primary: #eef1f8;
+  --text-secondary: rgba(255, 255, 255, 0.62);
+  --text-faint: rgba(255, 255, 255, 0.40);
+
+  /* ---- 品牌主色（亮紫） ---- */
+  --primary: #7c86ff;
+  --primary-deep: #5b67f0;
+  --primary-glow: rgba(124, 134, 255, 0.32);
+  --primary-tint: rgba(124, 134, 255, 0.16);
+  --on-primary: #ffffff;
+
+  /* ---- 业务语义（Android 产品固定规则：支出=绿、收入=红） ---- */
+  --expense: #3ddc8f;
+  --expense-soft: rgba(61, 220, 143, 0.16);
+  --income: #ff6b6b;
+  --income-soft: rgba(255, 107, 107, 0.16);
+
+  /* ---- 弹层（深玻璃实底，不透底） ---- */
+  --overlay-bg: rgba(13, 13, 16, 0.88);
+  --overlay-border: rgba(255, 255, 255, 0.08);
+
+  /* ---- 圆角 / 间距 ---- */
+  --r-sm: 16rpx;
+  --r-md: 24rpx;
+  --r-lg: 32rpx;
+  --r-xl: 40rpx;
+  --r-pill: 999rpx;
+
+  background-color: var(--bg);
+  color: var(--text-primary);
   font-size: 28rpx;
+  line-height: 1.5;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
     "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-.container {
-  padding: 24rpx;
+/* ---- 通用玻璃卡 ---- */
+.glass-card {
+  background: var(--card-bg);
+  border: 1rpx solid var(--card-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--card-shadow);
   box-sizing: border-box;
 }
 
-.card {
-  background: var(--color-card);
-  border-radius: 20rpx;
-  padding: 28rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
-  box-sizing: border-box;
-}
-
-.row {
+/* ---- 玻璃胶囊 ---- */
+.glass-pill {
   display: flex;
   align-items: center;
+  background: var(--pill-bg);
+  border: 1rpx solid var(--pill-border);
+  border-radius: var(--r-pill);
+  color: var(--text-secondary);
 }
 
-.row-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+/* ---- 金额 ---- */
+.money-expense { color: var(--expense); }
+.money-income { color: var(--income); }
 
-.text-secondary {
-  color: var(--color-text-secondary);
-  font-size: 24rpx;
-}
-
-.money-expense {
-  color: var(--color-expense);
-}
-
-.money-income {
-  color: var(--color-income);
-}
-
-.btn-primary {
-  background: var(--color-primary);
-  color: #ffffff;
-  border-radius: 48rpx;
-  font-size: 32rpx;
-}
-
-.btn-primary::after {
-  border: none;
-}
-
-.empty {
+/* ---- 空态 ---- */
+.glass-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 120rpx 0;
-  color: var(--color-text-secondary);
+  color: var(--text-faint);
 }
-
-.empty-icon {
-  font-size: 80rpx;
-  margin-bottom: 20rpx;
-}
+.glass-empty .emoji { font-size: 72rpx; margin-bottom: 20rpx; opacity: 0.7; }
+.glass-empty .tip { font-size: 26rpx; color: var(--text-secondary); }
