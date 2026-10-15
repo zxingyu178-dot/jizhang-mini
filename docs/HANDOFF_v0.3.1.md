@@ -103,6 +103,6 @@
 - Repository：`zxingyu178-dot/jizhang-mini`
 - Branch：`main`
 - Version：`0.3.1`
-- Commit SHA：（待填）
-- origin/main SHA：（待填）
-- ahead = 0 / behind = 0 / working tree clean：（待填）
+- Commit SHA：`d3b7b4d7f7cd5dc9db8f233f0ddedf4b3cfbbf92`
+- origin/main SHA：`d3b7b4d7f7cd5dc9db8f233f0ddedf4b3cfbbf92`
+- ahead = 0 / behind = 0 / working tree clean：是（ahead=0, behind=0, clean）
