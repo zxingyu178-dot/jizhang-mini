@@ -1,12 +1,20 @@
 // app.js
+const store = require('./data/index');
+
 App({
   globalData: {
-    appName: '记账mini',
-    version: '0.1.0'
+    appName: '每日的价值',
+    version: '0.2.0'
   },
 
   onLaunch() {
-    // 本应用为纯本地记账：数据保存在设备 Storage，无需登录、无网络请求。
-    // 首次启动数据为空，可在「记账」页添加第一笔记录。
+    // 纯本地账本：建目录、默认分类/设置、无损迁移旧 jm_records。
+    // 无登录、无网络、无 OpenID，账单仅保存在设备本地。
+    try {
+      this.dataStatus = store.init();
+    } catch (e) {
+      console.error('数据层初始化失败', e);
+      this.dataStatus = { error: String(e && e.message) };
+    }
   }
-})
+});
