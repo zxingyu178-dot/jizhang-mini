@@ -1,0 +1,65 @@
+<view class="search-page" style="height:{{windowHeight}}px;">
+  <view class="search-bg">
+    <view class="search-bg__glow"></view>
+  </view>
+
+  <!-- 自定义 Header：返回 + 搜索框 -->
+  <view class="s-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+    <view class="s-back" bindtap="onBack">
+      <text>‹</text>
+    </view>
+    <view class="s-input">
+      <text class="s-input__icon">🔍</text>
+      <input
+        class="s-input__field"
+        placeholder="搜索商户、备注、分类"
+        placeholder-class="s-input__ph"
+        value="{{kw}}"
+        bindinput="onInput"
+        focus="{{true}}"
+        confirm-type="search"
+      />
+      <text class="s-input__clear" wx:if="{{kw}}" bindtap="onClear">✕</text>
+    </view>
+  </view>
+
+  <!-- 结果区 -->
+  <scroll-view scroll-y class="s-results" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <view class="s-hint" wx:if="{{!kw}}">
+      <text class="s-hint__emoji">🔍</text>
+      <text class="s-hint__text">输入关键词，搜索商户、备注或分类</text>
+    </view>
+    <view class="s-hint" wx:if="{{kw && groups.length === 0}}">
+      <text class="s-hint__emoji">🗂️</text>
+      <text class="s-hint__text">没有找到“{{kw}}”相关账单</text>
+    </view>
+
+    <block wx:for="{{groups}}" wx:key="label">
+      <view class="day-head">
+        <text class="day-head__label">{{item.label}}</text>
+      </view>
+      <view class="glass-card day-card">
+        <view
+          wx:for="{{item.records}}"
+          wx:for-item="r"
+          wx:key="id"
+          class="bill-item"
+          data-id="{{r.id}}"
+          bindtap="onTapBill"
+        >
+          <text class="bill-item__emoji">{{r.emoji}}</text>
+          <view class="bill-item__main">
+            <text class="bill-item__name">{{r.name}}</text>
+            <text class="bill-item__note" wx:if="{{r.note}}">{{r.note}}</text>
+          </view>
+          <text class="bill-item__amount {{r.isExpense ? 'money-expense' : 'money-income'}}">{{r.amountText}}</text>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+
+  <!-- 编辑弹层 -->
+  <bottom-sheet show="{{sheetShow}}" title="账单详情" bind:close="onSheetClose">
+    <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillSaved" />
+  </bottom-sheet>
+</view>

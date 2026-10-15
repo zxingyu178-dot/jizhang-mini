@@ -1,0 +1,68 @@
+<view class="bf">
+  <!-- 收支类型切换 -->
+  <view class="bf-seg">
+    <view class="bf-seg__item {{type === 'expense' ? 'bf-seg__item--exp' : ''}}" data-type="expense" bindtap="onType">支出</view>
+    <view class="bf-seg__item {{type === 'income' ? 'bf-seg__item--inc' : ''}}" data-type="income" bindtap="onType">收入</view>
+  </view>
+
+  <!-- 金额 -->
+  <view class="bf-amount">
+    <text class="bf-amount__sym">¥</text>
+    <input
+      class="bf-amount__input"
+      type="digit"
+      placeholder="0.00"
+      placeholder-class="bf-amount__ph"
+      value="{{amountText}}"
+      bindinput="onAmount"
+      adjust-position="{{false}}"
+      focus="{{autoFocus}}"
+    />
+  </view>
+
+  <!-- 分类 -->
+  <scroll-view scroll-x class="bf-cats" enhanced show-scrollbar="{{false}}">
+    <view class="bf-cats__inner">
+      <view
+        wx:for="{{categoryList}}"
+        wx:key="id"
+        class="bf-cat {{categoryId === item.id ? 'bf-cat--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onCategory"
+      >
+        <text class="bf-cat__emoji">{{item.emoji}}</text>
+        <text class="bf-cat__name">{{item.name}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 日期 -->
+  <picker mode="date" value="{{dateStr}}" bindchange="onDate">
+    <view class="bf-row">
+      <text class="bf-row__label">日期</text>
+      <text class="bf-row__value">{{dateStr}} ›</text>
+    </view>
+  </picker>
+
+  <!-- 商户 -->
+  <view class="bf-row">
+    <text class="bf-row__label">商户</text>
+    <input class="bf-row__input" placeholder="如：瑞幸咖啡" placeholder-class="bf-row__ph" value="{{merchant}}" bindinput="onMerchant" />
+  </view>
+
+  <!-- 备注 -->
+  <view class="bf-row">
+    <text class="bf-row__label">备注</text>
+    <input class="bf-row__input" placeholder="添加备注" placeholder-class="bf-row__ph" value="{{note}}" bindinput="onNote" />
+  </view>
+
+  <!-- 删除（仅编辑模式） -->
+  <view class="bf-delete" wx:if="{{editingId}}" bindtap="onDelete">
+    <text>删除此账单</text>
+  </view>
+
+  <!-- 确认 -->
+  <view class="bf-submit {{canSubmit ? '' : 'bf-submit--disabled'}}" bindtap="onSubmit">
+    <text>{{editingId ? '保存修改' : '确认记一笔'}}</text>
+  </view>
+</view>

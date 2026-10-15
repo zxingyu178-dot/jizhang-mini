@@ -1,76 +1,60 @@
-# 记账mini（jizhang-mini）
+# 每日的价值（jizhang-mini）
 
-一个使用**微信原生小程序**实现的轻量本地记账应用，无后端、无网络请求、无需登录，账单数据仅保存在本机 `wx.Storage`。
+微信原生小程序实现的本地记账应用，App 内品牌名「每日的价值」，小程序后台名「随时随地大小记」。**无后端、无网络请求、无需登录，账单数据仅保存在本机微信用户目录。**
 
-- 技术栈：微信原生小程序（WXML + WXSS + JavaScript，不依赖任何 npm 框架）
+- 技术栈：微信原生小程序（WXML + WXSS + JavaScript），不引入 uni-app / Taro / Vue / React
+- 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
+- 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V1 + 整数分金额
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.1.0（脚手架 / 最小可用版本）
+- 当前版本：0.2.0（第一版真正产品底座）
 
 ## 已实现功能
 
-- **明细页（首页）**：本月收入 / 支出 / 结余汇总；按日期分组展示账单；点击记录可删除（二次确认）。
-- **记账页**：支出 / 收入切换；金额输入（限制两位小数）；分类网格选择；日期选择；备注；保存后回到明细页。
-- **统计页**：按分类汇总累计支出 / 收入，展示金额、占比与条形分布。
-- 数据通过 `wx.setStorageSync` 本地持久化，关闭后不丢失。
+- **主 Shell**：自定义 Header（标题 / 搜索 / 设置），顶部「统计 / 记账 / 日价」三段，Swiper 左右滑动切换，默认记账。
+- **记账 Panel**：月份切换（上一月 / 下一月）、本月支出 / 收入 / 结余、按天分组账单列表、玻璃 FAB 新增。
+- **记账表单**：支出 / 收入切换、金额大输入（两位小数）、分类横向滚动、日期、商户、备注；支持编辑与两阶段删除。
+- **搜索页**：按商户 / 备注 / 分类全局匹配，结果按日期分组，点击可编辑。
+- **设置页**：数据导入入口、备份 / 恢复（`.dvmini.json`）、最近导入、关于。
+- 旧 `jm_records`（wx.Storage）首次启动无损迁移，迁移后保留一个版本。
 
 ## 目录结构
 
 ```text
 jizhang-mini/
-├── app.js                 # 小程序入口
-├── app.json               # 全局配置：页面路由、窗口、tabBar
-├── app.wxss               # 全局样式与配色变量
-├── project.config.json    # 开发者工具工程配置（appid 为测试号占位）
-├── sitemap.json           # 小程序索引配置
+├── app.js                 # 入口，onLaunch 初始化数据层
+├── app.json               # 路由、窗口、Skyline 配置
+├── app.wxss               # 玻璃设计 token 与通用玻璃类
 ├── pages/
-│   ├── index/             # 明细页（账单列表 + 本月汇总）
-│   ├── add/               # 记账页（新增收入 / 支出）
-│   └── stats/             # 统计页（分类占比）
-├── utils/
-│   ├── db.js              # 本地数据存取与统计逻辑
-│   └── util.js            # 日期、金额、ID 等通用工具
-└── images/tab/            # tabBar 图标（普通态 / 选中态）
+│   ├── main/              # 主 Shell：Header + Tabs + Swiper + FAB
+│   ├── search/            # 全局搜索
+│   └── settings/          # 设置（导入 / 备份 / 恢复 / 关于）
+├── components/
+│   ├── accounting-panel/  # 记账 Panel
+│   ├── statistics-panel/  # 统计 Panel
+│   ├── daily-value-panel/ # 日价 Panel（空态）
+│   ├── bottom-sheet/      # 通用底部弹出面板
+│   └── bill-form/         # 记账表单（新增 / 编辑）
+├── data/                  # 正式本地数据层（ledger / money / backup / migration 等）
+├── utils/                 # device（设备/安全区）、util（通用）
+├── packages/importer/     # 导入引擎（分包，含 SheetJS）
+└── tests/                 # 单元 / 数据层测试
 ```
-
-## 快速开始
-
-1. 安装微信开发者工具（Windows 64 位稳定版安装包已下载到
-   `D:\AIHome_2.0_L1_L2\environment\cache\wechat_devtools_2.02.2608080_win32_x64.exe`，双击安装）。
-2. 打开开发者工具，使用微信扫码登录。
-3. 选择「小程序」→「导入项目」，目录选择本文件夹 `jizhang-mini`。
-4. AppID 处理：
-   - 仅本地学习 / 调试：可直接使用「测试号」或保留当前 `touristappid`；
-   - 需要真机预览 / 发布：到 [mp.weixin.qq.com](https://mp.weixin.qq.com) 注册小程序，把真实 AppID 填入 `project.config.json` 的 `appid` 字段。
-5. 导入后工具会自动编译，在模拟器中即可点「记账」开始使用。
 
 ## 数据说明
 
-- 账单存储键：`jm_records`，值为记录数组。
-- 单条记录结构：
+- 存储根：`wx.env.USER_DATA_PATH`，结构为 `manifest.json`、`bills/YYYY-MM.json`、`categories.json`、`settings.json`、`import-history.json`、`legacy/`。
+- 金额核心使用整数分 `amountCents`（¥25.50 = 2550），统计全程整数，显示时再换算，避免浮点误差。
+- Bill V1：`id, type, amountCents, categoryId, occurredAt, merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact`。
 
-```json
-{
-  "id": "记录唯一ID",
-  "type": "expense",
-  "amount": 25.5,
-  "category": "food",
-  "date": "2026-10-15",
-  "note": "午餐",
-  "createdAt": 1728969600000
-}
-```
+## 快速开始
 
-- `type`：`expense`（支出）/ `income`（收入）。
-- 分类标识见 `utils/db.js` 的 `CATEGORIES`。
-
-## 后续可扩展（脚手架预留方向）
-
-- 按月筛选统计、账单编辑、分类管理与自定义分类
-- 预算设置与超支提醒
-- 数据导出 CSV / 云同步（接入微信云开发或自建后端）
-- 图表升级（可引入 ec-canvas）、搜索账单
+1. 打开微信开发者工具，扫码登录。
+2. 「导入项目」选择本文件夹，AppID 已绑定真实小程序（`wxcdcf83d9191065d9`）。
+3. 工具自动编译，模拟器中点右下角「+」即可记账。
+4. Skyline 调试：详情 → 本地设置 → 开启 Skyline 渲染调试。
 
 ## 参考资源
 
 - 小程序指南：https://developers.weixin.qq.com/miniprogram/dev/framework/
-- 开发者工具下载：https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html
+- Skyline：https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/
+- 开发者工具自动化：https://developers.weixin.qq.com/miniprogram/dev/devtools/auto/

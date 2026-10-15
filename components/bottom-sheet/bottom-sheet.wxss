@@ -1,0 +1,73 @@
+.bs-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 500;
+}
+.bs-root--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.bs-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.bs-mask--show {
+  opacity: 1;
+}
+
+.bs-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #161e33 0%, #10182b 100%);
+  border-radius: 28rpx 28rpx 0 0;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 -12rpx 48rpx rgba(0, 0, 0, 0.5);
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 88%;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bs-panel--show {
+  transform: translateY(0);
+}
+
+.bs-handle {
+  display: flex;
+  justify-content: center;
+  padding: 16rpx 0 6rpx;
+}
+.bs-handle__bar {
+  width: 64rpx;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.bs-title {
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 10rpx 0 16rpx;
+}
+
+.bs-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

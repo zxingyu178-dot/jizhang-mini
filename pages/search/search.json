@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
+    "bill-form": "../../components/bill-form/bill-form"
+  }
+}

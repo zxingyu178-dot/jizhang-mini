@@ -41,7 +41,7 @@
       <statistics-panel id="statisticsPanel" />
     </swiper-item>
     <swiper-item>
-      <accounting-panel id="accountingPanel" />
+      <accounting-panel id="accountingPanel" bind:tapbill="onTapBill" />
     </swiper-item>
     <swiper-item>
       <daily-value-panel id="dailyValuePanel" />
@@ -52,4 +52,9 @@
   <view class="fab-wrap" wx:if="{{current===1}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
     <text class="fab-icon">+</text>
   </view>
+
+  <!-- 记账表单 Bottom Sheet（新增 / 编辑） -->
+  <bottom-sheet show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
+    <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillDeleted" />
+  </bottom-sheet>
 </view>

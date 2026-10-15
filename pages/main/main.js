@@ -17,6 +17,8 @@ Page({
     swiperHeight: 500,
     safeBottom: 0,
     menuPad: 16, // 自定义 Header 右侧避让系统胶囊的内边距（px）
+    sheetShow: false,
+    sheetTitle: '记一笔',
   },
   onLoad() {
     const info = device.measure();
@@ -44,13 +46,43 @@ Page({
     this.setData({ current: e.detail.current });
   },
   onSearch() {
-    wx.showToast({ title: '搜索功能开发中', icon: 'none' });
+    wx.navigateTo({ url: '/pages/search/search' });
   },
   onSettings() {
-    wx.showToast({ title: '设置功能开发中', icon: 'none' });
+    wx.navigateTo({ url: '/pages/settings/settings' });
   },
   onAdd() {
-    wx.showToast({ title: '记账表单开发中', icon: 'none' });
+    const form = this.selectComponent('#billForm');
+    if (form) form.reset();
+    this.setData({ sheetTitle: '记一笔', sheetShow: true });
+  },
+  /** 点击账单：打开编辑表单 */
+  onTapBill(e) {
+    const id = e.detail.id;
+    const form = this.selectComponent('#billForm');
+    if (form) form.edit(id);
+    this.setData({ sheetTitle: '账单详情', sheetShow: true });
+  },
+  /** 遮罩关闭：仅把 show 置 false（动画由 sheet 处理） */
+  onSheetClose() {
+    this.setData({ sheetShow: false });
+  },
+  /** 表单保存成功：关闭弹层并刷新当前面板 */
+  onBillSaved() {
+    this.setData({ sheetShow: false });
+    this.refreshPanels();
+  },
+  /** 账单删除：关闭弹层并刷新 */
+  onBillDeleted() {
+    this.setData({ sheetShow: false });
+    this.refreshPanels();
+  },
+  /** 刷新三个 Panel（数据变化后调用） */
+  refreshPanels() {
+    const acc = this.selectComponent('#accountingPanel');
+    if (acc) acc.refresh();
+    const sta = this.selectComponent('#statisticsPanel');
+    if (sta) sta.refresh();
   },
   /**
    * 开发自检（无 UI 入口，自动化 page.callMethod('__selftest') 调用）。

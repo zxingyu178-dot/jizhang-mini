@@ -1,6 +1,10 @@
 <scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
   <view class="acc">
-    <view class="acc__month">{{monthLabel}}</view>
+    <view class="month-title">
+      <view class="month-arrow" bindtap="onPrevMonth">‹</view>
+      <text class="month-title__text">{{monthLabel}}</text>
+      <view class="month-arrow {{canNext ? '' : 'month-arrow--disabled'}}" bindtap="onNextMonth">›</view>
+    </view>
 
     <view class="glass-card acc__numbers">
       <view class="num-block">

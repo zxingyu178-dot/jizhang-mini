@@ -1,6 +1,8 @@
 {
   "pages": [
-    "pages/main/main"
+    "pages/main/main",
+    "pages/search/search",
+    "pages/settings/settings"
   ],
   "window": {
     "navigationStyle": "custom",

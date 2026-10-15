@@ -19,6 +19,7 @@ Component({
     monthBalance: '0.00',
     groups: [],
     isEmpty: true,
+    canNext: false,
   },
   lifetimes: {
     attached() {
@@ -66,7 +67,23 @@ Component({
         monthBalance: money.formatCents(summary.balance),
         groups,
         isEmpty: summary.count === 0,
+        canNext: target < currentYM(),
       });
+    },
+    /** 上一月 */
+    onPrevMonth() {
+      const [y, m] = this.data.ym.split('-').map(Number);
+      const d = new Date(y, m - 2, 1);
+      const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      this.loadData(ym);
+    },
+    /** 下一月（不超过当前月） */
+    onNextMonth() {
+      if (!this.data.canNext) return;
+      const [y, m] = this.data.ym.split('-').map(Number);
+      const d = new Date(y, m, 1);
+      const ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      this.loadData(ym);
     },
     onTapBill(e) {
       // M3：打开账单详情/编辑 Bottom Sheet

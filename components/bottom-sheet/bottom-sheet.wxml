@@ -1,0 +1,11 @@
+<view class="bs-root {{closed ? 'bs-root--hidden' : ''}}" catchtouchmove="noop">
+  <view class="bs-mask {{visible ? 'bs-mask--show' : ''}}" bindtap="onMaskTap"></view>
+
+  <view class="bs-panel {{visible ? 'bs-panel--show' : ''}}" catchtap="noop">
+    <view class="bs-handle"><view class="bs-handle__bar"></view></view>
+    <view class="bs-title" wx:if="{{title}}">{{title}}</view>
+    <view class="bs-body">
+      <slot></slot>
+    </view>
+  </view>
+</view>

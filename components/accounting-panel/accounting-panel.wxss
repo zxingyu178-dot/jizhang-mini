@@ -4,11 +4,30 @@
 .acc {
   padding: 12rpx 28rpx 48rpx;
 }
-.acc__month {
+.month-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8rpx 0 20rpx;
+}
+.month-title__text {
   font-size: 36rpx;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 8rpx 0 20rpx;
+}
+.month-arrow {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44rpx;
+  color: var(--text-secondary);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+.month-arrow--disabled {
+  opacity: 0.3;
 }
 .acc__numbers {
   display: flex;
