@@ -28,6 +28,7 @@ Page({
     dayDetail: {
       show: false,
       title: '',
+      hasBudget: true,
       budgetText: '',
       actualText: '',
       delta: 0,
@@ -147,6 +148,7 @@ Page({
       dayDetail: {
         show: true,
         title: d.title,
+        hasBudget: d.hasBudget,
         budgetText: d.budgetText,
         actualText: d.actualText,
         delta: d.delta,

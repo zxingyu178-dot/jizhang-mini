@@ -50,8 +50,8 @@
 
       <!-- ============ 预算模式（今日 / 本周 / 本月，无月份箭头） ============ -->
       <block wx:if="{{heroMode==='budget'}}">
-        <!-- 空态：引导设置 -->
-        <view class="hb-empty" wx:if="{{!hasAnyBudget}}">
+        <!-- 全局空态：从未设置过预算规则，引导设置 -->
+        <view class="hb-empty" wx:if="{{!hasAnyRule}}">
           <text class="hb-empty__title">还没有设置每日预算</text>
           <text class="hb-empty__desc">设置一个每天可以花多少钱的目标</text>
           <view class="hb-empty__btn" bindtap="onGoBudgetSettings">设置预算</view>
@@ -64,32 +64,37 @@
             <view class="hb-seg__item {{budgetKind==='month'?'hb-seg__item--active':''}}" data-k="month" bindtap="onBudgetKind">本月</view>
           </view>
 
-          <view class="hb-label">{{bdTotalLabel}}</view>
-          <view class="hb-total">{{bdTotalText}}</view>
-
-          <view class="hb-pace {{bd.paceDelta>=0?'hb-pace--surplus':'hb-pace--over'}}">
-            <text>{{bd.paceDelta>=0 ? (budgetKind==='today'?'盈余':'当前盈余') : (budgetKind==='today'?'超支':'当前超支')}}</text>
-            <text class="hb-pace__val">{{paceText}}</text>
+          <!-- 周期无预算：有规则历史，但当前时段未启用（不显示 ¥0 / 超支） -->
+          <view class="hb-nobudget" wx:if="{{periodNoBudget}}">
+            <text class="hb-nobudget__title">{{periodNoBudgetText}}</text>
+            <text class="hb-nobudget__desc">该时段未启用预算，支出不参与预算比较</text>
+            <view class="hb-nobudget__btn" bindtap="onGoBudgetSettings">调整预算</view>
           </view>
 
-          <view class="hb-rows">
-            <view class="hb-row">
-              <text class="hb-row__label">已花</text>
-              <text class="hb-row__val">{{actualText}}</text>
+          <block wx:else>
+            <view class="hb-label">{{bdTotalLabel}}</view>
+            <view class="hb-total">{{bdTotalText}}</view>
+
+            <view class="hb-pace {{bd.paceDelta>=0?'hb-pace--surplus':'hb-pace--over'}}">
+              <text>{{bd.paceDelta>=0 ? (budgetKind==='today'?'盈余':'当前盈余') : (budgetKind==='today'?'超支':'当前超支')}}</text>
+              <text class="hb-pace__val">{{paceText}}</text>
             </view>
-            <view class="hb-row" wx:if="{{budgetKind!=='today'}}">
-              <text class="hb-row__label">截至今日预算</text>
-              <text class="hb-row__val">{{accruedText}}</text>
+
+            <view class="hb-rows">
+              <view class="hb-row">
+                <text class="hb-row__label">已花</text>
+                <text class="hb-row__val">{{actualText}}</text>
+              </view>
+              <view class="hb-row" wx:if="{{budgetKind!=='today'}}">
+                <text class="hb-row__label">截至今日预算</text>
+                <text class="hb-row__val">{{accruedText}}</text>
+              </view>
+              <view class="hb-row" wx:if="{{budgetKind==='week'||budgetKind==='month'}}">
+                <text class="hb-row__label">{{remainingLabel}}</text>
+                <text class="hb-row__val {{remainingOver?'budget-over':''}}">{{remainingText}}</text>
+              </view>
             </view>
-            <view class="hb-row" wx:if="{{budgetKind==='week'}}">
-              <text class="hb-row__label">本周剩余</text>
-              <text class="hb-row__val">{{remainingText}}</text>
-            </view>
-            <view class="hb-row" wx:if="{{budgetKind==='month'}}">
-              <text class="hb-row__label">本月剩余</text>
-              <text class="hb-row__val">{{remainingText}}</text>
-            </view>
-          </view>
+          </block>
         </block>
       </block>
     </view>

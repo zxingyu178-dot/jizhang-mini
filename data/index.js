@@ -97,6 +97,10 @@ module.exports = {
   buildBudgetPaceSummary: function (today) {
     return budget.buildPaceSummary(ledger.rangeBills(), budget.getBudgetState(), today);
   },
+  // 统计页所选月份的预算节奏上下文（当前月=截至今日；历史月=本月/上月最终）
+  buildBudgetMonthPace: function (year, month, today) {
+    return budget.buildMonthPaceContext(ledger.rangeBills(), budget.getBudgetState(), year, month, today);
+  },
   // 设置
   getSettings: settings.getSettings,
   updateSettings: settings.updateSettings,

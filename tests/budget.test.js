@@ -117,6 +117,14 @@ function stateWith30() {
   return s;
 }
 
+/** 指定 10 月某天（day）中午、金额 cents 的正常支出账单 */
+function dayBill(day, cents, extra) {
+  return makeBill(Object.assign({
+    amountCents: cents,
+    occurredAt: new Date(2026, 9, day, 12, 0).getTime(),
+  }, extra || {}));
+}
+
 /* ================= A. 规则模型（BUDGET-RULES） ================= */
 console.log('A. 规则模型');
 {
@@ -399,6 +407,113 @@ console.log('E. 备份恢复');
   assert(restoreV1Ok, '旧 V1 备份仍可恢复');
   eq(store3.getBudgetState().rules.length, 0, 'V1 备份无预算，恢复后为空');
   eq(store3.getBill('old1').amountCents, 1000, 'V1 账单恢复');
+}
+
+/* ===== F. 预算口径正确性（cutover / disable / future / remain / color / history / day） ===== */
+console.log('F. 预算口径正确性');
+// F1 预算中途启用：10-16 起才启用，启用前支出不得计入
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-16' });
+  const bills = [
+    dayBill(10, 70000), // 启用前 10-10 花 ¥700
+    dayBill(16, 2260),  // 启用当天 10-16 花 ¥22.60
+  ];
+  const mo = B.computeByKind(bills, st, 'month', TODAY, 1);
+  eq(mo.periodBudget, 3000 * 16, 'CUTOVER 本月总预算仅 16~31 共 4800');
+  eq(mo.accruedBudget, 3000, 'CUTOVER 截至今日预算仅 16 日 3000');
+  eq(mo.actualExpense, 2260, 'BUDGET-CUTOVER-01 启用前 10-10 ¥700 不计入预算支出');
+  eq(mo.paceDelta, 3000 - 2260, 'CUTOVER 本月盈余仅按启用日比较');
+  const wk = B.computeByKind(bills, st, 'week', TODAY, 1);
+  eq(wk.actualExpense, 2260, 'CUTOVER 本周启用前日期支出不计');
+  const td = B.computeByKind(bills, st, 'today', TODAY, 1);
+  eq(td.actualExpense, 2260, 'BUDGET-CUTOVER-02 启用当天 10-16 支出开始计入');
+  assert(td.hasBudget === true, 'CUTOVER 当天有预算');
+}
+// F2 中途停用：10-16 起停用，停用当天/之后支出不比较，且不显示超支
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-01' });
+  st = B.applyRule(st, { enabled: false, dailyCents: 0, effectiveFrom: '2026-10-16' });
+  const bills = [
+    dayBill(15, 2000), // 启用期 10-15 ¥20
+    dayBill(16, 2000), // 停用当天 10-16 ¥20
+    dayBill(17, 5000), // 停用后 10-17 ¥50（未来）
+  ];
+  const td = B.computeByKind(bills, st, 'today', TODAY, 1);
+  eq(td.periodBudget, 0, 'DISABLE 停用当天预算=0');
+  assert(td.hasBudget === false, 'BUDGET-DISABLE-02 停用当天 hasBudget=false（显示未启用，不显示超支）');
+  eq(td.actualExpense, 0, 'DISABLE 停用当天支出不计');
+  const wk = B.computeByKind(bills, st, 'week', TODAY, 1);
+  eq(wk.actualExpense, 2000, 'BUDGET-DISABLE-01 停用 16/17 日支出不计，仅 15 日 ¥20');
+  eq(wk.accruedBudget, 3000 * 4, 'DISABLE 本周截至今日预算仅 12~15 共 1200');
+}
+// F3 未来账单不提前消耗当前周 / 月预算
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-01' });
+  const bills = [
+    dayBill(16, 2260),  // 今天
+    dayBill(17, 8000),  // 本周内未来 10-17
+    dayBill(20, 50000), // 本月内未来 10-20
+  ];
+  const wk = B.computeByKind(bills, st, 'week', TODAY, 1);
+  eq(wk.actualExpense, 2260, 'BUDGET-FUTURE-01 未来账单不消耗本周预算');
+  const mo = B.computeByKind(bills, st, 'month', TODAY, 1);
+  eq(mo.actualExpense, 2260, 'BUDGET-FUTURE-02 未来账单不消耗本月截至今日预算');
+}
+// F4 剩余 / 超出总预算状态（用本周周期：10-16 起 ¥30，本周仅 16~18 三天预算=9000）
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-16' });
+  const ok = B.computeByKind([dayBill(16, 2260)], st, 'week', TODAY, 1);
+  assert(ok.remainingBudget > 0, 'REMAIN 剩余为正');
+  eq(ok.remainingState, 'remaining', 'BUDGET-REMAIN-01 remainingState=remaining（显示剩余）');
+  const bad = B.computeByKind([dayBill(16, 10000)], st, 'week', TODAY, 1);
+  assert(bad.remainingBudget < 0, 'REMAIN 超出后剩余为负');
+  eq(bad.remainingState, 'exceeded', 'BUDGET-REMAIN-02 remainingState=exceeded（显示超出总预算）');
+  eq(bad.remainingBudget, 9000 - 10000, 'REMAIN 超出金额 -1000（本周预算 9000 已花 10000）');
+}
+// F5 盈余绿 / 超支红语义色调
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-01' });
+  const surplus = B.computeByKind([dayBill(16, 2260)], st, 'today', TODAY, 1);
+  eq(surplus.paceTone, 'surplus', 'BUDGET-COLOR-01 盈余 paceTone=surplus（--budget-surplus 绿）');
+  const over = B.computeByKind([dayBill(16, 4228)], st, 'today', TODAY, 1);
+  eq(over.paceTone, 'over', 'BUDGET-COLOR-02 超支 paceTone=over（--budget-over 红）');
+}
+// F6 历史月份摘要基于该月、不显示今天截至今日
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-09-01' });
+  const bills = [
+    makeBill({ id: 'h9a', amountCents: 4000, occurredAt: new Date(2026, 8, 15, 12).getTime() }),
+    makeBill({ id: 'h9b', amountCents: 2000, occurredAt: new Date(2026, 8, 20, 12).getTime() }),
+    makeBill({ id: 'h10', amountCents: 2260, occurredAt: new Date(2026, 9, 16, 12).getTime() }),
+  ];
+  const hist = B.buildMonthPaceContext(bills, st, 2026, 9, TODAY);
+  assert(hist.isCurrent === false, 'HISTORY 9月为历史月');
+  eq(hist.items.length, 2, 'BUDGET-HISTORY-02 历史月仅 2 项（本月/上月最终，无截至今日/本周）');
+  eq(hist.items[0].label, '本月最终', 'HISTORY 首项为「本月最终」');
+  eq(hist.items[0].delta, 90000 - 6000, 'BUDGET-HISTORY-01 9月最终盈余基于9月（¥840），不含10月账单');
+  assert(hist.items[1].hasBudget === false, 'HISTORY 8月无规则，显示—');
+  const cur = B.buildMonthPaceContext(bills, st, 2026, 10, TODAY);
+  assert(cur.isCurrent === true, 'HISTORY 当前月 context 标记当前');
+  eq(cur.items.length, 4, 'HISTORY 当前月 4 项（截至今日口径）');
+}
+// F7 无预算日不标超支；未来日标记未来
+{
+  let st = B.normalizeState(undefined);
+  st = B.applyRule(st, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-16' });
+  const dd = B.buildDayDetail([dayBill(10, 2200)], st, '2026-10-10',
+    (id) => ({ name: '餐饮', emoji: '🍜' }), TODAY);
+  assert(dd.hasBudget === false && dd.enabled === false, 'BUDGET-DAY-01 无预算日不标记超支');
+  eq(dd.actualCents, 2200, 'DAY 无预算日仍显示实际支出');
+  let st2 = B.normalizeState(undefined);
+  st2 = B.applyRule(st2, { enabled: true, dailyCents: 3000, effectiveFrom: '2026-10-01' });
+  const fd = B.buildDayDetail([dayBill(20, 5000)], st2, '2026-10-20', null, TODAY);
+  assert(fd.isFuture === true, 'BUDGET-DAY-02 未来日标记 isFuture（不产生盈亏展示）');
 }
 
 /* ================= 汇总 ================= */

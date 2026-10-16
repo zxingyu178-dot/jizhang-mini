@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V2（兼容 V1，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.5.0（预算节奏系统：预算规则历史存于 settings、改值不重算历史；纯函数 Budget Core；记账 Hero 新增「支出 / 预算」模式（今日 / 本周 / 本月，区分总预算与截至今日预算）；新增预算设置页与设置入口；统计月度预算日历地图（绿盈余 / 红超支 / 灰无预算或未来 / 紫描边今天）与点击日详情；全项目自定义 Header 统一 border-box 盒模型；Bottom Sheet 提高不透明度（底层氛围可感知、正文不可辨认）；手工账单与日价日期不允许未来。沿用 0.4.1 的日价编辑作用域修复与 Glass Sheet 收口）
+- 当前版本：0.5.1（预算口径正确性与交互收口：拆分 consumesBudget（业务上属于预算型支出）与 countsAgainstBudget（当日预算启用才参与比较），预算启用前 / 停用期间的支出不参与盈亏；当前周期实际支出只统计截至今天、未来账单不提前消耗；无预算日 / 周期明确显示「未启用预算」而非误报超支；新增预算语义色 token（盈余绿 / 超支红，与业务收支色解耦）；剩余预算超出后改为「超出总预算」文案；历史月份节奏摘要改为「本月最终 / 上月最终」；日详情无预算态与日历图例。沿用 0.5.0 的预算规则历史、预算日历、Hero 预算模式与 UI Closure）
 
 ## 测试
 
@@ -14,7 +14,7 @@
 npm test
 ```
 
-一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`settings.test.js`、`importer.test.js`（当前 496 项），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
+一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`settings.test.js`、`importer.test.js`（当前 527 项），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
 
 ## 已实现功能
 

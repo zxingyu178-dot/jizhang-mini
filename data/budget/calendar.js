@@ -105,7 +105,9 @@ function buildMonthCalendar(bills, state, year, month, todayStr) {
  * @param dateStr
  * @param resolveCategory id → 分类对象（注入，保持纯函数；可传 store.getCategory）
  */
-function buildDayDetail(bills, state, dateStr, resolveCategory) {
+function buildDayDetail(bills, state, dateStr, resolveCategory, todayStr) {
+  const today = todayStr || dvCore.localDateKey();
+  const isFuture = dateStr > today;
   const budgetCents = rules.dailyCentsOn(state, dateStr);
   const enabled = rules.isEnabledOn(state, dateStr);
   const dayBills = (bills || []).filter((b) => core.consumesBudget(b) && core.billLocalDate(b) === dateStr);
@@ -133,6 +135,7 @@ function buildDayDetail(bills, state, dateStr, resolveCategory) {
   return {
     dateStr,
     enabled,
+    isFuture,
     budgetCents,
     actualCents,
     deltaCents,

@@ -64,6 +64,13 @@ page {
   --income: #ff6b6b;
   --income-soft: rgba(255, 107, 107, 0.16);
 
+  /* ---- 预算语义（与业务收支色解耦：盈余=绿、超支=红） ----
+     不借用 money-income / money-expense（那是收入红 / 支出绿，语义相反）。 */
+  --budget-surplus: #38c896;
+  --budget-over: #ef606b;
+  --budget-surplus-soft: rgba(56, 200, 150, 0.16);
+  --budget-over-soft: rgba(239, 96, 107, 0.16);
+
   /* ---- 弹层（深玻璃实底，不透底） ---- */
   --overlay-bg: rgba(13, 13, 16, 0.88);
   --overlay-border: rgba(255, 255, 255, 0.08);
@@ -106,6 +113,10 @@ page {
 /* ---- 金额 ---- */
 .money-expense { color: var(--expense); }
 .money-income { color: var(--income); }
+
+/* ---- 预算盈亏（盈余绿 / 超支红，独立于业务收支色） ---- */
+.budget-surplus { color: var(--budget-surplus); }
+.budget-over { color: var(--budget-over); }
 
 /* ---- 空态 ---- */
 .glass-empty {

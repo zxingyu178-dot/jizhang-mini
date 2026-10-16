@@ -116,13 +116,10 @@ Component({
       // 预算日历地图 + 节奏摘要（规则历史逐天取数；无预算时日历格子灰色）
       const today = util.formatDate(new Date());
       const budgetCalendar = store.buildBudgetCalendar(y, m, today);
-      const paceRaw = store.buildBudgetPaceSummary(today);
-      const pace = [
-        paceRaw.weekToDate,
-        paceRaw.monthToDate,
-        paceRaw.lastWeek,
-        paceRaw.lastMonth,
-      ].map((p) => ({
+      // 节奏摘要随所选月份走：当前月=本周/本月截至今日+上周/上月；
+      // 历史月=本月/上月最终结果（不再错误显示今天的「截至今日」数据）。
+      const paceCtx = store.buildBudgetMonthPace(y, m, today);
+      const pace = paceCtx.items.map((p) => ({
         label: p.label,
         text: (p.delta >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(p.delta)),
         positive: p.delta >= 0,
@@ -190,11 +187,15 @@ Component({
     onTapDay(e) {
       const dateStr = e.currentTarget.dataset.date;
       if (!dateStr) return;
+      const today = util.formatDate(new Date());
+      // 未来日不打开详情（只读，无预算盈亏）
+      if (dateStr > today) return;
       const d = store.buildBudgetDayDetail(dateStr);
       const dp = dateStr.split('-').map(Number);
       const title = dp[1] + '月' + dp[2] + '日';
       const payload = {
         title,
+        hasBudget: d.hasBudget,
         budgetText: '¥' + money.formatCents(d.budgetCents),
         actualText: '¥' + money.formatCents(d.actualCents),
         delta: d.deltaCents,

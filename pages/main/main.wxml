@@ -67,18 +67,29 @@
   <bottom-sheet show="{{dayDetail.show}}" title="{{dayDetail.title}}" bind:close="onCloseDayDetail">
     <view class="dayd">
       <view class="dayd__rows">
-        <view class="dayd__row">
-          <text class="dayd__label">预算</text>
-          <text class="dayd__val">{{dayDetail.budgetText}}</text>
-        </view>
-        <view class="dayd__row">
-          <text class="dayd__label">实际支出</text>
-          <text class="dayd__val">{{dayDetail.actualText}}</text>
-        </view>
-        <view class="dayd__row">
-          <text class="dayd__label">{{dayDetail.deltaLabel}}</text>
-          <text class="dayd__val {{dayDetail.delta>=0?'money-income':'money-expense'}}">{{dayDetail.deltaText}}</text>
-        </view>
+        <!-- 无预算日：提示当日未启用预算，不显示预算 / 超支 -->
+        <block wx:if="{{!dayDetail.hasBudget}}">
+          <view class="dayd__notice">当日未启用预算</view>
+          <view class="dayd__row">
+            <text class="dayd__label">实际支出</text>
+            <text class="dayd__val">{{dayDetail.actualText}}</text>
+          </view>
+        </block>
+        <!-- 有预算日：预算 / 实际 / 盈余·超支 -->
+        <block wx:else>
+          <view class="dayd__row">
+            <text class="dayd__label">预算</text>
+            <text class="dayd__val">{{dayDetail.budgetText}}</text>
+          </view>
+          <view class="dayd__row">
+            <text class="dayd__label">实际支出</text>
+            <text class="dayd__val">{{dayDetail.actualText}}</text>
+          </view>
+          <view class="dayd__row">
+            <text class="dayd__label">{{dayDetail.deltaLabel}}</text>
+            <text class="dayd__val {{dayDetail.delta>=0?'budget-surplus':'budget-over'}}">{{dayDetail.deltaText}}</text>
+          </view>
+        </block>
       </view>
 
       <view class="dayd__cathead" wx:if="{{dayDetail.categories.length}}">分类</view>

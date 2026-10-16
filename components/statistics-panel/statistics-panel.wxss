@@ -325,6 +325,32 @@
   border: 2rpx solid #7c86ff;
 }
 
+/* ================= 预算图例（一行） ================= */
+.blegend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 14rpx;
+  padding: 0 2rpx;
+}
+.blegend__item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+.blegend__dot {
+  width: 15rpx;
+  height: 15rpx;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.blegend__dot--surplus { background: var(--budget-surplus); }
+.blegend__dot--over { background: var(--budget-over); }
+.blegend__dot--none { background: transparent; border: 1rpx solid rgba(255, 255, 255, 0.4); }
+.blegend__dot--today { background: transparent; border: 2rpx solid #7c86ff; border-radius: 4rpx; }
+
 /* ================= 预算节奏摘要 ================= */
 .pace {
   display: flex;

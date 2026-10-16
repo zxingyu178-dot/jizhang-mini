@@ -31,7 +31,7 @@ Component({
     // 预算模式
     heroMode: 'expense', // expense | budget
     budgetKind: 'today', // today | week | month
-    hasAnyBudget: false,
+    hasAnyRule: false, // 是否曾设置过任何预算规则（全局空态 vs 周期无预算）
     bd: null,
     bdTotalLabel: '',
     bdTotalText: '',
@@ -39,6 +39,10 @@ Component({
     actualText: '',
     accruedText: '',
     remainingText: '',
+    remainingLabel: '',
+    remainingOver: false,
+    periodNoBudget: false, // 当前分段在评估范围内没有启用预算
+    periodNoBudgetText: '',
   },
   lifetimes: {
     attached() {
@@ -186,22 +190,39 @@ Component({
     /** 加载预算模式当前分段（今日 / 本周 / 本月）数据 */
     loadBudget() {
       const today = acc.todayKey();
+      const budgetState = store.getBudgetState();
+      const hasAnyRule = budgetState.rules.length > 0;
       const bd = store.computeBudgetByKind(this.data.budgetKind, today);
-      const hasAny =
-        store.computeBudgetByKind('today', today).hasBudget ||
-        store.computeBudgetByKind('week', today).hasBudget ||
-        store.computeBudgetByKind('month', today).hasBudget;
       const labels = { today: '今日预算', week: '本周预算', month: '本月预算' };
-      const fmt = (c) => '¥' + money.formatCents(Math.abs(c));
+      const noBudgetText = {
+        today: '今日未启用预算',
+        week: '本周暂无预算',
+        month: '本月暂无预算',
+      }[this.data.budgetKind];
+      // 剩余 / 超出：负值不再 abs 后伪装成「剩余」，文案随状态切换
+      const remainingOver = bd.remainingState === 'exceeded';
+      const kind = this.data.budgetKind;
+      const remainingLabel = kind === 'week'
+        ? (remainingOver ? '超出本周总预算' : '本周剩余')
+        : kind === 'month'
+          ? (remainingOver ? '超出本月总预算' : '本月剩余')
+          : '';
+      // 盈余 / 超支、剩余 / 超出 的金额取绝对值（文案已表达正负）；其余非负
+      const fmtAbs = (c) => '¥' + money.formatCents(Math.abs(c));
+      const fmt = (c) => '¥' + money.formatCents(c);
       this.setData({
-        hasAnyBudget: hasAny,
+        hasAnyRule,
         bd,
-        bdTotalLabel: labels[this.data.budgetKind],
+        bdTotalLabel: labels[kind],
         bdTotalText: fmt(bd.periodBudget),
-        paceText: fmt(bd.paceDelta),
+        paceText: fmtAbs(bd.paceDelta),
         actualText: fmt(bd.actualExpense),
         accruedText: fmt(bd.accruedBudget),
-        remainingText: fmt(bd.remainingBudget),
+        periodNoBudget: !bd.hasBudget,
+        periodNoBudgetText: noBudgetText,
+        remainingLabel,
+        remainingOver,
+        remainingText: fmtAbs(bd.remainingBudget),
       });
     },
   },

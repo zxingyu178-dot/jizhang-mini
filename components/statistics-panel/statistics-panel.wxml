@@ -51,11 +51,19 @@
           </view>
         </view>
 
+        <!-- 图例（一行：盈余 / 超支 / 无预算 / 今天） -->
+        <view class="blegend">
+          <view class="blegend__item"><view class="blegend__dot blegend__dot--surplus"></view><text>盈余</text></view>
+          <view class="blegend__item"><view class="blegend__dot blegend__dot--over"></view><text>超支</text></view>
+          <view class="blegend__item"><view class="blegend__dot blegend__dot--none"></view><text>无预算</text></view>
+          <view class="blegend__item"><view class="blegend__dot blegend__dot--today"></view><text>今天</text></view>
+        </view>
+
         <!-- 预算节奏摘要 -->
         <view class="pace">
           <view class="pace__item" wx:for="{{pace}}" wx:key="label">
             <text class="pace__label">{{item.label}}</text>
-            <text class="pace__val {{item.positive?'money-income':'money-expense'}}" wx:if="{{item.hasBudget}}">{{item.text}}</text>
+            <text class="pace__val {{item.positive?'budget-surplus':'budget-over'}}" wx:if="{{item.hasBudget}}">{{item.text}}</text>
             <text class="pace__val pace__val--none" wx:else>—</text>
           </view>
         </view>
