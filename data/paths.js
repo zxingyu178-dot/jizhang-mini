@@ -26,6 +26,7 @@ const FILE = {
   settings: ROOT + '/settings.json',
   categories: ROOT + '/categories.json',
   importHistory: ROOT + '/import-history.json',
+  recurring: ROOT + '/recurring.json',
 };
 
 /** 月份分片路径：billFile('2026-10') -> .../bills/2026-10.json */

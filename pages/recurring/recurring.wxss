@@ -1,0 +1,309 @@
+.rc-page {
+  position: relative;
+  width: 100%;
+}
+.rc-bg {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: linear-gradient(180deg, #0a0f1e 0%, #05060a 100%);
+}
+.rc-bg__glow {
+  position: absolute;
+  top: -120rpx;
+  left: -100rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
+}
+
+/* Header */
+.rc-header {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 20rpx;
+  z-index: 10;
+  box-sizing: border-box;
+}
+.rc-back {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rc-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: 8rpx;
+}
+
+.rc-scroll {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+}
+
+/* 空态 */
+.rc-hint {
+  margin: 40rpx 28rpx 10rpx;
+  padding: 40rpx 28rpx;
+  text-align: center;
+}
+.rc-hint__text {
+  display: block;
+  font-size: 30rpx;
+  color: var(--text-secondary);
+  margin-bottom: 14rpx;
+}
+.rc-hint__sub {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+/* 规则卡片 */
+.rc-card {
+  margin: 20rpx 28rpx 0;
+  padding: 26rpx 26rpx 22rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1rpx solid rgba(255, 255, 255, 0.07);
+}
+.rc-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rc-card__freq {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.rc-switch {
+  transform: scale(0.78);
+}
+.rc-card__amount {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 12rpx 0 10rpx;
+}
+.rc-card__amount--in {
+  color: #38c896;
+}
+.rc-card__meta {
+  display: flex;
+  align-items: center;
+}
+.rc-card__emoji {
+  font-size: 26rpx;
+  margin-right: 10rpx;
+}
+.rc-card__cat {
+  font-size: 25rpx;
+  color: var(--text-secondary);
+}
+.rc-card__note {
+  font-size: 24rpx;
+  color: var(--text-faint);
+  margin-left: 6rpx;
+}
+.rc-card__next {
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  color: var(--text-faint);
+}
+
+/* 新建 */
+.rc-add {
+  margin: 24rpx 28rpx 0;
+  height: 96rpx;
+  border-radius: 20rpx;
+  border: 1rpx dashed rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rc-add__icon {
+  font-size: 34rpx;
+  color: var(--text-secondary);
+  margin-right: 10rpx;
+}
+.rc-add__text {
+  font-size: 27rpx;
+  color: var(--text-secondary);
+}
+
+/* ===== 编辑器 ===== */
+.re-type {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999rpx;
+  padding: 6rpx;
+  margin: 4rpx 0 8rpx;
+}
+.re-type__item {
+  flex: 1;
+  text-align: center;
+  height: 64rpx;
+  line-height: 64rpx;
+  font-size: 27rpx;
+  color: var(--text-secondary);
+  border-radius: 999rpx;
+}
+.re-type__item.active {
+  background: rgba(124, 134, 255, 0.28);
+  color: #fff;
+}
+
+.re-amount {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 4rpx 20rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+.re-amount__sym {
+  font-size: 38rpx;
+  color: var(--text-secondary);
+  margin-right: 12rpx;
+}
+.re-amount__input {
+  flex: 1;
+  min-width: 0;
+  height: 90rpx;
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #fff;
+}
+.re-ph {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.re-label {
+  font-size: 24rpx;
+  color: var(--text-faint);
+  padding: 24rpx 4rpx 12rpx;
+}
+
+.re-freq {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16rpx;
+  padding: 6rpx;
+}
+.re-freq__item {
+  flex: 1;
+  text-align: center;
+  height: 62rpx;
+  line-height: 62rpx;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  border-radius: 12rpx;
+}
+.re-freq__item.active {
+  background: rgba(124, 134, 255, 0.3);
+  color: #fff;
+}
+
+.re-interval {
+  display: flex;
+  align-items: center;
+  margin-top: 18rpx;
+}
+.re-interval__t {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.re-interval__input {
+  width: 96rpx;
+  height: 64rpx;
+  margin: 0 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12rpx;
+}
+
+.re-chips {
+  white-space: nowrap;
+  width: 100%;
+}
+.re-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64rpx;
+  height: 64rpx;
+  padding: 0 22rpx;
+  margin-right: 12rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.re-chip.active {
+  background: rgba(124, 134, 255, 0.32);
+  color: #fff;
+}
+.re-chip--cat {
+  height: 72rpx;
+}
+.re-chip__emoji {
+  font-size: 28rpx;
+  margin-right: 8rpx;
+}
+.re-chip__name {
+  font-size: 26rpx;
+}
+
+.re-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22rpx 4rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+.re-row__label {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+}
+.re-row__val {
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.re-field {
+  margin-top: 14rpx;
+}
+.re-field__input {
+  height: 76rpx;
+  font-size: 28rpx;
+  color: #fff;
+}
+
+.re-save {
+  margin: 26rpx 0 12rpx;
+  height: 92rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 134, 255, 0.85);
+  color: #fff;
+  font-size: 29rpx;
+  font-weight: 600;
+}
+.re-save--disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+}
+.re-delete {
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-faint);
+  padding: 12rpx 0 24rpx;
+}

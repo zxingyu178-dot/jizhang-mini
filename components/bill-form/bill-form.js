@@ -6,17 +6,27 @@ const store = require('../../data/index');
 const money = require('../../data/money');
 const util = require('../../utils/util');
 
-const EXPENSE_CATS = [
-  'c-food', 'c-transport', 'c-shopping', 'c-fun', 'c-life',
-  'c-drink', 'c-bill', 'c-medical', 'c-housing', 'c-travel', 'c-other',
-];
-const INCOME_CATS = ['c-salary', 'c-other'];
 const RECENT_LIMIT = 5;
 
-function catsFor(type) {
-  const all = store.getCategories();
-  const ids = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
-  return ids.map((id) => all.find((c) => c.id === id)).filter(Boolean);
+/**
+ * 可选分类：全部未归档分类（getActiveCategories）。
+ * 编辑历史账单时，若其引用的分类已归档，把该归档分类一并纳入显示（仍显示原分类）。
+ */
+function catsFor(type, includeId) {
+  const active = store.getActiveCategories();
+  if (includeId && !active.find((c) => c.id === includeId)) {
+    const ref = store.getCategory(includeId); // getCategory 能解析归档分类
+    if (ref && ref.id === includeId) return active.concat([ref]);
+  }
+  return active;
+}
+
+/** 某类型默认分类：支出优先 c-food，收入优先 c-salary；若已归档则取第一个 active */
+function defaultCategoryId(type) {
+  const active = store.getActiveCategories();
+  const prefer = type === 'income' ? 'c-salary' : 'c-food';
+  if (active.find((c) => c.id === prefer)) return prefer;
+  return active.length ? active[0].id : 'c-other';
 }
 
 /**
@@ -24,7 +34,7 @@ function catsFor(type) {
  * 确保当前选中分类在最近列表中。返回的分类对象来自完整列表。
  */
 function recentCatsFor(type, selectedId) {
-  const all = catsFor(type);
+  const all = catsFor(type, selectedId);
   const freq = {};
   let bills = [];
   try {
@@ -77,14 +87,15 @@ Component({
     /** 新增模式：重置为默认（今天/支出） */
     reset() {
       const dateStr = util.formatDate(new Date());
+      const defaultId = defaultCategoryId('expense');
       this.setData({
         editingId: null,
         editingHours: null,
         editingMinutes: null,
         type: 'expense',
         amountText: '',
-        categoryId: 'c-food',
-        recentList: recentCatsFor('expense', 'c-food'),
+        categoryId: defaultId,
+        recentList: recentCatsFor('expense', defaultId),
         allList: catsFor('expense'),
         showAllCats: false,
         dateStr,
@@ -114,7 +125,7 @@ Component({
         amountText: money.formatCents(Math.abs(bill.amountCents)),
         categoryId: bill.categoryId,
         recentList: recentCatsFor(bill.type, bill.categoryId),
-        allList: catsFor(bill.type),
+        allList: catsFor(bill.type, bill.categoryId),
         showAllCats: false,
         dateStr,
         todayStr: util.formatDate(new Date()),
@@ -131,7 +142,7 @@ Component({
       const list = catsFor(type);
       let categoryId = this.data.categoryId;
       if (!list.find((c) => c.id === categoryId)) {
-        categoryId = type === 'income' ? 'c-salary' : 'c-food';
+        categoryId = defaultCategoryId(type);
       }
       // 日价只对支出物品有意义：切到收入时关闭开关
       const dailyValueEnabled = type === 'income' ? false : this.data.dailyValueEnabled;

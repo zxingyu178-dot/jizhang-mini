@@ -1,0 +1,122 @@
+{
+  "format": "daily-value-backup",
+  "schemaVersion": 1,
+  "appVersion": "2.21.1",
+  "exportedAt": "2026-10-15T00:00:00.000Z",
+  "data": {
+    "bills": [
+      {
+        "id": "c-b1",
+        "type": "expense",
+        "amount": 25.0,
+        "categoryId": "cat-coffee",
+        "categoryEmoji": "☕",
+        "categoryName": "咖啡",
+        "note": "拿铁",
+        "date": "2026-09-02",
+        "timestamp": 1788321600000,
+        "source": "manual",
+        "ledgerImpact": "normal"
+      },
+      {
+        "id": "c-b2",
+        "type": "expense",
+        "amount": 100.0,
+        "categoryId": "cat-pet",
+        "categoryEmoji": "🐶",
+        "categoryName": "宠物",
+        "note": "狗粮",
+        "date": "2026-09-10",
+        "timestamp": 1789012800000,
+        "source": "manual",
+        "ledgerImpact": "normal"
+      },
+      {
+        "id": "c-b3",
+        "type": "expense",
+        "amount": 30.0,
+        "categoryId": "cat-coffee",
+        "categoryEmoji": "☕",
+        "categoryName": "咖啡",
+        "note": "美式",
+        "date": "2026-09-15",
+        "timestamp": 1789444800000,
+        "source": "manual",
+        "ledgerImpact": "normal"
+      },
+      {
+        "id": "c-b4",
+        "type": "expense",
+        "amount": 2000.0,
+        "categoryId": "c-housing",
+        "categoryEmoji": "🏠",
+        "categoryName": "住房",
+        "note": "房租",
+        "date": "2026-09-01",
+        "timestamp": 1788224400000,
+        "source": "recurring",
+        "recurringRuleId": "rule-rent",
+        "ledgerImpact": "normal"
+      }
+    ],
+    "categories": [
+      { "id": "cat-coffee", "name": "咖啡", "emoji": "☕", "builtin": false, "sort": 1 },
+      { "id": "cat-pet", "name": "宠物", "emoji": "🐶", "builtin": false, "sort": 2 }
+    ],
+    "recurringRules": [
+      {
+        "id": "rule-rent",
+        "enabled": true,
+        "type": "expense",
+        "amount": 2000.0,
+        "categoryId": "c-housing",
+        "categoryEmoji": "🏠",
+        "categoryName": "住房",
+        "note": "房租",
+        "frequency": "monthly",
+        "interval": 1,
+        "day": 1,
+        "startDate": "2026-09-01",
+        "time": "09:00",
+        "lastGeneratedDate": "2026-10-01",
+        "nextOccurrence": "2026-11-01",
+        "createdAt": 1788224400000
+      },
+      {
+        "id": "rule-coffee",
+        "enabled": true,
+        "type": "expense",
+        "amount": 25.0,
+        "categoryId": "cat-coffee",
+        "categoryEmoji": "☕",
+        "categoryName": "咖啡",
+        "note": "每周一杯",
+        "frequency": "weekly",
+        "interval": 1,
+        "day": 1,
+        "startDate": "2026-09-07",
+        "time": "08:00",
+        "lastGeneratedDate": "2026-10-12",
+        "nextOccurrence": "2026-10-19",
+        "createdAt": 1788758400000
+      },
+      {
+        "id": "rule-old",
+        "enabled": false,
+        "type": "expense",
+        "amount": 50.0,
+        "categoryId": "c-food",
+        "categoryEmoji": "🍚",
+        "categoryName": "餐饮",
+        "note": "停用旧规则",
+        "frequency": "monthly",
+        "interval": 1,
+        "day": 1,
+        "startDate": "2026-01-01",
+        "time": "09:00",
+        "createdAt": 1767200400000
+      }
+    ],
+    "settings": {}
+  }
+}

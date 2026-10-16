@@ -195,7 +195,7 @@ console.log('场景三：完整备份与恢复');
 
   const backup = store.buildBackup();
   eq(backup.format, 'daily-value-mini-backup', '备份格式标识');
-  eq(backup.schemaVersion, 2, '备份 schema 版本（V2）');
+  eq(backup.schemaVersion, 3, '备份 schema 版本（V3）');
   eq(backup.data.bills.length, 2, '备份含 2 账单');
 
   // 清空账本后恢复
@@ -215,6 +215,55 @@ console.log('场景三：完整备份与恢复');
     threw = true;
   }
   assert(threw, '非法备份被拒绝');
+}
+
+/* ---------- 场景三-b：V2 旧备份恢复（无 recurringRules，向后兼容） ---------- */
+console.log('场景三-b：V2 旧备份恢复兼容');
+{
+  const wx = buildWx();
+  const store = loadStore(wx);
+  store.init();
+  // 先建一条规则，确认恢复 V2 后会被清空（旧备份无周期规则）
+  store.recurring.createRule({
+    type: 'expense', amountCents: 1000, categoryId: 'c-food',
+    frequency: 'daily', interval: 1, day: 1, startDate: '2026-10-01', time: '00:00',
+  });
+  eq(store.recurring.getRules().length, 1, '恢复前有 1 规则');
+
+  // 手工构造 V2 备份（data 无 recurringRules）
+  const v2 = {
+    format: 'daily-value-mini-backup',
+    schemaVersion: 2,
+    appVersion: '0.4.0',
+    exportedAt: '2026-10-01T00:00:00.000Z',
+    data: {
+      bills: [
+        {
+          id: 'old1', type: 'expense', amountCents: 5000, categoryId: 'c-food',
+          occurredAt: new Date(2026, 9, 5, 12, 0).getTime(),
+          title: '', merchant: '', note: '', source: 'manual', ledgerImpact: 'normal',
+        },
+      ],
+      categories: store.categories.DEFAULT_CATEGORIES,
+      settings: {},
+    },
+  };
+  eq(store.backup.validateBackup(v2), null, 'V2 备份校验通过');
+
+  const r = store.restoreBackup(v2);
+  eq(r.restored, 1, 'V2 恢复 1 条');
+  eq(store.rangeBills().length, 1, '恢复后账单 1 条（V2 内容覆盖）');
+  eq(store.monthSummary('2026-10').expense, 5000, 'V2 账单支出 5000');
+  // 旧备份无 recurringRules → 恢复后规则为空（不报错）
+  eq(store.recurring.getRules().length, 0, 'V2 备份恢复后周期规则为空');
+
+  // V1 备份同样接受（schemaVersion=1）
+  const v1 = Object.assign({}, v2, { schemaVersion: 1 });
+  delete v1.data;
+  v1.data = { bills: v2.data.bills, categories: v2.data.categories, settings: {} };
+  eq(store.backup.validateBackup(v1), null, 'V1 备份校验通过');
+  // 不支持的版本拒绝
+  eq(store.backup.validateBackup(Object.assign({}, v2, { schemaVersion: 99 })), 'schemaVersion', '未知 schema 拒绝');
 }
 
 /* ---------- 金额工具边界 ---------- */

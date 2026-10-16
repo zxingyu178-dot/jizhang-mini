@@ -269,6 +269,38 @@
   height: 40rpx;
 }
 
+/* ================= 预算空态 ================= */
+.bcal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 28rpx;
+  padding-bottom: 36rpx;
+}
+.bcal-empty__tip {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.82);
+}
+.bcal-empty__sub {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+.bcal-empty__btn {
+  margin-top: 28rpx;
+  padding: 0 52rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  color: #fff;
+  background: rgba(139, 122, 255, 0.32);
+  border: 1rpx solid rgba(139, 122, 255, 0.5);
+}
+
 /* ================= 预算日历地图 ================= */
 .bcal__heads {
   display: flex;

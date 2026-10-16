@@ -12,6 +12,19 @@
   </view>
 
   <scroll-view scroll-y class="set-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <!-- 记账 -->
+    <view class="sec-label">记账</view>
+    <view class="glass-card sec">
+      <view class="row" bindtap="onCategoryManage">
+        <text class="row__label">分类管理</text>
+        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+      </view>
+      <view class="row row--last" bindtap="onRecurring">
+        <text class="row__label">周期记账</text>
+        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+      </view>
+    </view>
+
     <!-- 预算 -->
     <view class="sec-label">预算</view>
     <view class="glass-card sec">

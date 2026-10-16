@@ -53,8 +53,9 @@ Component({
     daily: [],
     rank: [],
     cmp: { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 },
-    // 预算日历 + 节奏摘要
+    // 预算日历 + 节奏摘要（无任何预算规则时显示轻空态）
     budgetCalendar: null,
+    budgetEmpty: false,
     pace: [],
     // 年度
     year: 0,
@@ -113,18 +114,25 @@ Component({
       }));
       const cmp = M.computeIncomeExpenseCompare(bills);
 
-      // 预算日历地图 + 节奏摘要（规则历史逐天取数；无预算时日历格子灰色）
+      // 预算日历地图 + 节奏摘要：
+      //  从未设置过预算规则 → 轻空态（不再显示整页灰色日历）；
+      //  存在过规则 → 规则历史逐天取数（无预算日格子灰色）。
       const today = util.formatDate(new Date());
-      const budgetCalendar = store.buildBudgetCalendar(y, m, today);
-      // 节奏摘要随所选月份走：当前月=本周/本月截至今日+上周/上月；
-      // 历史月=本月/上月最终结果（不再错误显示今天的「截至今日」数据）。
-      const paceCtx = store.buildBudgetMonthPace(y, m, today);
-      const pace = paceCtx.items.map((p) => ({
-        label: p.label,
-        text: (p.delta >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(p.delta)),
-        positive: p.delta >= 0,
-        hasBudget: p.hasBudget,
-      }));
+      const hasBudgetRules = store.getBudgetState().rules.length > 0;
+      let budgetCalendar = null;
+      let pace = [];
+      if (hasBudgetRules) {
+        budgetCalendar = store.buildBudgetCalendar(y, m, today);
+        // 节奏摘要随所选月份走：当前月=本周/本月截至今日+上周/上月；
+        // 历史月=本月/上月最终结果（不再错误显示今天的「截至今日」数据）。
+        const paceCtx = store.buildBudgetMonthPace(y, m, today);
+        pace = paceCtx.items.map((p) => ({
+          label: p.label,
+          text: (p.delta >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(p.delta)),
+          positive: p.delta >= 0,
+          hasBudget: p.hasBudget,
+        }));
+      }
 
       this.setData({
         ym,
@@ -142,6 +150,7 @@ Component({
           expenseBar: cmp.expenseBar,
         },
         budgetCalendar,
+        budgetEmpty: !hasBudgetRules,
         pace,
       });
     },
@@ -182,6 +191,10 @@ Component({
     onNextYear() {
       if (!this.data.canNextYear) return;
       this.loadYear(this.data.year + 1);
+    },
+    /** 空态：前往预算设置页 */
+    onBudgetSettings() {
+      wx.navigateTo({ url: '/pages/budget-settings/budget-settings' });
     },
     /* ---------- 预算日详情：组装数据后交由 main 页面弹层（只读） ---------- */
     onTapDay(e) {

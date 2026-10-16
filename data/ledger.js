@@ -1,15 +1,16 @@
 /**
- * data/ledger.js — 账单账本（Bill V2，整数分，按月分片）
+ * data/ledger.js — 账单账本（Bill V3，整数分，按月分片）
  *
  * 月份分片：<USER_DATA_PATH>/bills/YYYY-MM.json
- *   { ym, version:2, bills: [Bill...] }
+ *   { ym, version:3, bills: [Bill...] }
  *
- * Bill V2（在 V1 基础上无损扩展，V1→V2 见 migration-schema.js）：
+ * Bill V3（在 V2 基础上无损扩展，V2→V3 见 migration-schema-v3.js）：
  *   id, type('expense'|'income'), amountCents, categoryId, occurredAt(ms),
  *   title,                       // 日价物品名（普通账单为 ''），缺失时展示回退分类名
  *   merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt,
  *   ledgerImpact('normal'|'daily-value-only'),
  *   dailyValue?                  // { enabled:true, mode:'elapsed', startDate:'yyyy-MM-dd' }
+ *   recurringRuleId?             // source='recurring' 时，来源周期规则 id（V3 新增）
  *
  * 账务边界（v0.4.0）：
  *   - 'normal'：进入记账时间线 / 月度·年度统计 / 普通搜索；
@@ -20,7 +21,7 @@ const fs = require('./fs');
 const paths = require('./paths');
 const { genId } = require('../utils/util');
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** 时间戳 -> 'YYYY-MM'（本地业务日期） */
 function ymOf(ts) {
@@ -77,6 +78,8 @@ function createBill(data) {
   };
   const dv = normalizeDailyValue(data.dailyValue);
   if (dv) bill.dailyValue = dv;
+  // V3：周期生成账单带来源规则 id（普通账单无此字段）
+  if (data.recurringRuleId) bill.recurringRuleId = data.recurringRuleId;
   return bill;
 }
 
@@ -85,9 +88,10 @@ function readMonthFile(ym) {
   return fs.readJSON(paths.billFile(ym), { ym, version: SCHEMA_VERSION, bills: [] });
 }
 
-/** 写月份分片（始终写当前 schema 版本） */
+/** 写月份分片（默认写当前 schema；迁移可在 data.version 显式指定目标版本） */
 function writeMonthFile(ym, data) {
-  fs.writeJSON(paths.billFile(ym), { ym, version: SCHEMA_VERSION, bills: data.bills });
+  const version = data.version || SCHEMA_VERSION;
+  fs.writeJSON(paths.billFile(ym), { ym, version, bills: data.bills });
 }
 
 /** 列出全部月份分片（正序；文件存在即返回，不区分是否有普通账单） */

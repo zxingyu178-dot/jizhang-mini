@@ -136,26 +136,111 @@ function parseRows(rows, source, diag) {
   return bills;
 }
 
-/** 校验备份分类 id 是否在 Mini 已知分类内；自定义分类无法映射则 c-other */
-function resolveBackupCategoryId(categoryId, categories) {
-  if (categoryId && NAME_TO_ID_RAW.has(categoryId)) return categoryId;
-  const known = new Set(Object.values(NAME_TO_ID));
-  if (known.has(categoryId)) return categoryId;
-  return 'c-other';
-}
-const NAME_TO_ID_RAW = new Set([
+/* ===================== .dvbackup 完整迁移（Gate F/G） ===================== */
+
+/** 12 个系统固定分类 id（原样映射，不重建） */
+const STANDARD_IDS = [
   'c-food', 'c-transport', 'c-shopping', 'c-fun', 'c-life', 'c-drink',
   'c-bill', 'c-salary', 'c-medical', 'c-housing', 'c-travel', 'c-other',
-]);
+];
+const STANDARD_SET = new Set(STANDARD_IDS);
+const BACKUP_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
 
-/** Android .dvbackup 解析（仅 Bills + 可映射 Categories） */
+/** 清理 id 中不安全字符（确定性 id） */
+function safeIdPart(s) {
+  return String(s).replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+/** 自定义分类在 Mini 的确定性 id */
+function miniCategoryId(androidId) {
+  return 'dvcat-' + safeIdPart(androidId);
+}
+
+/** 周期规则在 Mini 的确定性 id（避免与 Mini 手工规则 id 冲突，重复导入幂等） */
+function miniRuleId(androidId) {
+  return 'dvrule-' + safeIdPart(androidId);
+}
+
+/**
+ * 映射备份分类：系统 id 原样；自定义分类给确定性 Mini id，并产出待建分类。
+ * @returns {{idMap:object, toCreate:array}}
+ */
+function mapBackupCategories(backupCats) {
+  const idMap = {};
+  const toCreate = [];
+  const seen = new Set();
+  backupCats.forEach((c) => {
+    if (!c || !c.id || seen.has(c.id)) return;
+    seen.add(c.id);
+    if (STANDARD_SET.has(c.id)) {
+      idMap[c.id] = c.id;
+      return;
+    }
+    const mid = miniCategoryId(c.id);
+    idMap[c.id] = mid;
+    const name = String(c.name || '').trim().slice(0, 8) || '自定义';
+    toCreate.push({ id: mid, name, emoji: String(c.emoji || '📦') });
+  });
+  return { idMap, toCreate };
+}
+
+/** 账单 / 规则引用分类 id 的映射（找不到系统 id 用自身，否则 c-other） */
+function resolveCategoryRef(androidId, idMap) {
+  if (!androidId) return 'c-other';
+  if (idMap[androidId]) return idMap[androidId];
+  if (STANDARD_SET.has(androidId)) return androidId;
+  return 'c-other';
+}
+
+/** 映射周期规则（金额元→整数分；保留游标，不从头补账；忽略分类快照） */
+function mapRecurringRules(backupRules, idMap) {
+  const out = [];
+  const seen = new Set();
+  backupRules.forEach((r) => {
+    if (!r || !r.id || seen.has(r.id)) return;
+    seen.add(r.id);
+    const amountCents = Math.abs(money.yuanToCents(r.amount));
+    const frequency = BACKUP_FREQUENCIES.indexOf(r.frequency) >= 0 ? r.frequency : 'daily';
+    const rule = {
+      id: miniRuleId(r.id),
+      enabled: r.enabled === true,
+      type: r.type === 'income' ? 'income' : 'expense',
+      amountCents,
+      categoryId: resolveCategoryRef(r.categoryId, idMap),
+      note: r.note ? String(r.note) : '',
+      frequency,
+      interval: Number.isFinite(r.interval) ? Math.min(999, Math.max(1, Math.round(r.interval))) : 1,
+      day: Number.isFinite(r.day) ? Math.max(1, Math.round(r.day)) : 1,
+      startDate: r.startDate,
+      time: r.time,
+      createdAt: r.createdAt || Date.now(),
+    };
+    if (r.month != null && Number.isFinite(r.month)) rule.month = Math.min(12, Math.max(1, Math.round(r.month)));
+    if (r.scheduleEffectiveAt != null) rule.scheduleEffectiveAt = Number(r.scheduleEffectiveAt);
+    if (r.lastGeneratedDate) rule.lastGeneratedDate = r.lastGeneratedDate;
+    if (r.nextOccurrence) rule.nextOccurrence = r.nextOccurrence;
+    if (r.updatedAt != null) rule.updatedAt = Number(r.updatedAt);
+    if (amountCents && r.startDate) out.push(rule);
+  });
+  return out;
+}
+
+/**
+ * Android .dvbackup 解析（Gate F/G）：
+ * 返回 { bills, categories(待建自定义分类), recurringRules(待建规则) }。
+ * bills 的 categoryId 已映射；分类与规则的真正写入在 commit 阶段（幂等）。
+ */
 function parseBackup(obj) {
   if (!obj || obj.format !== 'daily-value-backup') {
     throw new Error('这不是 DailyValue 备份文件');
   }
   const data = obj.data || {};
   const srcBills = Array.isArray(data.bills) ? data.bills : [];
-  const categories = Array.isArray(data.categories) ? data.categories : [];
+  const srcCats = Array.isArray(data.categories) ? data.categories : [];
+  const srcRules = Array.isArray(data.recurringRules) ? data.recurringRules : [];
+
+  const catResult = mapBackupCategories(srcCats);
+  const idMap = catResult.idMap;
   const bills = [];
 
   srcBills.forEach((b) => {
@@ -168,18 +253,17 @@ function parseBackup(obj) {
     const occurredAt = typeof b.timestamp === 'number' ? b.timestamp : normalizer.parseDateTime(b.date);
     if (!amountCents || !occurredAt) return;
 
-    const categoryId = resolveBackupCategoryId(b.categoryId, categories);
+    const categoryId = resolveCategoryRef(b.categoryId, idMap);
     const merchant = b.merchant ? String(b.merchant).trim() : '';
     const note = b.note ? String(b.note).trim() : '';
     const title = b.title ? String(b.title).trim() : '';
 
-    // 完整迁移账本作用域与日价信息（v0.4.0 起不再跳过 daily-value-only）
     const ledgerImpact = b.ledgerImpact === 'daily-value-only' ? 'daily-value-only' : 'normal';
     let dailyValue = null;
     if (b.dailyValue && b.dailyValue.enabled === true && b.dailyValue.startDate) {
       dailyValue = {
         enabled: true,
-        mode: b.dailyValue.mode === 'elapsed' ? 'elapsed' : 'elapsed',
+        mode: 'elapsed',
         startDate: String(b.dailyValue.startDate).slice(0, 10),
       };
     }
@@ -195,17 +279,26 @@ function parseBackup(obj) {
       ledgerImpact,
       dailyValue,
       source: 'dailyvalue',
-      sourceTxnId: b.id ? String(b.id) : '', // 用原 id 做精确去重
+      sourceTxnId: b.id ? String(b.id) : '', // 原 id 精确去重
     });
+    // 周期账单：把来源规则 id 映射为 Mini 规则 id（与待建规则一致）
+    if (b.source === 'recurring' && b.recurringRuleId) {
+      nb.recurringRuleId = miniRuleId(b.recurringRuleId);
+    }
     nb.fingerprint = normalizer.makeFingerprint(nb);
     bills.push(nb);
   });
 
-  return bills;
+  const recurringRules = mapRecurringRules(srcRules, idMap);
+
+  return { bills, categories: catResult.toCreate, recurringRules };
 }
 
 module.exports = {
   parseRows,
   parseBackup,
   nameToId,
+  mapBackupCategories,
+  resolveCategoryRef,
+  STANDARD_IDS,
 };

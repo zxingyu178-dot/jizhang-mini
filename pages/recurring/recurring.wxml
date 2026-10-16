@@ -1,0 +1,144 @@
+<view class="rc-page" style="height:{{windowHeight}}px;">
+  <view class="rc-bg">
+    <view class="rc-bg__glow"></view>
+  </view>
+
+  <!-- Header -->
+  <view class="rc-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+    <view class="rc-back" bindtap="onBack">
+      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
+    </view>
+    <text class="rc-title">周期记账</text>
+  </view>
+
+  <scroll-view scroll-y class="rc-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <view class="rc-hint" wx:if="{{empty}}">
+      <text class="rc-hint__text">还没有周期规则</text>
+      <text class="rc-hint__sub">例如房租、会员、话费、工资，打开小程序时会自动补齐。</text>
+    </view>
+
+    <!-- 规则卡片 -->
+    <view class="rc-card" wx:for="{{rules}}" wx:key="id" data-id="{{item.id}}" bindtap="onEdit">
+      <view class="rc-card__top">
+        <text class="rc-card__freq">{{item.freqText}}</text>
+        <switch
+          class="rc-switch"
+          checked="{{item.enabled}}"
+          data-id="{{item.id}}"
+          catchtap="noop"
+          catch:change="onToggle"
+          color="#7c86ff"
+        />
+      </view>
+      <view class="rc-card__amount {{item.type==='income'?'rc-card__amount--in':''}}">
+        {{item.type==='income'?'+':''}}¥{{item.amountText}}
+      </view>
+      <view class="rc-card__meta">
+        <text class="rc-card__emoji">{{item.emoji}}</text>
+        <text class="rc-card__cat">{{item.categoryName}}</text>
+        <text class="rc-card__note" wx:if="{{item.note}}">· {{item.note}}</text>
+      </view>
+      <view class="rc-card__next" wx:if="{{item.nextText}}">下次 {{item.nextText}}</view>
+    </view>
+
+    <!-- 新建 -->
+    <view class="rc-add" bindtap="onAdd">
+      <text class="rc-add__icon">+</text>
+      <text class="rc-add__text">新建周期</text>
+    </view>
+    <view style="height:60rpx;"></view>
+  </scroll-view>
+
+  <!-- 编辑器 Sheet -->
+  <bottom-sheet show="{{editorShow}}" title="{{editingId?'编辑周期':'新建周期'}}" bind:close="onEditorClose">
+    <view class="re">
+      <!-- 支出 / 收入 -->
+      <view class="re-type">
+        <view class="re-type__item {{type==='expense'?'active':''}}" data-type="expense" bindtap="onType">支出</view>
+        <view class="re-type__item {{type==='income'?'active':''}}" data-type="income" bindtap="onType">收入</view>
+      </view>
+
+      <!-- 金额 -->
+      <view class="re-amount">
+        <text class="re-amount__sym">{{type==='income'?'+¥':'¥'}}</text>
+        <input class="re-amount__input" type="digit" placeholder="0.00" placeholder-class="re-ph" value="{{amountText}}" bindinput="onAmount"/>
+      </view>
+
+      <!-- 周期频率 -->
+      <view class="re-label">周期</view>
+      <view class="re-freq">
+        <view class="re-freq__item {{frequency===item.id?'active':''}}" wx:for="{{frequencyOptions}}" wx:key="id" data-f="{{item.id}}" bindtap="onFrequency">{{item.label}}</view>
+      </view>
+
+      <!-- 间隔 -->
+      <view class="re-interval">
+        <text class="re-interval__t">每</text>
+        <input class="re-interval__input" type="number" value="{{interval}}" bindinput="onInterval"/>
+        <text class="re-interval__t" wx:if="{{frequency==='daily'}}">天</text>
+        <text class="re-interval__t" wx:elif="{{frequency==='weekly'}}">周</text>
+        <text class="re-interval__t" wx:elif="{{frequency==='monthly'}}">月</text>
+        <text class="re-interval__t" wx:else>年</text>
+      </view>
+
+      <!-- 周期日期：weekly -->
+      <block wx:if="{{frequency==='weekly'}}">
+        <view class="re-label">星期</view>
+        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+          <view class="re-chip {{weekDay===item.v?'active':''}}" wx:for="{{weekOptions}}" wx:key="v" data-v="{{item.v}}" bindtap="onWeekDay">{{item.label}}</view>
+        </scroll-view>
+      </block>
+
+      <!-- 周期日期：monthly -->
+      <block wx:if="{{frequency==='monthly'}}">
+        <view class="re-label">日期</view>
+        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+          <view class="re-chip {{monthDay===item?'active':''}}" wx:for="{{dayOptions}}" wx:key="*this" data-v="{{item}}" bindtap="onMonthDay">{{item}}</view>
+        </scroll-view>
+      </block>
+
+      <!-- 周期日期：yearly -->
+      <block wx:if="{{frequency==='yearly'}}">
+        <view class="re-label">月份</view>
+        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+          <view class="re-chip {{yearMonth===item?'active':''}}" wx:for="{{monthOptions}}" wx:key="*this" data-v="{{item}}" bindtap="onYearMonth">{{item}}</view>
+        </scroll-view>
+        <view class="re-label">日期</view>
+        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+          <view class="re-chip {{yearDay===item?'active':''}}" wx:for="{{dayOptions}}" wx:key="*this" data-v="{{item}}" bindtap="onYearDay">{{item}}</view>
+        </scroll-view>
+      </block>
+
+      <!-- 开始日期 -->
+      <view class="re-row">
+        <text class="re-row__label">开始日期</text>
+        <picker mode="date" value="{{startDate}}" bindchange="onStartDate">
+          <view class="re-row__val">{{startDate}}</view>
+        </picker>
+      </view>
+      <!-- 时间 -->
+      <view class="re-row">
+        <text class="re-row__label">时间</text>
+        <picker mode="time" value="{{time}}" bindchange="onTime">
+          <view class="re-row__val">{{time}}</view>
+        </picker>
+      </view>
+
+      <!-- 分类 -->
+      <view class="re-label">分类</view>
+      <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+        <view class="re-chip re-chip--cat {{categoryId===item.id?'active':''}}" wx:for="{{cats}}" wx:key="id" data-id="{{item.id}}" bindtap="onCategory">
+          <text class="re-chip__emoji">{{item.emoji}}</text>
+          <text class="re-chip__name">{{item.name}}</text>
+        </view>
+      </scroll-view>
+
+      <!-- 备注 -->
+      <view class="re-field">
+        <input class="re-field__input" type="text" placeholder="备注（可选）" placeholder-class="re-ph" value="{{note}}" bindinput="onNote" maxlength="40"/>
+      </view>
+
+      <view class="re-save {{canSave?'':'re-save--disabled'}}" bindtap="onSave">保存</view>
+      <view class="re-delete" wx:if="{{editingId}}" data-id="{{editingId}}" bindtap="onDelete">删除规则</view>
+    </view>
+  </bottom-sheet>
+</view>

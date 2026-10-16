@@ -4,9 +4,9 @@
 
 - 技术栈：微信原生小程序（WXML + WXSS + JavaScript），不引入 uni-app / Taro / Vue / React
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
-- 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V2（兼容 V1，整数分金额）
+- 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.5.1（预算口径正确性与交互收口：拆分 consumesBudget（业务上属于预算型支出）与 countsAgainstBudget（当日预算启用才参与比较），预算启用前 / 停用期间的支出不参与盈亏；当前周期实际支出只统计截至今天、未来账单不提前消耗；无预算日 / 周期明确显示「未启用预算」而非误报超支；新增预算语义色 token（盈余绿 / 超支红，与业务收支色解耦）；剩余预算超出后改为「超出总预算」文案；历史月份节奏摘要改为「本月最终 / 上月最终」；日详情无预算态与日历图例。沿用 0.5.0 的预算规则历史、预算日历、Hero 预算模式与 UI Closure）
+- 当前版本：0.6.0（Categories & Recurring：分类管理（软归档，不物理删除；自定义新增 / 改名 / 归档 / 恢复，核心 5 类内置保护、归档分类历史账单仍可解析）、周期记账（每天 / 每周 / 每月 / 每年 + 每 N，月末钳制、确定性 Bill id、catch-up 上限 365、删除不复活、编辑只影响未来、停用不补、打开小程序时自动补齐，不承诺后台准点）、Android `.dvbackup` 自定义分类与周期规则迁移（不再全部变「其他」）、Bill V3（新增 `recurringRuleId`）、Backup V3（新增 `recurringRules`，兼容 V1/V2）、预算空态（未设预算不显示全灰日历）。沿用 0.5.1 的预算口径与 0.5.0 的预算节奏）
 
 ## 测试
 
@@ -14,7 +14,7 @@
 npm test
 ```
 
-一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`settings.test.js`、`importer.test.js`（当前 527 项），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
+一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`categories.test.js`、`recurring.test.js`、`settings.test.js`、`importer.test.js`（当前 664 项，10 套件），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
 
 ## 已实现功能
 
@@ -33,8 +33,11 @@ npm test
 - **预算规则历史**：预算存于 `settings.json` 的 `budget.rules`（非单一 dailyBudget），每条规则含 `dailyCents / effectiveFrom / enabled`。某一天适用「effectiveFrom ≤ 当天且最近一条」规则；改 ¥30→¥40 只新增规则、不重算历史；关闭预算新增 `enabled:false` 规则、不删历史。生效日期可选过去、不允许未来。预算设置页（`pages/budget-settings`）可设启用开关、每日金额、生效日期。
 - **预算日历地图**：统计月度页在月度 Hero 后展示当月预算日历（周一为周起点），绿=盈余、红=超支、灰=无预算或未来、紫色描边=今天，绿/红各两档深浅；点击某一天弹出只读 Bottom Sheet（预算 / 实际 / 盈余或超支、当天分类与账单）。日历下方给出本周截至今日、本月截至今日、上周、上月的节奏摘要。规则中途变更时，历史日历按各规则生效日自动分段计算。
 - **Budget Core（纯函数）**：`data/budget/`（rules / period / core / calendar / index）全部为纯函数，金额整数分，周期边界（周一为周起点、月天数 28/29/30/31）、未来日不进累计预算、已结束周期累计预算=总预算，均由单元测试覆盖。预算规则随 `settings` 已包含在 Backup V2 中，备份格式无需升级。
+- **分类管理**：`pages/category-manage` 分系统分类（核心 5 类 `builtin` 只读、不可改名 / 归档）、我的分类（可新增 / 编辑 / 归档）、已归档（可恢复）。分类对象为 `{id,name,emoji,builtin,sort,archived}`，删除采用软归档（`archived=true`）而非物理删除：新记账看不到、历史账单仍正常解析原分类名 / 图标，不会因分类被删而变「其他」。名称 1–8 字、重名拒绝（含归档）。记账表单 `bill-form` 从数据层取 active 分类（不再硬编码），编辑历史账单引用归档分类时仍显示原分类。
+- **周期记账（Recurring）**：`pages/recurring` 提供规则列表（开关、下次到期）与编辑器。频率每天 / 每周 / 每周 N / 每月 / 每年，支持每 N 与间隔；月末规则自动钳制（每月 31 日遇 2 月→28/29、4 月→30，不滚到下月；每年 2-29 平年→2-28）。小程序无后台常驻，在 App `onLaunch` / `onShow`（打开或回到前台）时自动补齐到期账单，生成器有并发锁、确定性 Bill id（`recur-{ruleId}-{date}-{time}`，多次运行幂等）、catch-up 单规则上限 365、删除已生成账单不复活（游标 `lastGeneratedDate`）、编辑规则只影响未来（`scheduleEffectiveAt`）、删除规则保留历史账单、停用不生成、重新启用不补停用期间。保存过去开始的规则前提示将补记笔数。周期账单 `source='recurring'`、`ledgerImpact='normal'`，支出进统计 / 预算，收入进月度收入。
+- **Android 分类与周期迁移**：`.dvbackup` 除日价外，自定义分类按确定性 id（`dvcat-`）迁入（先按名称复用、否则新建，重复导入不重复），账单分类跟随映射、不再全部变「其他」；`recurringRules` 转换为 Mini 规则（金额元→分、频率 / 间隔 / 日期 / 游标保留，`dvrule-` id），导入后不从头补账。
 - **Android 日价迁移**：`.dvbackup` 完整迁移 `title / ledgerImpact / dailyValue`（含 normal+dailyValue、仅日价物品），已存在账单按源 id 合并补日价、不重复；CSV 无日价字段，仅迁普通账单（对无 id 账单做保守匹配，唯一才补、多条需确认）。
-- **Mini 备份 V2**：完整保存 `title / ledgerImpact / dailyValue`，恢复兼容 V1 + V2。
+- **Mini 备份 V3**：完整保存 `title / ledgerImpact / dailyValue / recurringRules`，恢复兼容 V1 + V2 + V3（旧备份缺 `recurringRules` 按空处理）。
 
 ## 目录结构
 
@@ -46,21 +49,24 @@ jizhang-mini/
 ├── pages/
 │   ├── main/              # 主 Shell：Header + Tabs + Swiper + FAB
 │   ├── search/            # 全局搜索
-│   ├── settings/          # 设置（数据导入 / 备份与恢复 / 预算 / 版本 / 数据与隐私）
+│   ├── settings/          # 设置（数据导入 / 备份与恢复 / 预算 / 分类与周期 / 版本 / 数据与隐私）
 │   ├── budget-settings/   # 预算设置（启用开关 / 每日金额 / 生效日期）
+│   ├── category-manage/   # 分类管理（系统 / 我的 / 已归档）
+│   ├── recurring/         # 周期记账规则列表与编辑器
 │   ├── backup-restore/    # 备份与恢复
 │   └── data-privacy/      # 数据与隐私
 ├── components/
 │   ├── accounting-panel/  # 记账 Panel（含支出 / 预算 Hero 模式）
-│   ├── statistics-panel/  # 统计 Panel（含预算日历地图）
+│   ├── statistics-panel/  # 统计 Panel（含预算日历地图与空态）
 │   ├── daily-value-panel/ # 日价 Panel
 │   ├── daily-value-form/  # 日价物品表单（新增 / 编辑）
 │   ├── daily-value-curve/ # 日价 Canvas 2D 曲线
 │   ├── bottom-sheet/      # 通用底部弹出面板
-│   └── bill-form/         # 记账表单（新增 / 编辑）
-├── data/                  # 正式本地数据层（ledger / money / backup / migration / dailyValue / budget 等）
+│   └── bill-form/         # 记账表单（新增 / 编辑，数据层取分类）
+├── data/                  # 正式本地数据层（ledger / categories / money / backup / migration / dailyValue / budget / recurring 等）
 │   ├── daily-value/       # 日价纯函数（core / list / detail / curve / milestones / form）
-│   └── budget/            # 预算纯函数（rules / period / core / calendar / index）
+│   ├── budget/            # 预算纯函数（rules / period / core / calendar / index）
+│   └── recurring/         # 周期纯函数与存储（core / store / generator / index）
 ├── utils/                 # device（设备/安全区）、util（通用）
 ├── packages/importer/     # 导入引擎（分包，含 SheetJS）
 └── tests/                 # 单元 / 数据层测试
@@ -68,10 +74,13 @@ jizhang-mini/
 
 ## 数据说明
 
-- 存储根：`wx.env.USER_DATA_PATH`，结构为 `manifest.json`、`bills/YYYY-MM.json`、`categories.json`、`settings.json`、`import-history.json`、`legacy/`。
+- 存储根：`wx.env.USER_DATA_PATH`，结构为 `manifest.json`、`bills/YYYY-MM.json`、`categories.json`、`settings.json`、`recurring.json`、`import-history.json`、`legacy/`。
 - 金额核心使用整数分 `amountCents`（¥25.50 = 2550），统计全程整数，显示时再换算，避免浮点误差。
-- Bill V2：`id, type, amountCents, categoryId, occurredAt, title, merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact, dailyValue?`。`ledgerImpact` 取 `normal`（进账本 / 统计）或 `daily-value-only`（仅日价）；`dailyValue` 为 `{ enabled, mode:'elapsed', startDate }`。Bill V1 首次加载无损升级为 V2（补 `title:''`、`ledgerImpact` 原值、`dailyValue` 为空），不改变 id / amountCents / occurredAt。日价与预算均从 Bill 动态派生，不新增预算字段到每笔 Bill。
-- 预算规则存于 `settings.json` 的 `budget`：`{ version:1, weekStartsOn:1, rules:[{ id, enabled, dailyCents, effectiveFrom, createdAt }] }`，随 Backup V2 备份恢复。
+- Bill V3：`id, type, amountCents, categoryId, occurredAt, title, merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact, dailyValue?, recurringRuleId?`。`ledgerImpact` 取 `normal`（进账本 / 统计）或 `daily-value-only`（仅日价）；`dailyValue` 为 `{ enabled, mode:'elapsed', startDate }`；`recurringRuleId` 仅周期账单挂载。Bill V1→V2→V3 逐级无损升级（V3 仅补 `recurringRuleId`），不改变 id / type / amountCents / occurredAt / ledgerImpact / dailyValue，迁移按月份快照、失败回滚。日价、预算、周期均从 Bill 与规则动态派生，不新增预算字段到每笔 Bill。
+- 分类存于 `categories.json`：`{id,name,emoji,builtin,sort,archived}`；删除为软归档，历史账单引用不丢失。
+- 周期规则存于 `recurring.json`：`{version:1,rules:[{id,enabled,type,amountCents,categoryId,note,frequency,interval,day,month?,startDate,time,scheduleEffectiveAt?,lastGeneratedDate?,nextOccurrence?}]}`。
+- 预算规则存于 `settings.json` 的 `budget`：`{ version:1, weekStartsOn:1, rules:[{ id, enabled, dailyCents, effectiveFrom, createdAt }] }`。
+- 备份 Backup V3（`daily-value-mini-backup`）：`data` 含 `bills / categories / settings / recurringRules`，预算规则随 `settings` 一并保存；恢复兼容 V1/V2/V3。
 
 ## 快速开始
 

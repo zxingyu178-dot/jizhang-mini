@@ -3,17 +3,18 @@
  *
  * manifest.json：
  *   { schemaVersion, appVersion, createdAt, updatedAt,
- *     migrations: { jmRecords:{...}, billV2:{...} } }
+ *     migrations: { jmRecords:{...}, billV2:{...}, billV3:{...} } }
  *
  * schemaVersion 演进：
  *   1：Bill V1（无 title / dailyValue）；
- *   2：Bill V2（新增 title / ledgerImpact 语义完善 / dailyValue 扩展）。
+ *   2：Bill V2（新增 title / ledgerImpact 语义完善 / dailyValue 扩展）；
+ *   3：Bill V3（新增 recurringRuleId，支持周期记账）。
  */
 const fs = require('./fs');
 const paths = require('./paths');
 const { APP_VERSION } = require('../utils/version');
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 function ensureManifest() {
   const existing = fs.readJSON(paths.FILE.manifest, null);
@@ -27,6 +28,7 @@ function ensureManifest() {
     migrations: {
       jmRecords: { status: 'pending' },
       billV2: { status: 'pending' },
+      billV3: { status: 'pending' },
     },
   };
   fs.writeJSON(paths.FILE.manifest, manifest);

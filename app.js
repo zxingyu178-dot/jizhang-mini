@@ -19,6 +19,8 @@ App({
     this.$dv = dv;
     try {
       this.dataStatus = store.init();
+      // 冷启动补齐「已到期但未生成」的周期账单（含长期未打开后的 catch-up）。
+      this.runRecurringCatchup();
     } catch (e) {
       console.error('数据层初始化失败', e);
       this.dataStatus = { error: String(e && e.message) };
@@ -26,9 +28,27 @@ App({
   },
 
   onShow() {
-    // 从后台切回时日期可能已跨天：先刷新可见的时间敏感视图（日价 / 预算），再排下一次本地午夜。
-    this.refreshTimeSensitiveViews();
+    // 回前台：先补齐后台期间到期的周期账单，再刷新时间敏感视图（日价 / 预算 / 周期），排午夜。
+    this.runRecurringCatchup().then(() => {
+      this.refreshTimeSensitiveViews();
+    });
     this.scheduleMidnight();
+  },
+
+  /**
+   * 周期账单补生成（小程序无后台常驻）：
+   * 每次冷启动 / 回到前台时，自动补齐所有已经到期但尚未生成的周期账单。
+   * 生成器内部带并发锁，onLaunch 与首次 onShow 短时重复触发也只跑一个 drain。
+   */
+  runRecurringCatchup() {
+    try {
+      const store = this.$store || require('./data/index');
+      if (!store.isInitialized()) return Promise.resolve(null);
+      return store.recurring.runRecurringGenerator();
+    } catch (e) {
+      console.error('周期账单补生成失败', e);
+      return Promise.resolve(null);
+    }
   },
 
   onHide() {

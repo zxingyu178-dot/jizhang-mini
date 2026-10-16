@@ -355,7 +355,7 @@ console.log('E. 备份恢复');
   });
 
   const backup = store.buildBackup();
-  eq(backup.schemaVersion, 2, '备份仍是 V2（不升级）');
+  eq(backup.schemaVersion, 3, '备份为 V3（周期规则进入备份）');
   const backupJson = JSON.stringify(backup);
   assert(backupJson.includes('"budget"'), '备份含 budget 字段');
   assert(backupJson.includes('4000'), '备份含规则金额 4000');

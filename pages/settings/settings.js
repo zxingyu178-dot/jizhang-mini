@@ -40,6 +40,16 @@ Page({
     wx.navigateBack({ delta: 1 });
   },
 
+  /** 分类管理（二级页） */
+  onCategoryManage() {
+    wx.navigateTo({ url: '/pages/category-manage/category-manage' });
+  },
+
+  /** 周期记账（二级页） */
+  onRecurring() {
+    wx.navigateTo({ url: '/pages/recurring/recurring' });
+  },
+
   /** 预算设置（二级页） */
   onBudgetSettings() {
     wx.navigateTo({ url: '/pages/budget-settings/budget-settings' });

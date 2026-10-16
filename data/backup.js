@@ -1,13 +1,14 @@
 /**
- * data/backup.js — Mini 完整备份 / 恢复（DailyValueMiniBackupV2，兼容 V1）
+ * data/backup.js — Mini 完整备份 / 恢复（DailyValueMiniBackupV3，兼容 V1/V2）
  *
  * 备份对象（.dvmini.json）：
- *   { format:'daily-value-mini-backup', schemaVersion:2, appVersion, exportedAt,
- *     data:{ bills:[...V2 完整字段，含 title/ledgerImpact/dailyValue],
- *            categories:[...], settings:{...} } }
+ *   { format:'daily-value-mini-backup', schemaVersion:3, appVersion, exportedAt,
+ *     data:{ bills:[...V3 完整字段，含 title/ledgerImpact/dailyValue/recurringRuleId],
+ *            categories:[...], settings:{...}, recurringRules:[...] } }
  *
- * V2 相对 V1：bills 完整保存 title / ledgerImpact / dailyValue（恢复后日价不丢）。
- * 恢复兼容 V1 + V2：旧 V1 备份经 createBill 自动补 title / 归一 ledgerImpact。
+ * V3 相对 V2：data 增加 recurringRules（周期规则；恢复后周期记账不丢）。
+ * V2 相对 V1：bills 完整保存 title / ledgerImpact / dailyValue。
+ * 恢复兼容 V1 + V2 + V3：旧备份缺失的 recurringRules 按空处理。
  * 完整恢复（非普通账单导入）：恢复前写安全点，失败可回滚。
  */
 const fs = require('./fs');
@@ -15,14 +16,15 @@ const paths = require('./paths');
 const ledger = require('./ledger');
 const categories = require('./categories');
 const settings = require('./settings');
+const recurringStore = require('./recurring/store');
 const { APP_VERSION } = require('../utils/version');
 
 const FORMAT = 'daily-value-mini-backup';
-const SCHEMA_VERSION = 2;
-/** 恢复可接受的历史 schema 版本（V1 备份仍可恢复） */
-const SUPPORTED_SCHEMA_VERSIONS = [1, 2];
+const SCHEMA_VERSION = 3;
+/** 恢复可接受的历史 schema 版本（V1/V2 备份仍可恢复） */
+const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3];
 
-/** 构造备份对象（读取全部账本） */
+/** 构造备份对象（读取全部账本 + 周期规则） */
 function buildBackup() {
   return {
     format: FORMAT,
@@ -33,13 +35,14 @@ function buildBackup() {
       bills: ledger.rangeBills(null, null),
       categories: categories.getCategories(),
       settings: settings.getSettings(),
+      recurringRules: recurringStore.getRules(),
     },
   };
 }
 
 /**
  * 校验备份；返回错误类型或 null。
- * 兼容 V1 + V2：schemaVersion 为 1 或 2 均接受（恢复时统一归一为 V2）。
+ * 兼容 V1/V2/V3：schemaVersion 1/2/3 均接受（恢复时统一归一为 V3）。
  */
 function validateBackup(backup) {
   if (!backup || backup.format !== FORMAT) return 'format';
@@ -72,6 +75,10 @@ function restoreBackup(backup) {
     fs.writeJSON(paths.FILE.categories, backup.data.categories || categories.DEFAULT_CATEGORIES);
     fs.writeJSON(paths.FILE.settings, Object.assign({}, settings.DEFAULT_SETTINGS, backup.data.settings || {}));
 
+    // 4.5 周期规则（V3 新增；V1/V2 备份无此字段 → 空）
+    const ruleList = Array.isArray(backup.data.recurringRules) ? backup.data.recurringRules : [];
+    recurringStore.replaceAllRules(ruleList);
+
     // 5. 校验条数
     if (result.total !== backup.data.bills.length) {
       throw new Error('恢复条数不一致');
@@ -93,6 +100,7 @@ function rollback(safetyPath) {
   ledger.addBills(saved.data.bills || []);
   fs.writeJSON(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
   fs.writeJSON(paths.FILE.settings, saved.data.settings || settings.DEFAULT_SETTINGS);
+  recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
 }
 
 module.exports = {

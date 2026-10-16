@@ -30,6 +30,14 @@
         </view>
       </view>
 
+      <!-- 预算空态：从未设置过预算规则（不显示整页灰色日历） -->
+      <view class="glass-card chart bcal-empty" wx:if="{{budgetEmpty}}">
+        <text class="chart__title">预算分析</text>
+        <text class="bcal-empty__tip">还没有设置预算</text>
+        <text class="bcal-empty__sub">设置每日预算后，可以查看每天的盈余与超支</text>
+        <view class="bcal-empty__btn" bindtap="onBudgetSettings">设置预算</view>
+      </view>
+
       <!-- 预算日历地图（绿盈余 / 红超支 / 灰无预算或未来 / 紫描边今天） -->
       <view class="glass-card chart bcal" wx:if="{{budgetCalendar}}">
         <text class="chart__title">{{monthLabel}}预算日历</text>

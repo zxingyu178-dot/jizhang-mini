@@ -1,0 +1,76 @@
+<view class="cm-page" style="height:{{windowHeight}}px;">
+  <view class="cm-bg">
+    <view class="cm-bg__glow"></view>
+  </view>
+
+  <!-- Header -->
+  <view class="cm-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+    <view class="cm-back" bindtap="onBack">
+      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
+    </view>
+    <text class="cm-title">分类管理</text>
+  </view>
+
+  <scroll-view scroll-y class="cm-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <!-- 系统分类（只读） -->
+    <view class="sec-label">系统分类</view>
+    <view class="glass-card sec">
+      <view class="cm-row" wx:for="{{system}}" wx:key="id">
+        <text class="cm-row__emoji">{{item.emoji}}</text>
+        <text class="cm-row__name">{{item.name}}</text>
+      </view>
+    </view>
+
+    <!-- 我的分类（可编辑、归档） -->
+    <view class="sec-label">我的分类</view>
+    <view class="glass-card sec">
+      <view class="cm-row" wx:for="{{custom}}" wx:key="id">
+        <view class="cm-row__main" data-id="{{item.id}}" bindtap="onEdit">
+          <text class="cm-row__emoji">{{item.emoji}}</text>
+          <text class="cm-row__name">{{item.name}}</text>
+        </view>
+        <view class="cm-row__archive" data-id="{{item.id}}" bindtap="onArchive">归档</view>
+      </view>
+      <view class="cm-row cm-row--last" wx:if="{{!custom.length}}">
+        <text class="cm-empty">还没有自定义分类</text>
+      </view>
+    </view>
+
+    <!-- 添加分类 -->
+    <view class="cm-add" bindtap="onAdd">
+      <text class="cm-add__icon">+</text>
+      <text class="cm-add__text">添加分类</text>
+    </view>
+
+    <!-- 已归档（可恢复） -->
+    <block wx:if="{{archived.length}}">
+      <view class="sec-label">已归档</view>
+      <view class="glass-card sec">
+        <view class="cm-row cm-row--last" wx:for="{{archived}}" wx:key="id">
+          <view class="cm-row__main">
+            <text class="cm-row__emoji cm-row__emoji--off">{{item.emoji}}</text>
+            <text class="cm-row__name cm-row__name--off">{{item.name}}</text>
+          </view>
+          <view class="cm-row__restore" data-id="{{item.id}}" bindtap="onRestore">恢复</view>
+        </view>
+      </view>
+    </block>
+
+    <view style="height:60rpx;"></view>
+  </scroll-view>
+
+  <!-- 分类编辑器 Sheet -->
+  <bottom-sheet show="{{editorShow}}" title="{{editorTitle}}" bind:close="onEditorClose">
+    <view class="ce">
+      <view class="ce__field">
+        <text class="ce__label">图标</text>
+        <input class="ce__emoji" type="text" placeholder="选一个 Emoji" placeholder-class="ce-ph" value="{{emoji}}" bindinput="onEmoji" maxlength="4"/>
+      </view>
+      <view class="ce__field">
+        <text class="ce__label">名称</text>
+        <input class="ce__name" type="text" placeholder="分类名称，1-8 个字" placeholder-class="ce-ph" value="{{name}}" bindinput="onName" maxlength="8"/>
+      </view>
+      <view class="ce__save {{canSave?'':'ce__save--disabled'}}" bindtap="onSaveEditor">保存</view>
+    </view>
+  </bottom-sheet>
+</view>

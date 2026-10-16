@@ -8,6 +8,46 @@ const fs = require('../../../data/fs');
 const paths = require('../../../data/paths');
 const backup = require('../../../data/backup');
 const ledger = require('../../../data/ledger');
+const categories = require('../../../data/categories');
+const recurringStore = require('../../../data/recurring/store');
+
+/**
+ * 幂等写入 Gate F 自定义分类（同 id 跳过、同名复用、否则按确定性 id 新建），
+ * 并把得到的 id 映射应用到内存 bills 的 categoryId。
+ * @returns idRemap
+ */
+function ensureExtraCategories(session, bills) {
+  const remap = {};
+  (session.extraCategories || []).forEach((c) => {
+    if (categories.getCategories().find((x) => x.id === c.id)) {
+      remap[c.id] = c.id;
+      return;
+    }
+    const dup = categories.findDuplicateName(c.name);
+    if (dup) {
+      remap[c.id] = dup.id;
+      return;
+    }
+    const r = categories.addCategory({ id: c.id, name: c.name, emoji: c.emoji });
+    remap[c.id] = r.ok ? r.category.id : c.id;
+  });
+  const keys = Object.keys(remap);
+  if (keys.length) {
+    bills.forEach((b) => {
+      if (remap[b.categoryId]) b.categoryId = remap[b.categoryId];
+    });
+  }
+  return remap;
+}
+
+/** 幂等写入 Gate G 周期规则（同 id 跳过；categoryId 应用分类映射） */
+function ensureExtraRules(session, remap) {
+  (session.extraRecurringRules || []).forEach((r) => {
+    if (remap[r.categoryId]) r.categoryId = remap[r.categoryId];
+    if (recurringStore.getRule(r.id)) return;
+    recurringStore.addRule(r);
+  });
+}
 
 /** NormalizedBill -> ledger Bill 字段（透传 title / ledgerImpact / dailyValue） */
 function toLedgerBill(b, batchId) {
@@ -32,6 +72,8 @@ function toLedgerBill(b, batchId) {
       startDate: String(b.dailyValue.startDate).slice(0, 10),
     };
   }
+  // 周期账单：关联迁移后的规则 id（有才挂，Bill V3）
+  if (b.recurringRuleId) out.recurringRuleId = b.recurringRuleId;
   return out;
 }
 
@@ -57,6 +99,10 @@ function commitImport(session, opts) {
   const batchId = 'imp-' + Date.now();
 
   try {
+    // 0. Gate F/G：先幂等写入自定义分类与周期规则（账单 categoryId 已重映射）
+    const remap = ensureExtraCategories(session, session.bills);
+    ensureExtraRules(session, remap);
+
     // 1.5 补充日价（原位更新，不新增账单）
     toMerge.forEach((b) => {
       if (!b.existingId || !b.mergePatch) return;

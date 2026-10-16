@@ -270,6 +270,61 @@ async function testDailyValueBackup() {
   eq(session2.counts.existing, 3, 'DV backup 重复导入 existing');
 }
 
+/* ---------- Gate F/G：自定义分类 + 周期规则迁移 ---------- */
+async function testDailyValueCustom() {
+  const store = freshStore();
+  const session = await runParse(store, 'dailyvalue-backup-custom.json', 'dailyvalue');
+  eq(session.counts.ready, 4, 'custom backup ready=4');
+  // 会话带附加分类 / 规则
+  eq(session.extraCategories.length, 2, '会话附带 2 个自定义分类');
+  eq(session.extraRecurringRules.length, 3, '会话附带 3 条周期规则');
+
+  commit.commitImport(session);
+
+  // 自定义分类已按确定性 id 创建
+  const catCoffee = store.categories.getCategory('dvcat-cat-coffee');
+  eq(catCoffee.name, '咖啡', '咖啡分类迁入');
+  eq(catCoffee.emoji, '☕', '咖啡 emoji 迁入');
+  const catPet = store.categories.getCategory('dvcat-cat-pet');
+  eq(catPet.name, '宠物', '宠物分类迁入');
+
+  // 账单分类跟随映射，不再全部变 c-other
+  const b1 = store.rangeBills().find((b) => b.sourceTxnId === 'dailyvalue:c-b1');
+  eq(b1.categoryId, 'dvcat-cat-coffee', 'c-b1 映射到咖啡分类（非 c-other）');
+  const b2 = store.rangeBills().find((b) => b.sourceTxnId === 'dailyvalue:c-b2');
+  eq(b2.categoryId, 'dvcat-cat-pet', 'c-b2 映射到宠物分类');
+
+  // 周期规则迁入（金额元→分，保留游标不从头补）
+  const rules = store.recurring.getRules();
+  eq(rules.length, 3, '3 条周期规则迁入');
+  const rent = store.recurring.getRule('dvrule-rule-rent');
+  assert(rent, '房租规则迁入');
+  eq(rent.amountCents, 200000, '房租金额 200000');
+  eq(rent.frequency, 'monthly', '房租频率 monthly');
+  eq(rent.categoryId, 'c-housing', '房租分类 c-housing');
+  eq(rent.lastGeneratedDate, '2026-10-01', '保留 lastGeneratedDate（不从头补）');
+  eq(rent.nextOccurrence, '2026-11-01', '保留 nextOccurrence');
+  // 引用自定义分类的规则
+  const coffeeRule = store.recurring.getRule('dvrule-rule-coffee');
+  eq(coffeeRule.categoryId, 'dvcat-cat-coffee', '周期规则分类跟随自定义分类');
+  // 停用规则
+  eq(store.recurring.getRule('dvrule-rule-old').enabled, false, '停用规则保留 false');
+
+  // 历史周期账单：recurringRuleId 映射到 Mini 规则 id
+  const b4 = store.rangeBills().find((b) => b.sourceTxnId === 'dailyvalue:c-b4');
+  eq(b4.recurringRuleId, 'dvrule-rule-rent', '周期账单规则 id 映射');
+
+  // 分类总数
+  eq(store.categories.getCategories().length, 14, '分类 12+2=14');
+
+  // 重复导入：分类 / 规则不重复
+  const session2 = await runParse(store, 'dailyvalue-backup-custom.json', 'dailyvalue');
+  commit.commitImport(session2);
+  eq(store.categories.getCategories().length, 14, '重复导入分类不重复');
+  eq(store.recurring.getRules().length, 3, '重复导入规则不重复');
+  eq(store.rangeBills().length, 4, '重复导入账单不新增');
+}
+
 async function testMiniRestore() {
   const store = freshStore();
   // 先造 3 笔
@@ -337,6 +392,7 @@ async function run() {
     testAlipayGbk,
     testDailyValueCsv,
     testDailyValueBackup,
+    testDailyValueCustom,
     testMiniRestore,
     testDiagnosis,
   ];

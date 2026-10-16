@@ -71,7 +71,8 @@ function runSchemaMigration() {
     months.forEach((ym) => {
       const mf = ledger.readMonthFile(ym);
       mf.bills = mf.bills.map(upgradeBill);
-      ledger.writeMonthFile(ym, mf); // writeMonthFile 写 version=2
+      mf.version = TARGET_VERSION; // 显式写成 V2，随后由 V3 迁移再升到 V3
+      ledger.writeMonthFile(ym, mf);
       billCount += mf.bills.length;
     });
 

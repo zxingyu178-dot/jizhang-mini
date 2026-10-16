@@ -81,6 +81,16 @@ function doParse(buffer, file, lower, diag) {
   let bills = [];
   let source = file.hintedSource || '';
   let restoreObj = null;
+  // Gate F/G：dailyvalue .dvbackup 附带的自定义分类与周期规则（commit 时写入）
+  let extraCategories = [];
+  let extraRecurringRules = [];
+
+  /** 解包 dailyvalue.parseBackup 的 {bills,categories,recurringRules} */
+  function consumeBackup(parsed) {
+    bills = parsed.bills;
+    extraCategories = parsed.categories || [];
+    extraRecurringRules = parsed.recurringRules || [];
+  }
 
   if (lower.endsWith('.xlsx')) {
     diag.fileType = 'xlsx';
@@ -107,7 +117,7 @@ function doParse(buffer, file, lower, diag) {
   } else if (lower.endsWith('.dvbackup')) {
     diag.fileType = 'dvbackup';
     const obj = JSON.parse(bufferToText(buffer));
-    bills = dailyvalue.parseBackup(obj);
+    consumeBackup(dailyvalue.parseBackup(obj));
     source = 'dailyvalue';
     diag.source = source;
   } else if (lower.endsWith('.json')) {
@@ -118,7 +128,7 @@ function doParse(buffer, file, lower, diag) {
       source = 'dvmini';
       restoreObj = obj;
     } else {
-      bills = dailyvalue.parseBackup(obj);
+      consumeBackup(dailyvalue.parseBackup(obj));
       source = 'dailyvalue';
     }
     diag.source = source;
@@ -132,7 +142,7 @@ function doParse(buffer, file, lower, diag) {
         source = 'dvmini';
         restoreObj = obj;
       } else {
-        bills = dailyvalue.parseBackup(obj);
+        consumeBackup(dailyvalue.parseBackup(obj));
         source = 'dailyvalue';
       }
       diag.source = source;
@@ -179,6 +189,8 @@ function doParse(buffer, file, lower, diag) {
     bills,
     counts,
     dateRange,
+    extraCategories,
+    extraRecurringRules,
     diagnostic: diag,
   };
 }

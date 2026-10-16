@@ -13,10 +13,12 @@ const manifest = require('./manifest');
 const ledger = require('./ledger');
 const migration = require('./migration');
 const migrationSchema = require('./migration-schema');
+const migrationSchemaV3 = require('./migration-schema-v3');
 const backup = require('./backup');
 const importHistory = require('./import-history');
 const dailyValue = require('./daily-value/index');
 const budget = require('./budget/index');
+const recurring = require('./recurring/index');
 
 let initialized = false;
 
@@ -30,6 +32,8 @@ function init() {
   // 先迁旧 jm_records（产出的账单已是 V2 形态），再统一把月份分片升到 V2。
   migration.runMigration();
   migrationSchema.runSchemaMigration();
+  // 再把月份分片从 V2 无损升到 V3（recurringRuleId）。
+  migrationSchemaV3.runSchemaMigration();
   initialized = true;
   return getStatus();
 }
@@ -76,6 +80,7 @@ module.exports = {
   },
   // 分类
   getCategories: categories.getCategories,
+  getActiveCategories: categories.getActiveCategories,
   getCategory: categories.getCategory,
   // 预算（Bill + Budget Rules 动态派生，不给 Bill 加预算字段）
   getBudgetState: budget.getBudgetState,
@@ -121,6 +126,8 @@ module.exports = {
   backup,
   migration,
   migrationSchema,
+  migrationSchemaV3,
   dailyValue,
   budget,
+  recurring,
 };

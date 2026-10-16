@@ -331,7 +331,7 @@ console.log('F. Android .dvbackup 迁移');
     },
   };
 
-  let normalized = dvAdapter.parseBackup(backup);
+  let normalized = dvAdapter.parseBackup(backup).bills;
   eq(normalized.length, 2, '解析出 2 笔');
   // DV-IMPORT-01 normal+dailyValue 字段
   const n1 = normalized.find((b) => b.sourceTxnId === 'x1');
@@ -353,7 +353,7 @@ console.log('F. Android .dvbackup 迁移');
   assert(dvList.some((x) => x.id === store.rangeBills().find((b) => b.sourceTxnId === 'dailyvalue:x1').id), 'x1 进日价列表');
 
   // DV-IMPORT-03 再次导入：不重复（existing，无补丁）
-  const normalized2 = dvAdapter.parseBackup(backup);
+  const normalized2 = dvAdapter.parseBackup(backup).bills;
   const classified2 = dedupe.classify(normalized2);
   const c2 = dedupe.countByStatus(classified2);
   eq(c2.existing, 2, 'DV-IMPORT-03 再次导入全部 existing');
@@ -391,7 +391,7 @@ console.log('G. 合并补日价');
       }],
     },
   };
-  const normalized = dvAdapter.parseBackup(backup);
+  const normalized = dvAdapter.parseBackup(backup).bills;
   const classified = dedupe.classify(normalized);
   eq(classified[0].status, 'merge', '标记 merge（补充日价）');
   const r = commit.commitImport({ bills: classified, counts: dedupe.countByStatus(classified) });
@@ -423,7 +423,7 @@ console.log('H. Mini 备份 V2 / V1 兼容');
 
   // DV-BACKUP-01 V2 完整备份
   const backup = store.buildBackup();
-  eq(backup.schemaVersion, 2, 'DV-BACKUP-01 schemaVersion=2');
+  eq(backup.schemaVersion, 3, 'DV-BACKUP-01 schemaVersion=3');
   assert(backup.data.bills.some((b) => b.dailyValue && b.dailyValue.enabled), 'DV-BACKUP-01 含 dailyValue');
   eq(backup.data.bills.some((b) => b.ledgerImpact === 'daily-value-only'), true, 'DV-BACKUP-01 含 daily-value-only');
 
@@ -491,7 +491,7 @@ console.log('I. Bill V1→V2 无损');
   // DV-MODEL-01 无损：id/amountCents/occurredAt 不变，条数不变
   eq(status.schemaMigration.status, 'done', 'schema 迁移 done');
   const mf = store.ledger.readMonthFile('2026-09');
-  eq(mf.version, 2, '分片升级 version=2');
+  eq(mf.version, 3, '分片经 V1→V2→V3 升级 version=3');
   eq(mf.bills.length, 2, '条数不变');
   const a = mf.bills.find((b) => b.id === 'v1-a');
   eq(a.amountCents, 1234, 'DV-MODEL-01 amountCents 不变');
