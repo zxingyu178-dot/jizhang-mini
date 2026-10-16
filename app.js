@@ -26,8 +26,8 @@ App({
   },
 
   onShow() {
-    // 从后台切回时日期可能已跨天：先刷新可见日价，再排下一次本地午夜定时器。
-    this.refreshVisibleDailyValue();
+    // 从后台切回时日期可能已跨天：先刷新可见的时间敏感视图（日价 / 预算），再排下一次本地午夜。
+    this.refreshTimeSensitiveViews();
     this.scheduleMidnight();
   },
 
@@ -56,18 +56,19 @@ App({
     }
   },
 
-  /** 午夜到达：重算可见日价视图（日价派生，不持久化），再排下一次。 */
+  /** 午夜到达：重算可见时间敏感视图（日价 / 预算，均为派生不持久化），再排下一次。 */
   onMidnight() {
-    this.refreshVisibleDailyValue();
+    this.refreshTimeSensitiveViews();
     this.scheduleMidnight();
   },
 
   /**
-   * 刷新当前可见页面中的日价数据：
-   *   - main：刷新三个 Panel（含日价 Hero / 列表）；
+   * 刷新当前可见页面中的时间敏感数据（日价 + 预算）：
+   *   - main：刷新三个 Panel（日价 Hero / 列表、预算 Hero / 日历）；
    *   - 日价详情：重算详情并刷新曲线。
+   * 不建第二套午夜 Timer，预算与日价共用同一刷新入口。
    */
-  refreshVisibleDailyValue() {
+  refreshTimeSensitiveViews() {
     try {
       const pages = getCurrentPages();
       const cur = pages[pages.length - 1];
@@ -80,7 +81,7 @@ App({
         if (curve && typeof curve.refresh === 'function') curve.refresh();
       }
     } catch (e) {
-      console.error('日价跨日刷新失败', e);
+      console.error('时间敏感视图跨日刷新失败', e);
     }
   }
 });

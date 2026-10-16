@@ -16,6 +16,7 @@ const migrationSchema = require('./migration-schema');
 const backup = require('./backup');
 const importHistory = require('./import-history');
 const dailyValue = require('./daily-value/index');
+const budget = require('./budget/index');
 
 let initialized = false;
 
@@ -76,6 +77,26 @@ module.exports = {
   // 分类
   getCategories: categories.getCategories,
   getCategory: categories.getCategory,
+  // 预算（Bill + Budget Rules 动态派生，不给 Bill 加预算字段）
+  getBudgetState: budget.getBudgetState,
+  saveBudgetRule: budget.saveBudgetRule,
+  computeBudgetByKind: function (kind, today) {
+    return budget.computeByKind(ledger.rangeBills(), budget.getBudgetState(), kind, today);
+  },
+  buildBudgetCalendar: function (year, month, today) {
+    return budget.buildMonthCalendar(ledger.rangeBills(), budget.getBudgetState(), year, month, today);
+  },
+  buildBudgetDayDetail: function (dateStr) {
+    return budget.buildDayDetail(
+      ledger.rangeBills(),
+      budget.getBudgetState(),
+      dateStr,
+      (id) => categories.getCategory(id)
+    );
+  },
+  buildBudgetPaceSummary: function (today) {
+    return budget.buildPaceSummary(ledger.rangeBills(), budget.getBudgetState(), today);
+  },
   // 设置
   getSettings: settings.getSettings,
   updateSettings: settings.updateSettings,
@@ -97,4 +118,5 @@ module.exports = {
   migration,
   migrationSchema,
   dailyValue,
+  budget,
 };

@@ -38,7 +38,7 @@
     easing-function="easeOut"
   >
     <swiper-item>
-      <statistics-panel id="statisticsPanel" bind:categorydetail="onShowCategoryDetail" />
+      <statistics-panel id="statisticsPanel" bind:categorydetail="onShowCategoryDetail" bind:daydetail="onShowDayDetail" />
     </swiper-item>
     <swiper-item>
       <accounting-panel id="accountingPanel" bind:tapbill="onTapBill" />
@@ -61,6 +61,40 @@
   <!-- 日价新增表单 Bottom Sheet（日价 Tab 的 FAB） -->
   <bottom-sheet show="{{dvSheetShow}}" title="{{dvSheetTitle}}" bind:close="onDvSheetClose">
     <daily-value-form id="dvForm" bind:saved="onDvSaved" />
+  </bottom-sheet>
+
+  <!-- 预算日详情弹层（页面级 fixed，只读） -->
+  <bottom-sheet show="{{dayDetail.show}}" title="{{dayDetail.title}}" bind:close="onCloseDayDetail">
+    <view class="dayd">
+      <view class="dayd__rows">
+        <view class="dayd__row">
+          <text class="dayd__label">预算</text>
+          <text class="dayd__val">{{dayDetail.budgetText}}</text>
+        </view>
+        <view class="dayd__row">
+          <text class="dayd__label">实际支出</text>
+          <text class="dayd__val">{{dayDetail.actualText}}</text>
+        </view>
+        <view class="dayd__row">
+          <text class="dayd__label">{{dayDetail.deltaLabel}}</text>
+          <text class="dayd__val {{dayDetail.delta>=0?'money-income':'money-expense'}}">{{dayDetail.deltaText}}</text>
+        </view>
+      </view>
+
+      <view class="dayd__cathead" wx:if="{{dayDetail.categories.length}}">分类</view>
+      <view class="dayd__cat" wx:for="{{dayDetail.categories}}" wx:key="categoryId">
+        <text class="dayd__cat-emoji">{{item.emoji}}</text>
+        <text class="dayd__cat-name">{{item.name}}</text>
+        <text class="dayd__cat-cents">{{item.centsText}}</text>
+      </view>
+
+      <view class="dayd__cathead" wx:if="{{dayDetail.bills.length}}">当天账单</view>
+      <view class="dayd__bill" wx:for="{{dayDetail.bills}}" wx:key="id">
+        <text class="dayd__bill-name">{{item.name}}</text>
+        <text class="dayd__bill-amount">{{item.amountText}}</text>
+      </view>
+      <view class="dayd__empty" wx:if="{{!dayDetail.billCount}}">当天没有普通支出账单</view>
+    </view>
   </bottom-sheet>
 
   <!-- 分类明细弹层（页面级 fixed，相对视口定位） -->

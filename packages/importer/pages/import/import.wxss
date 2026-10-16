@@ -31,6 +31,8 @@
   align-items: center;
   padding-left: 20rpx;
   z-index: 10;
+  /* headerHeight 已含 statusBar，border-box 保证 padding-top 不额外撑高 */
+  box-sizing: border-box;
 }
 .imp-back {
   width: 64rpx;

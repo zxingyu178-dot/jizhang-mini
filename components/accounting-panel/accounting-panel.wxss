@@ -250,3 +250,128 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* ================= 预算模式 ================= */
+/* 模式切换：支出 / 预算（轻，顶部居中） */
+.hmode {
+  display: flex;
+  justify-content: center;
+  gap: 8rpx;
+  margin-bottom: 10rpx;
+}
+.hmode__item {
+  padding: 8rpx 30rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 999rpx;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.hmode__item--active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 空态：引导设置 */
+.hb-empty {
+  padding: 40rpx 24rpx 28rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.hb-empty__title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #fff;
+}
+.hb-empty__desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+.hb-empty__btn {
+  margin-top: 26rpx;
+  padding: 18rpx 60rpx;
+  border-radius: 999rpx;
+  background: rgba(124, 134, 255, 0.85);
+  color: #fff;
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+/* 今日 / 本周 / 本月 分段 */
+.hb-seg {
+  display: flex;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 16rpx;
+  padding: 4rpx;
+}
+.hb-seg__item {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 12rpx;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.hb-seg__item--active {
+  color: #fff;
+  background: rgba(124, 134, 255, 0.28);
+}
+
+/* 预算总额（视觉最高优先级） */
+.hb-label {
+  margin-top: 20rpx;
+  text-align: center;
+  font-size: 25rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+.hb-total {
+  margin-top: 6rpx;
+  text-align: center;
+  font-size: 60rpx;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.15;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 盈余 / 超支（次级，彩色，绿/红只承担数据语义） */
+.hb-pace {
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  font-size: 26rpx;
+}
+.hb-pace__val {
+  font-weight: 700;
+  font-size: 30rpx;
+  font-variant-numeric: tabular-nums;
+}
+.hb-pace--surplus { color: #38c896; }
+.hb-pace--over { color: #ef606b; }
+
+/* 明细行（已花 / 截至今日预算 / 剩余，小字） */
+.hb-rows {
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+.hb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9rpx 4rpx;
+}
+.hb-row__label {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+.hb-row__val {
+  font-size: 25rpx;
+  color: #e8ecf5;
+  font-variant-numeric: tabular-nums;
+}

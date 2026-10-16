@@ -5,6 +5,7 @@
     "pages/settings/settings",
     "pages/backup-restore/backup-restore",
     "pages/data-privacy/data-privacy",
+    "pages/budget-settings/budget-settings",
     "pages/daily-value-detail/detail"
   ],
   "window": {

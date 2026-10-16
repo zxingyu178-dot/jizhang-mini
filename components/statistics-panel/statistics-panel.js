@@ -3,6 +3,7 @@
 // 计算全部走 data/statistics 纯函数，页面只负责取数与展示；不引图表库。
 const store = require('../../data/index');
 const money = require('../../data/money');
+const util = require('../../utils/util');
 const M = require('../../data/statistics/month');
 const Y = require('../../data/statistics/year');
 
@@ -52,6 +53,9 @@ Component({
     daily: [],
     rank: [],
     cmp: { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 },
+    // 预算日历 + 节奏摘要
+    budgetCalendar: null,
+    pace: [],
     // 年度
     year: 0,
     canNextYear: false,
@@ -108,6 +112,23 @@ Component({
         centsText: money.formatCents(x.cents),
       }));
       const cmp = M.computeIncomeExpenseCompare(bills);
+
+      // 预算日历地图 + 节奏摘要（规则历史逐天取数；无预算时日历格子灰色）
+      const today = util.formatDate(new Date());
+      const budgetCalendar = store.buildBudgetCalendar(y, m, today);
+      const paceRaw = store.buildBudgetPaceSummary(today);
+      const pace = [
+        paceRaw.weekToDate,
+        paceRaw.monthToDate,
+        paceRaw.lastWeek,
+        paceRaw.lastMonth,
+      ].map((p) => ({
+        label: p.label,
+        text: (p.delta >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(p.delta)),
+        positive: p.delta >= 0,
+        hasBudget: p.hasBudget,
+      }));
+
       this.setData({
         ym,
         monthLabel: y + '年' + m + '月',
@@ -123,6 +144,8 @@ Component({
           incomeBar: cmp.incomeBar,
           expenseBar: cmp.expenseBar,
         },
+        budgetCalendar,
+        pace,
       });
     },
     onPrevMonth() {
@@ -162,6 +185,39 @@ Component({
     onNextYear() {
       if (!this.data.canNextYear) return;
       this.loadYear(this.data.year + 1);
+    },
+    /* ---------- 预算日详情：组装数据后交由 main 页面弹层（只读） ---------- */
+    onTapDay(e) {
+      const dateStr = e.currentTarget.dataset.date;
+      if (!dateStr) return;
+      const d = store.buildBudgetDayDetail(dateStr);
+      const dp = dateStr.split('-').map(Number);
+      const title = dp[1] + '月' + dp[2] + '日';
+      const payload = {
+        title,
+        budgetText: '¥' + money.formatCents(d.budgetCents),
+        actualText: '¥' + money.formatCents(d.actualCents),
+        delta: d.deltaCents,
+        deltaLabel: d.deltaCents >= 0 ? '盈余' : '超支',
+        deltaText:
+          (d.deltaCents >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(d.deltaCents)),
+        categories: d.categories.map((c) => ({
+          categoryId: c.categoryId,
+          name: c.name,
+          emoji: c.emoji,
+          centsText: '¥' + money.formatCents(c.cents),
+        })),
+        bills: d.bills.map((b) => {
+          const cat = store.getCategory(b.categoryId);
+          return {
+            id: b.id,
+            name: b.title || b.merchant || cat.name || '支出',
+            amountText: '¥' + money.formatCents(b.amountCents),
+          };
+        }),
+        billCount: d.billCount,
+      };
+      this.triggerEvent('daydetail', payload);
     },
     /* ---------- 分类明细：组装数据后交由 main 页面弹层展示 ----------
        （弹层需在页面级 fixed，组件内 fixed 会相对 swiper-item 定位错乱） */

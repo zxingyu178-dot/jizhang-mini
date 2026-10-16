@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V2（兼容 V1，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.4.1（交互与视觉收口：日价详情编辑 normal 账单不再污染原交易时间；记一笔改为真正 Glass Sheet、自然高度、金额不裁切、字段重排、分类「最近使用 + 更多」、按钮减重；设置页减法（备份/恢复合并、导入说明与最近导入移入数据导入页、去 emoji、统一 dv-icon）、新增数据与隐私页；曲线触摸坐标改为 canvas 局部坐标）
+- 当前版本：0.5.0（预算节奏系统：预算规则历史存于 settings、改值不重算历史；纯函数 Budget Core；记账 Hero 新增「支出 / 预算」模式（今日 / 本周 / 本月，区分总预算与截至今日预算）；新增预算设置页与设置入口；统计月度预算日历地图（绿盈余 / 红超支 / 灰无预算或未来 / 紫描边今天）与点击日详情；全项目自定义 Header 统一 border-box 盒模型；Bottom Sheet 提高不透明度（底层氛围可感知、正文不可辨认）；手工账单与日价日期不允许未来。沿用 0.4.1 的日价编辑作用域修复与 Glass Sheet 收口）
 
 ## 测试
 
@@ -14,7 +14,7 @@
 npm test
 ```
 
-一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`settings.test.js`、`importer.test.js`（当前 394 项），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
+一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`settings.test.js`、`importer.test.js`（当前 496 项），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
 
 ## 已实现功能
 
@@ -28,7 +28,11 @@ npm test
 - 旧 `jm_records`（wx.Storage）首次启动无损迁移：迁移前快照、失败完整回滚、重复启动不产生重复记录，迁移后保留一个版本。
 - **每日的价值（日价）**：一笔消费可开启「计算日价」，同时进账本 / 统计 / 日价；日价页也可独立新增「仅日价物品」，只进日价、绝不进记账 / 统计 / 普通搜索。当前日价（`金额/已用天数`，购买当天起算、最少 1 天、纯日历日差）不持久化、每天重算。
 - **日价详情 / 曲线 / 里程碑**：日价列表按当前日价降序；详情页以「当前日价」为主，含原生 Canvas 2D 下降曲线（短周期逐日、长周期采样、触摸 tooltip）与里程碑（使用 7/30/100/365… 天、日价 ¥100/50/20/10… 目标），仅陈述数学事实、不做「回本」评价。
-- **跨日自动刷新**：App 回到前台刷新当日日价，并调度到下一个本地午夜的定时器（每次重算，避免 DST 漂移）；进入后台清除。
+- **跨日自动刷新**：App 回到前台刷新当日时间敏感视图（日价与预算），并调度到下一个本地午夜的定时器（每次重算，避免 DST 漂移）；进入后台清除；从预算设置等内部页面返回主页立即刷新。
+- **预算节奏（Budget Rhythm）**：记账 Hero 顶部「支出 / 预算」轻切换（不新增横滑手势）。预算模式提供今日 / 本周 / 本月三段，严格区分「总预算」「截至今日预算」「已花」「当前盈余 / 超支」「剩余预算」，避免用整月预算减半月支出制造虚假盈余。预算消耗口径固定为 `ledgerImpact === normal && type === expense`（收入不增加、仅日价物品不消耗），预算只是新增分析维度，不改变月支出 / 收入 / 结余 / 分类排行 / 年度统计。
+- **预算规则历史**：预算存于 `settings.json` 的 `budget.rules`（非单一 dailyBudget），每条规则含 `dailyCents / effectiveFrom / enabled`。某一天适用「effectiveFrom ≤ 当天且最近一条」规则；改 ¥30→¥40 只新增规则、不重算历史；关闭预算新增 `enabled:false` 规则、不删历史。生效日期可选过去、不允许未来。预算设置页（`pages/budget-settings`）可设启用开关、每日金额、生效日期。
+- **预算日历地图**：统计月度页在月度 Hero 后展示当月预算日历（周一为周起点），绿=盈余、红=超支、灰=无预算或未来、紫色描边=今天，绿/红各两档深浅；点击某一天弹出只读 Bottom Sheet（预算 / 实际 / 盈余或超支、当天分类与账单）。日历下方给出本周截至今日、本月截至今日、上周、上月的节奏摘要。规则中途变更时，历史日历按各规则生效日自动分段计算。
+- **Budget Core（纯函数）**：`data/budget/`（rules / period / core / calendar / index）全部为纯函数，金额整数分，周期边界（周一为周起点、月天数 28/29/30/31）、未来日不进累计预算、已结束周期累计预算=总预算，均由单元测试覆盖。预算规则随 `settings` 已包含在 Backup V2 中，备份格式无需升级。
 - **Android 日价迁移**：`.dvbackup` 完整迁移 `title / ledgerImpact / dailyValue`（含 normal+dailyValue、仅日价物品），已存在账单按源 id 合并补日价、不重复；CSV 无日价字段，仅迁普通账单（对无 id 账单做保守匹配，唯一才补、多条需确认）。
 - **Mini 备份 V2**：完整保存 `title / ledgerImpact / dailyValue`，恢复兼容 V1 + V2。
 
@@ -42,14 +46,21 @@ jizhang-mini/
 ├── pages/
 │   ├── main/              # 主 Shell：Header + Tabs + Swiper + FAB
 │   ├── search/            # 全局搜索
-│   └── settings/          # 设置（导入 / 备份 / 恢复 / 关于）
+│   ├── settings/          # 设置（数据导入 / 备份与恢复 / 预算 / 版本 / 数据与隐私）
+│   ├── budget-settings/   # 预算设置（启用开关 / 每日金额 / 生效日期）
+│   ├── backup-restore/    # 备份与恢复
+│   └── data-privacy/      # 数据与隐私
 ├── components/
-│   ├── accounting-panel/  # 记账 Panel
-│   ├── statistics-panel/  # 统计 Panel
-│   ├── daily-value-panel/ # 日价 Panel（空态）
+│   ├── accounting-panel/  # 记账 Panel（含支出 / 预算 Hero 模式）
+│   ├── statistics-panel/  # 统计 Panel（含预算日历地图）
+│   ├── daily-value-panel/ # 日价 Panel
+│   ├── daily-value-form/  # 日价物品表单（新增 / 编辑）
+│   ├── daily-value-curve/ # 日价 Canvas 2D 曲线
 │   ├── bottom-sheet/      # 通用底部弹出面板
 │   └── bill-form/         # 记账表单（新增 / 编辑）
-├── data/                  # 正式本地数据层（ledger / money / backup / migration 等）
+├── data/                  # 正式本地数据层（ledger / money / backup / migration / dailyValue / budget 等）
+│   ├── daily-value/       # 日价纯函数（core / list / detail / curve / milestones / form）
+│   └── budget/            # 预算纯函数（rules / period / core / calendar / index）
 ├── utils/                 # device（设备/安全区）、util（通用）
 ├── packages/importer/     # 导入引擎（分包，含 SheetJS）
 └── tests/                 # 单元 / 数据层测试
@@ -59,7 +70,8 @@ jizhang-mini/
 
 - 存储根：`wx.env.USER_DATA_PATH`，结构为 `manifest.json`、`bills/YYYY-MM.json`、`categories.json`、`settings.json`、`import-history.json`、`legacy/`。
 - 金额核心使用整数分 `amountCents`（¥25.50 = 2550），统计全程整数，显示时再换算，避免浮点误差。
-- Bill V1：`id, type, amountCents, categoryId, occurredAt, merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact`。
+- Bill V2：`id, type, amountCents, categoryId, occurredAt, title, merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact, dailyValue?`。`ledgerImpact` 取 `normal`（进账本 / 统计）或 `daily-value-only`（仅日价）；`dailyValue` 为 `{ enabled, mode:'elapsed', startDate }`。Bill V1 首次加载无损升级为 V2（补 `title:''`、`ledgerImpact` 原值、`dailyValue` 为空），不改变 id / amountCents / occurredAt。日价与预算均从 Bill 动态派生，不新增预算字段到每笔 Bill。
+- 预算规则存于 `settings.json` 的 `budget`：`{ version:1, weekStartsOn:1, rules:[{ id, enabled, dailyCents, effectiveFrom, createdAt }] }`，随 Backup V2 备份恢复。
 
 ## 快速开始
 

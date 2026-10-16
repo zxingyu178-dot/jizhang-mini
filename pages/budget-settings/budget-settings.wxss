@@ -1,0 +1,138 @@
+.bs2-page {
+  position: relative;
+  width: 100%;
+}
+.bs2-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #0a0f1e 0%, #05060a 100%);
+}
+.bs2-bg__glow {
+  position: absolute;
+  top: -120rpx;
+  left: -100rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
+}
+
+/* Header */
+.bs2-header {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 20rpx;
+  z-index: 10;
+  box-sizing: border-box;
+}
+.bs2-back {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bs2-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: 8rpx;
+}
+
+/* 滚动区 */
+.bs2-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.sec {
+  margin: 0 28rpx 8rpx;
+  padding: 0 24rpx;
+}
+.sec-label {
+  font-size: 24rpx;
+  color: var(--text-faint);
+  padding: 28rpx 32rpx 12rpx;
+}
+.bs2-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 0;
+}
+.bs2-row__label {
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+.bs2-row__val {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+/* 金额输入 */
+.bs2-amount {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 0;
+}
+.bs2-amount__cur {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #fff;
+  margin-right: 10rpx;
+}
+.bs2-amount__input {
+  flex: 1;
+  min-width: 0;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.bs2-amount__unit {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+.bs2-ph {
+  color: rgba(255, 255, 255, 0.32);
+  font-weight: 600;
+}
+
+/* 说明 */
+.bs2-note {
+  padding: 16rpx 40rpx 8rpx;
+}
+.bs2-note__text {
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: var(--text-faint);
+}
+
+/* 保存按钮 */
+.bs2-save {
+  margin: 24rpx 28rpx 60rpx;
+  height: 92rpx;
+  border-radius: 999rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 134, 255, 0.85);
+  color: #fff;
+  font-size: 29rpx;
+  font-weight: 600;
+}
+.bs2-save--disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+}

@@ -11,33 +11,87 @@
     bindtouchcancel="onHeroTouchEnd"
   >
     <view class="hero__body {{heroAnim ? 'hero__body--anim' : ''}}">
-      <view class="hero__head">
-        <text class="hero__month">{{monthLabel}}</text>
-        <view class="hero__arrows">
-          <view class="hero__arrow {{canPrev ? '' : 'hero__arrow--disabled'}}" bindtap="onPrevMonth">
-            <dv-icon name="chevronLeft" size="17" color="rgba(255,255,255,0.92)" />
-          </view>
-          <view class="hero__arrow {{canNext ? '' : 'hero__arrow--disabled'}}" bindtap="onNextMonth">
-            <dv-icon name="chevronRight" size="17" color="rgba(255,255,255,0.92)" />
-          </view>
-        </view>
+      <!-- 模式切换：支出 / 预算（轻切换，不新增横滑手势） -->
+      <view class="hmode">
+        <view class="hmode__item {{heroMode==='expense'?'hmode__item--active':''}}" bindtap="onModeExpense">支出</view>
+        <view class="hmode__item {{heroMode==='budget'?'hmode__item--active':''}}" bindtap="onModeBudget">预算</view>
       </view>
 
-      <view class="hero__label">本月支出</view>
-      <view class="hero__expense {{expenseSizeClass}}">{{monthExpenseText}}</view>
-
-      <view class="hero__sub">
-        <view class="hero__sub-item">
-          <text class="hero__sub-label">收入</text>
-          <text class="hero__sub-val">{{monthIncomeText}}</text>
+      <!-- ============ 支出模式（保持现状，横滑切月） ============ -->
+      <block wx:if="{{heroMode==='expense'}}">
+        <view class="hero__head">
+          <text class="hero__month">{{monthLabel}}</text>
+          <view class="hero__arrows">
+            <view class="hero__arrow {{canPrev ? '' : 'hero__arrow--disabled'}}" bindtap="onPrevMonth">
+              <dv-icon name="chevronLeft" size="17" color="rgba(255,255,255,0.92)" />
+            </view>
+            <view class="hero__arrow {{canNext ? '' : 'hero__arrow--disabled'}}" bindtap="onNextMonth">
+              <dv-icon name="chevronRight" size="17" color="rgba(255,255,255,0.92)" />
+            </view>
+          </view>
         </view>
-        <view class="hero__sub-item hero__sub-item--right">
-          <text class="hero__sub-label">结余</text>
-          <text class="hero__sub-val">{{monthBalanceText}}</text>
-        </view>
-      </view>
 
-      <view class="hero__tip">左右滑动切换月份</view>
+        <view class="hero__label">本月支出</view>
+        <view class="hero__expense {{expenseSizeClass}}">{{monthExpenseText}}</view>
+
+        <view class="hero__sub">
+          <view class="hero__sub-item">
+            <text class="hero__sub-label">收入</text>
+            <text class="hero__sub-val">{{monthIncomeText}}</text>
+          </view>
+          <view class="hero__sub-item hero__sub-item--right">
+            <text class="hero__sub-label">结余</text>
+            <text class="hero__sub-val">{{monthBalanceText}}</text>
+          </view>
+        </view>
+
+        <view class="hero__tip">左右滑动切换月份</view>
+      </block>
+
+      <!-- ============ 预算模式（今日 / 本周 / 本月，无月份箭头） ============ -->
+      <block wx:if="{{heroMode==='budget'}}">
+        <!-- 空态：引导设置 -->
+        <view class="hb-empty" wx:if="{{!hasAnyBudget}}">
+          <text class="hb-empty__title">还没有设置每日预算</text>
+          <text class="hb-empty__desc">设置一个每天可以花多少钱的目标</text>
+          <view class="hb-empty__btn" bindtap="onGoBudgetSettings">设置预算</view>
+        </view>
+
+        <block wx:else>
+          <view class="hb-seg">
+            <view class="hb-seg__item {{budgetKind==='today'?'hb-seg__item--active':''}}" data-k="today" bindtap="onBudgetKind">今日</view>
+            <view class="hb-seg__item {{budgetKind==='week'?'hb-seg__item--active':''}}" data-k="week" bindtap="onBudgetKind">本周</view>
+            <view class="hb-seg__item {{budgetKind==='month'?'hb-seg__item--active':''}}" data-k="month" bindtap="onBudgetKind">本月</view>
+          </view>
+
+          <view class="hb-label">{{bdTotalLabel}}</view>
+          <view class="hb-total">{{bdTotalText}}</view>
+
+          <view class="hb-pace {{bd.paceDelta>=0?'hb-pace--surplus':'hb-pace--over'}}">
+            <text>{{bd.paceDelta>=0 ? (budgetKind==='today'?'盈余':'当前盈余') : (budgetKind==='today'?'超支':'当前超支')}}</text>
+            <text class="hb-pace__val">{{paceText}}</text>
+          </view>
+
+          <view class="hb-rows">
+            <view class="hb-row">
+              <text class="hb-row__label">已花</text>
+              <text class="hb-row__val">{{actualText}}</text>
+            </view>
+            <view class="hb-row" wx:if="{{budgetKind!=='today'}}">
+              <text class="hb-row__label">截至今日预算</text>
+              <text class="hb-row__val">{{accruedText}}</text>
+            </view>
+            <view class="hb-row" wx:if="{{budgetKind==='week'}}">
+              <text class="hb-row__label">本周剩余</text>
+              <text class="hb-row__val">{{remainingText}}</text>
+            </view>
+            <view class="hb-row" wx:if="{{budgetKind==='month'}}">
+              <text class="hb-row__label">本月剩余</text>
+              <text class="hb-row__val">{{remainingText}}</text>
+            </view>
+          </view>
+        </block>
+      </block>
     </view>
   </view>
 

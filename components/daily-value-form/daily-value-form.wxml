@@ -42,8 +42,8 @@
     </view>
   </view>
 
-  <!-- 起算日期 -->
-  <picker mode="date" value="{{startDate}}" bindchange="onDate">
+  <!-- 起算日期：不允许选择未来日期（end 上限今天，提交层另有校验） -->
+  <picker mode="date" value="{{startDate}}" end="{{todayStr}}" bindchange="onDate">
     <view class="df-row">
       <text class="df-row__label">起算日期</text>
       <text class="df-row__value">{{startDate}} ›</text>

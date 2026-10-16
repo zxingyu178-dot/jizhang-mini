@@ -24,6 +24,19 @@ Page({
     dvSheetTitle: '添加日价物品',
     // 分类明细弹层（页面级 fixed）
     catDetail: { show: false, title: '', items: [] },
+    // 预算日详情弹层（页面级 fixed，只读）
+    dayDetail: {
+      show: false,
+      title: '',
+      budgetText: '',
+      actualText: '',
+      delta: 0,
+      deltaLabel: '',
+      deltaText: '',
+      categories: [],
+      bills: [],
+      billCount: 0,
+    },
   },
   onLoad() {
     const info = device.measure();
@@ -45,6 +58,11 @@ Page({
   },
   onReady() {
     this.activatePanel(this.data.current);
+    this._ready = true;
+  },
+  onShow() {
+    // 从预算设置 / 其他二级页返回：页面已 ready 则安全刷新全部面板（无需重启小程序）。
+    if (this._ready) this.refreshPanels();
   },
   onTab(e) {
     const i = Number(e.currentTarget.dataset.i);
@@ -121,6 +139,28 @@ Page({
   /** 关闭分类明细弹层 */
   onCloseCat() {
     this.setData({ 'catDetail.show': false });
+  },
+  /** 统计 Panel 请求展示某预算日详情（只读） */
+  onShowDayDetail(e) {
+    const d = e.detail;
+    this.setData({
+      dayDetail: {
+        show: true,
+        title: d.title,
+        budgetText: d.budgetText,
+        actualText: d.actualText,
+        delta: d.delta,
+        deltaLabel: d.deltaLabel,
+        deltaText: d.deltaText,
+        categories: d.categories,
+        bills: d.bills,
+        billCount: d.billCount,
+      },
+    });
+  },
+  /** 关闭预算日详情弹层 */
+  onCloseDayDetail() {
+    this.setData({ 'dayDetail.show': false });
   },
   /** 阻止弹层内部点击冒泡到遮罩 */
   noop() {},

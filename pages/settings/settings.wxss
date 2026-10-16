@@ -30,6 +30,8 @@
   align-items: center;
   padding-left: 20rpx;
   z-index: 10;
+  /* headerHeight 已含 statusBar，border-box 保证 padding-top 不额外撑高 */
+  box-sizing: border-box;
 }
 .set-back {
   width: 64rpx;
@@ -112,6 +114,15 @@
 }
 .row__val {
   font-size: 28rpx;
+  color: var(--text-secondary);
+}
+.row__right {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+.row__hint {
+  font-size: 26rpx;
   color: var(--text-secondary);
 }
 .row__arrow {

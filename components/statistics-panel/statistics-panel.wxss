@@ -268,3 +268,88 @@
 .sta__bottom {
   height: 40rpx;
 }
+
+/* ================= 预算日历地图 ================= */
+.bcal__heads {
+  display: flex;
+  margin-top: 16rpx;
+}
+.bcal__head {
+  flex: 1;
+  text-align: center;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.45);
+}
+.bcal__weeks {
+  margin-top: 6rpx;
+}
+.bcal__week {
+  display: flex;
+}
+.bcal__cell {
+  flex: 1;
+  min-width: 0;
+  height: 82rpx;
+  margin: 5rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.bcal__num {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 非本月 / 未来 / 无预算：灰 */
+.bcal__cell--outm .bcal__num { color: rgba(255, 255, 255, 0.2); }
+.bcal__cell--future .bcal__num,
+.bcal__cell--no-budget .bcal__num { color: rgba(255, 255, 255, 0.38); }
+
+/* 盈余：两档深浅绿 */
+.bcal__cell--surplus.bcal__lv1 { background: rgba(56, 200, 150, 0.16); }
+.bcal__cell--surplus.bcal__lv1 .bcal__num { color: #5fd6ab; }
+.bcal__cell--surplus.bcal__lv2 { background: rgba(56, 200, 150, 0.3); }
+.bcal__cell--surplus.bcal__lv2 .bcal__num { color: #8fe7c6; }
+
+/* 超支：两档深浅红 */
+.bcal__cell--over.bcal__lv1 { background: rgba(239, 96, 107, 0.16); }
+.bcal__cell--over.bcal__lv1 .bcal__num { color: #f5838b; }
+.bcal__cell--over.bcal__lv2 { background: rgba(239, 96, 107, 0.32); }
+.bcal__cell--over.bcal__lv2 .bcal__num { color: #f89aa0; }
+
+/* 今天：紫色描边（与背景共存） */
+.bcal__cell--today {
+  border: 2rpx solid #7c86ff;
+}
+
+/* ================= 预算节奏摘要 ================= */
+.pace {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 20rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+}
+.pace__item {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  padding: 10rpx 6rpx;
+  box-sizing: border-box;
+}
+.pace__label {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+.pace__val {
+  margin-top: 6rpx;
+  font-size: 27rpx;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pace__val--none {
+  color: rgba(255, 255, 255, 0.3);
+}

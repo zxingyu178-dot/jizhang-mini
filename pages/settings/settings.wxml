@@ -12,6 +12,18 @@
   </view>
 
   <scroll-view scroll-y class="set-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <!-- 预算 -->
+    <view class="sec-label">预算</view>
+    <view class="glass-card sec">
+      <view class="row" bindtap="onBudgetSettings">
+        <text class="row__label">每日预算</text>
+        <view class="row__right">
+          <text class="row__hint">{{budgetHint}}</text>
+          <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+        </view>
+      </view>
+    </view>
+
     <!-- 数据 -->
     <view class="sec-label">数据</view>
     <view class="glass-card sec">

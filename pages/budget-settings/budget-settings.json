@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "dv-icon": "../../components/icon/icon"
+  }
+}

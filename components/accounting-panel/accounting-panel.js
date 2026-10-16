@@ -28,6 +28,17 @@ Component({
     isEmpty: true,
     listPadBottom: 0, // 底部为 FAB 预留安全区（px）
     heroAnim: false,
+    // 预算模式
+    heroMode: 'expense', // expense | budget
+    budgetKind: 'today', // today | week | month
+    hasAnyBudget: false,
+    bd: null,
+    bdTotalLabel: '',
+    bdTotalText: '',
+    paceText: '',
+    actualText: '',
+    accruedText: '',
+    remainingText: '',
   },
   lifetimes: {
     attached() {
@@ -50,9 +61,10 @@ Component({
       this._loaded = true;
       this.loadData(acc.currentYM());
     },
-    /** 供父页面在新增 / 导入 / 删除后调用刷新 */
+    /** 供父页面在新增 / 导入 / 删除 / 设置预算后调用刷新 */
     refresh() {
       this.loadData(this.data.ym || acc.currentYM());
+      if (this.data.heroMode === 'budget') this.loadBudget();
     },
     /** 加载某月份（ym 缺省回退当前月 / 当前查看月） */
     loadData(ym) {
@@ -142,14 +154,55 @@ Component({
       const dy = t.clientY - this._ty;
       const adx = Math.abs(dx);
       const ady = Math.abs(dy);
-      // 水平位移 > 56px 且明显水平（dx > dy*1.25）；左滑下月、右滑上月
-      if (adx > SWIPE_X && adx > ady * SWIPE_RATIO) {
+      // 水平位移 > 56px 且明显水平（dx > dy*1.25）；仅支出模式横滑切月
+      if (this.data.heroMode === 'expense' && adx > SWIPE_X && adx > ady * SWIPE_RATIO) {
         if (dx < 0) this.onNextMonth();
         else this.onPrevMonth();
       }
     },
     onTapBill(e) {
       this.triggerEvent('tapbill', { id: e.currentTarget.dataset.id });
+    },
+
+    /* ---------- Hero 支出 / 预算模式 ---------- */
+    onModeExpense() {
+      if (this.data.heroMode === 'expense') return;
+      this.setData({ heroMode: 'expense' });
+    },
+    onModeBudget() {
+      if (this.data.heroMode === 'budget') return;
+      this.setData({ heroMode: 'budget' });
+      this.loadBudget();
+    },
+    onBudgetKind(e) {
+      const k = e.currentTarget.dataset.k;
+      if (k === this.data.budgetKind) return;
+      this.setData({ budgetKind: k });
+      this.loadBudget();
+    },
+    onGoBudgetSettings() {
+      wx.navigateTo({ url: '/pages/budget-settings/budget-settings' });
+    },
+    /** 加载预算模式当前分段（今日 / 本周 / 本月）数据 */
+    loadBudget() {
+      const today = acc.todayKey();
+      const bd = store.computeBudgetByKind(this.data.budgetKind, today);
+      const hasAny =
+        store.computeBudgetByKind('today', today).hasBudget ||
+        store.computeBudgetByKind('week', today).hasBudget ||
+        store.computeBudgetByKind('month', today).hasBudget;
+      const labels = { today: '今日预算', week: '本周预算', month: '本月预算' };
+      const fmt = (c) => '¥' + money.formatCents(Math.abs(c));
+      this.setData({
+        hasAnyBudget: hasAny,
+        bd,
+        bdTotalLabel: labels[this.data.budgetKind],
+        bdTotalText: fmt(bd.periodBudget),
+        paceText: fmt(bd.paceDelta),
+        actualText: fmt(bd.actualExpense),
+        accruedText: fmt(bd.accruedBudget),
+        remainingText: fmt(bd.remainingBudget),
+      });
     },
   },
 });

@@ -60,6 +60,7 @@ Component({
     allList: [],
     showAllCats: false,
     dateStr: '',
+    todayStr: '', // 日期 picker 上限（今天），不允许未来
     merchant: '',
     note: '',
     // 计算日价开关（默认关；仅支出账单可开）
@@ -87,6 +88,7 @@ Component({
         allList: catsFor('expense'),
         showAllCats: false,
         dateStr,
+        todayStr: dateStr,
         merchant: '',
         note: '',
         dailyValueEnabled: false,
@@ -115,6 +117,7 @@ Component({
         allList: catsFor(bill.type),
         showAllCats: false,
         dateStr,
+        todayStr: util.formatDate(new Date()),
         merchant: bill.merchant || '',
         note: bill.note || '',
         dailyValueEnabled: Boolean(bill.dailyValue && bill.dailyValue.enabled),
@@ -191,13 +194,17 @@ Component({
       const cents = Math.abs(money.parseAmountToCents(this.data.amountText));
       if (!cents) return;
       const isEditing = !!this.data.editingId;
+      // 提交层兜底：日期不允许未来（UI picker 已限制，此处双保险），夹取到今天。
+      const todayStr = this.data.todayStr || util.formatDate(new Date());
+      let dateStr = this.data.dateStr;
+      if (dateStr > todayStr) dateStr = todayStr;
       const payload = {
         type: this.data.type,
         amountCents: cents,
         categoryId: this.data.categoryId,
         // 编辑时合并原始时分；新增时用当前时分
         occurredAt: util.dateWithTime(
-          this.data.dateStr,
+          dateStr,
           isEditing ? this.data.editingHours : null,
           isEditing ? this.data.editingMinutes : null
         ),
@@ -207,7 +214,7 @@ Component({
       // 计算日价：开启则以账单日期为起算日（ledgerImpact 始终 normal）；
       // 编辑关闭开关时显式传 null 删除 dailyValue（移出日价），普通账单不删。
       if (payload.type === 'expense' && this.data.dailyValueEnabled) {
-        payload.dailyValue = { enabled: true, mode: 'elapsed', startDate: this.data.dateStr };
+        payload.dailyValue = { enabled: true, mode: 'elapsed', startDate: dateStr };
       } else if (isEditing) {
         payload.dailyValue = null;
       }

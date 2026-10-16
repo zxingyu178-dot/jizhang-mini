@@ -30,6 +30,37 @@
         </view>
       </view>
 
+      <!-- 预算日历地图（绿盈余 / 红超支 / 灰无预算或未来 / 紫描边今天） -->
+      <view class="glass-card chart bcal" wx:if="{{budgetCalendar}}">
+        <text class="chart__title">{{monthLabel}}预算日历</text>
+        <view class="bcal__heads">
+          <text class="bcal__head" wx:for="{{budgetCalendar.weekHeaders}}" wx:key="*this">{{item}}</text>
+        </view>
+        <view class="bcal__weeks">
+          <view class="bcal__week" wx:for="{{budgetCalendar.weeks}}" wx:for-item="week" wx:for-index="wi" wx:key="wi">
+            <view
+              class="bcal__cell bcal__cell--{{cell.state}} bcal__lv{{cell.level}} {{cell.inMonth?'':'bcal__cell--outm'}} {{cell.isToday?'bcal__cell--today':''}}"
+              wx:for="{{week}}"
+              wx:for-item="cell"
+              wx:key="dateStr"
+              data-date="{{cell.inMonth?cell.dateStr:''}}"
+              bindtap="onTapDay"
+            >
+              <text class="bcal__num">{{cell.day}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 预算节奏摘要 -->
+        <view class="pace">
+          <view class="pace__item" wx:for="{{pace}}" wx:key="label">
+            <text class="pace__label">{{item.label}}</text>
+            <text class="pace__val {{item.positive?'money-income':'money-expense'}}" wx:if="{{item.hasBudget}}">{{item.text}}</text>
+            <text class="pace__val pace__val--none" wx:else>—</text>
+          </view>
+        </view>
+      </view>
+
       <!-- 每日花费趋势 -->
       <view class="glass-card chart">
         <text class="chart__title">每日花费趋势</text>

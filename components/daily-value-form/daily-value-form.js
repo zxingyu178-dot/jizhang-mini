@@ -32,6 +32,7 @@ Component({
     categoryId: 'c-shopping',
     categoryList: [],
     startDate: '',
+    todayStr: '', // 起算日期 picker 上限（今天），不允许未来
     note: '',
     canSubmit: false,
     autoFocus: false,
@@ -53,6 +54,7 @@ Component({
         categoryId: 'c-shopping',
         categoryList: expenseCats(),
         startDate: util.formatDate(new Date()),
+        todayStr: util.formatDate(new Date()),
         note: '',
         canSubmit: false,
         autoFocus: false,
@@ -80,6 +82,7 @@ Component({
         categoryId: bill.categoryId,
         categoryList: expenseCats(),
         startDate,
+        todayStr: util.formatDate(new Date()),
         note: bill.note || '',
         canSubmit: dvForm.computeFormCanSubmit(title, Math.abs(bill.amountCents)),
         autoFocus: false,
@@ -117,7 +120,10 @@ Component({
         this.setData({ canSubmit: false });
         return;
       }
-      const startDate = this.data.startDate;
+      // 提交层兜底：起算日期不允许未来（UI picker 已限制，此处双保险），夹取到今天。
+      const todayStr = this.data.todayStr || util.formatDate(new Date());
+      let startDate = this.data.startDate;
+      if (startDate > todayStr) startDate = todayStr;
       if (this.data.editingId) {
         const patch = dvForm.buildEditPatch({
           title,
