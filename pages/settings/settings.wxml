@@ -6,71 +6,36 @@
   <!-- 自定义 Header：返回 + 标题 -->
   <view class="set-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
     <view class="set-back" bindtap="onBack">
-      <text>‹</text>
+      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
     </view>
     <text class="set-title">设置</text>
   </view>
 
   <scroll-view scroll-y class="set-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
-    <!-- 数据管理 -->
-    <view class="sec-label">数据管理</view>
+    <!-- 数据 -->
+    <view class="sec-label">数据</view>
     <view class="glass-card sec">
       <view class="row" bindtap="onImport">
-        <text class="row__icon">📥</text>
         <text class="row__label">数据导入</text>
-        <text class="row__arrow">›</text>
+        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
       </view>
-      <view class="row" bindtap="onExport">
-        <text class="row__icon">💾</text>
-        <text class="row__label">备份数据</text>
-        <text class="row__arrow">›</text>
+      <view class="row row--last" bindtap="onBackupRestore">
+        <text class="row__label">备份与恢复</text>
+        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
       </view>
-      <view class="row row--last" bindtap="onRestore">
-        <text class="row__icon">📂</text>
-        <text class="row__label">恢复备份</text>
-        <text class="row__arrow">›</text>
-      </view>
-    </view>
-
-    <!-- 导入说明 -->
-    <view class="sec-label">导入说明</view>
-    <view class="glass-card sec sec-note">
-      <text class="note-line">微信 / 支付宝：直接选择导出的 Excel / CSV，无需转码</text>
-      <text class="note-line">Android DailyValue 完整迁移（含日价物品）：请选择 .dvbackup 备份</text>
-      <text class="note-line note-line--last">Android CSV 仅能迁移普通账单，无法迁移日价物品</text>
-    </view>
-
-    <!-- 最近导入 -->
-    <view class="sec-label">最近导入</view>
-    <view class="glass-card sec" wx:if="{{history.length}}">
-      <view class="row row--last" wx:for="{{history}}" wx:key="id">
-        <text class="row__icon">{{item.icon}}</text>
-        <view class="row__main">
-          <text class="row__label">{{item.name}}</text>
-          <text class="row__sub">{{item.time}} · {{item.count}}笔</text>
-        </view>
-      </view>
-    </view>
-    <view class="glass-empty mini" wx:else>
-      <text class="tip">暂无导入记录</text>
     </view>
 
     <!-- 关于 -->
     <view class="sec-label">关于</view>
     <view class="glass-card sec">
       <view class="row">
-        <text class="row__label">应用名称</text>
-        <text class="row__val">每日的价值</text>
-      </view>
-      <view class="row row--last">
         <text class="row__label">版本</text>
         <text class="row__val">{{version}}</text>
       </view>
-    </view>
-
-    <view class="privacy">
-      <text class="privacy__icon">🔒</text>
-      <text class="privacy__text">所有数据仅保存在本机（微信本地目录），不会上传服务器，也无需登录</text>
+      <view class="row row--last" bindtap="onPrivacy">
+        <text class="row__label">数据与隐私</text>
+        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+      </view>
     </view>
   </scroll-view>
 </view>

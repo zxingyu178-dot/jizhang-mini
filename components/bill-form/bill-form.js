@@ -1,5 +1,6 @@
 // components/bill-form/bill-form.js
-// 记账表单（新增 / 编辑）：收支切换、金额、分类、日期、商户、备注。
+// 记账表单（新增 / 编辑）：收支切换、金额、日期、计算日价、分类、商户、备注。
+// 分类第一屏只展示「最近使用」5 个 + 「更多」，点更多展开完整分类。
 // 父组件打开 Bottom Sheet 前调用 reset()（新增）或 edit(id)（编辑）。
 const store = require('../../data/index');
 const money = require('../../data/money');
@@ -10,11 +11,41 @@ const EXPENSE_CATS = [
   'c-drink', 'c-bill', 'c-medical', 'c-housing', 'c-travel', 'c-other',
 ];
 const INCOME_CATS = ['c-salary', 'c-other'];
+const RECENT_LIMIT = 5;
 
 function catsFor(type) {
   const all = store.getCategories();
   const ids = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
   return ids.map((id) => all.find((c) => c.id === id)).filter(Boolean);
+}
+
+/**
+ * 最近使用分类：按已有账单中该类型分类出现频率降序，取前 RECENT_LIMIT；
+ * 确保当前选中分类在最近列表中。返回的分类对象来自完整列表。
+ */
+function recentCatsFor(type, selectedId) {
+  const all = catsFor(type);
+  const freq = {};
+  let bills = [];
+  try {
+    bills = store.rangeBills();
+  } catch (e) {
+    bills = [];
+  }
+  bills.forEach((b) => {
+    if (b.type !== type) return;
+    freq[b.categoryId] = (freq[b.categoryId] || 0) + 1;
+  });
+  const ranked = all
+    .map((c) => ({ c, f: freq[c.id] || 0 }))
+    .sort((a, b) => b.f - a.f || a.c.sort - b.c.sort)
+    .map((x) => x.c);
+  let recent = ranked.slice(0, RECENT_LIMIT);
+  if (selectedId && !recent.find((c) => c.id === selectedId)) {
+    const sel = all.find((c) => c.id === selectedId);
+    if (sel) recent = recent.slice(0, RECENT_LIMIT - 1).concat(sel);
+  }
+  return recent;
 }
 
 Component({
@@ -25,7 +56,9 @@ Component({
     type: 'expense',
     amountText: '',
     categoryId: 'c-food',
-    categoryList: [],
+    recentList: [],
+    allList: [],
+    showAllCats: false,
     dateStr: '',
     merchant: '',
     note: '',
@@ -42,6 +75,7 @@ Component({
   methods: {
     /** 新增模式：重置为默认（今天/支出） */
     reset() {
+      const dateStr = util.formatDate(new Date());
       this.setData({
         editingId: null,
         editingHours: null,
@@ -49,8 +83,10 @@ Component({
         type: 'expense',
         amountText: '',
         categoryId: 'c-food',
-        categoryList: catsFor('expense'),
-        dateStr: util.formatDate(new Date()),
+        recentList: recentCatsFor('expense', 'c-food'),
+        allList: catsFor('expense'),
+        showAllCats: false,
+        dateStr,
         merchant: '',
         note: '',
         dailyValueEnabled: false,
@@ -66,6 +102,7 @@ Component({
         return;
       }
       const d = new Date(bill.occurredAt);
+      const dateStr = util.formatDate(d);
       this.setData({
         editingId: bill.id,
         // 记录原始时分：改日期时与新日期合并，不被改成编辑时间
@@ -74,8 +111,10 @@ Component({
         type: bill.type,
         amountText: money.formatCents(Math.abs(bill.amountCents)),
         categoryId: bill.categoryId,
-        categoryList: catsFor(bill.type),
-        dateStr: util.formatDate(d),
+        recentList: recentCatsFor(bill.type, bill.categoryId),
+        allList: catsFor(bill.type),
+        showAllCats: false,
+        dateStr,
         merchant: bill.merchant || '',
         note: bill.note || '',
         dailyValueEnabled: Boolean(bill.dailyValue && bill.dailyValue.enabled),
@@ -86,7 +125,6 @@ Component({
     onType(e) {
       const type = e.currentTarget.dataset.type;
       if (type === this.data.type) return;
-      // 切类型时，若当前分类不在新类型列表里，回到默认分类
       const list = catsFor(type);
       let categoryId = this.data.categoryId;
       if (!list.find((c) => c.id === categoryId)) {
@@ -94,10 +132,21 @@ Component({
       }
       // 日价只对支出物品有意义：切到收入时关闭开关
       const dailyValueEnabled = type === 'income' ? false : this.data.dailyValueEnabled;
-      this.setData({ type, categoryList: list, categoryId, dailyValueEnabled });
+      this.setData({
+        type,
+        categoryId,
+        recentList: recentCatsFor(type, categoryId),
+        allList: list,
+        showAllCats: false,
+        dailyValueEnabled,
+      });
     },
     onCategory(e) {
       this.setData({ categoryId: e.currentTarget.dataset.id });
+    },
+    /** 展开完整分类区 */
+    onShowAllCats() {
+      this.setData({ showAllCats: true });
     },
     onAmount(e) {
       let v = e.detail.value;

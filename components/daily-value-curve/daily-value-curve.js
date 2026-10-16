@@ -52,7 +52,7 @@ Component({
       wx.createSelectorQuery()
         .in(this)
         .select('#dvCurve')
-        .fields({ node: true, size: true })
+        .fields({ node: true, size: true, rect: true })
         .exec((res) => {
           if (!res || !res[0] || !res[0].node) return;
           const canvas = res[0].node;
@@ -65,6 +65,8 @@ Component({
           this._canvas = canvas;
           this._ctx = ctx;
           this._size = size;
+          // 缓存 canvas 在视口中的位置，供触摸 clientX 转局部坐标
+          this._rect = { left: res[0].left || 0, top: res[0].top || 0 };
           this.setData({ ready: true });
           this.draw();
         });
@@ -179,7 +181,13 @@ Component({
       if (!touch) return;
       const { points, L, xAt } = this.coords();
       const n = points.length;
-      const localX = touch.x != null ? touch.x : touch.clientX;
+      // 统一转换为 canvas 局部坐标：优先 clientX - rect.left（视口标准），
+      // 没有 clientX 时回退 touch.x（局部坐标），避免页面坐标直接误算。
+      const rect = this._rect || { left: 0 };
+      let localX;
+      if (touch.clientX != null) localX = touch.clientX - rect.left;
+      else if (touch.x != null) localX = touch.x;
+      else localX = 0;
       let i = Math.round(((localX - L.padL) / L.cw) * (n - 1));
       i = Math.max(0, Math.min(n - 1, i));
       const p = points[i];

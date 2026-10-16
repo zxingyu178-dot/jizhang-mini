@@ -20,22 +20,6 @@
     />
   </view>
 
-  <!-- 分类 -->
-  <scroll-view scroll-x class="bf-cats" enhanced show-scrollbar="{{false}}">
-    <view class="bf-cats__inner">
-      <view
-        wx:for="{{categoryList}}"
-        wx:key="id"
-        class="bf-cat {{categoryId === item.id ? 'bf-cat--active' : ''}}"
-        data-id="{{item.id}}"
-        bindtap="onCategory"
-      >
-        <text class="bf-cat__emoji">{{item.emoji}}</text>
-        <text class="bf-cat__name">{{item.name}}</text>
-      </view>
-    </view>
-  </scroll-view>
-
   <!-- 日期 -->
   <picker mode="date" value="{{dateStr}}" bindchange="onDate">
     <view class="bf-row">
@@ -43,6 +27,36 @@
       <text class="bf-row__value">{{dateStr}} ›</text>
     </view>
   </picker>
+
+  <!-- 计算日价（仅支出账单；开启后正常进账本，同时进入日价） -->
+  <view class="bf-daily" wx:if="{{type === 'expense'}}" bindtap="onToggleDaily">
+    <view class="bf-daily__text">
+      <text class="bf-daily__label">计算日价</text>
+      <text class="bf-daily__sub">这笔消费每天值多少钱</text>
+    </view>
+    <view class="bf-switch {{dailyValueEnabled ? 'bf-switch--on' : ''}}">
+      <view class="bf-switch__knob"></view>
+    </view>
+  </view>
+
+  <!-- 分类：最近使用 + 更多 -->
+  <view class="bf-cats-label">分类</view>
+  <view class="bf-cats-grid">
+    <view
+      wx:for="{{showAllCats ? allList : recentList}}"
+      wx:key="id"
+      class="bf-cat {{categoryId === item.id ? 'bf-cat--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="onCategory"
+    >
+      <text class="bf-cat__emoji">{{item.emoji}}</text>
+      <text class="bf-cat__name">{{item.name}}</text>
+    </view>
+    <view wx:if="{{!showAllCats}}" class="bf-cat bf-cat--more" bindtap="onShowAllCats">
+      <text class="bf-cat__more-icon">⋯</text>
+      <text class="bf-cat__name">更多</text>
+    </view>
+  </view>
 
   <!-- 商户 -->
   <view class="bf-row">
@@ -54,17 +68,6 @@
   <view class="bf-row">
     <text class="bf-row__label">备注</text>
     <input class="bf-row__input" placeholder="添加备注" placeholder-class="bf-row__ph" value="{{note}}" bindinput="onNote" />
-  </view>
-
-  <!-- 计算日价（仅支出账单；开启后正常进账本，同时进入日价） -->
-  <view class="bf-daily" wx:if="{{type === 'expense'}}" bindtap="onToggleDaily">
-    <view class="bf-daily__text">
-      <text class="bf-daily__label">计算日价</text>
-      <text class="bf-daily__sub">这笔消费每天值多少钱</text>
-    </view>
-    <view class="bf-switch {{dailyValueEnabled ? 'bf-switch--on' : ''}}">
-      <view class="bf-switch__knob"></view>
-    </view>
   </view>
 
   <!-- 删除（仅编辑模式） -->

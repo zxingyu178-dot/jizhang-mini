@@ -1,0 +1,79 @@
+.dp-page {
+  position: relative;
+  width: 100%;
+}
+.dp-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #0a0f1e 0%, #05060a 100%);
+}
+.dp-bg__glow {
+  position: absolute;
+  top: -120rpx;
+  left: -100rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
+}
+
+/* Header */
+.dp-header {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 20rpx;
+  z-index: 10;
+}
+.dp-back {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dp-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: 8rpx;
+}
+
+/* 滚动区 */
+.dp-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.dp-card {
+  margin: 8rpx 28rpx 40rpx;
+  padding: 8rpx 24rpx;
+}
+.dp-item {
+  padding: 26rpx 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+.dp-item--last {
+  border-bottom: none;
+}
+.dp-item__head {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10rpx;
+}
+.dp-item__body {
+  display: block;
+  font-size: 25rpx;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}

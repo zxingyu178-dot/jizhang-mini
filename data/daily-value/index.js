@@ -8,6 +8,7 @@ const list = require('./list');
 const detail = require('./detail');
 const curve = require('./curve');
 const milestones = require('./milestones');
+const form = require('./form');
 
 module.exports = {
   // core
@@ -28,10 +29,16 @@ module.exports = {
   computeDailyPriceMilestones: milestones.computeDailyPriceMilestones,
   nextPriceMilestone: milestones.nextPriceMilestone,
   buildMilestoneSummary: milestones.buildMilestoneSummary,
+  // form
+  startOfLocalDay: form.startOfLocalDay,
+  resolveEditTitle: form.resolveEditTitle,
+  computeFormCanSubmit: form.computeFormCanSubmit,
+  buildEditPatch: form.buildEditPatch,
   // 子模块
   core,
   list,
   detail,
   curve,
   milestones,
+  form,
 };

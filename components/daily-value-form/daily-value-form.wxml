@@ -27,21 +27,20 @@
     />
   </view>
 
-  <!-- 分类 -->
-  <scroll-view scroll-x class="df-cats" enhanced show-scrollbar="{{false}}">
-    <view class="df-cats__inner">
-      <view
-        wx:for="{{categoryList}}"
-        wx:key="id"
-        class="df-cat {{categoryId === item.id ? 'df-cat--active' : ''}}"
-        data-id="{{item.id}}"
-        bindtap="onCategory"
-      >
-        <text class="df-cat__emoji">{{item.emoji}}</text>
-        <text class="df-cat__name">{{item.name}}</text>
-      </view>
+  <!-- 分类（换行网格） -->
+  <view class="df-cats-label">分类</view>
+  <view class="df-cats-grid">
+    <view
+      wx:for="{{categoryList}}"
+      wx:key="id"
+      class="df-cat {{categoryId === item.id ? 'df-cat--active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="onCategory"
+    >
+      <text class="df-cat__emoji">{{item.emoji}}</text>
+      <text class="df-cat__name">{{item.name}}</text>
     </view>
-  </scroll-view>
+  </view>
 
   <!-- 起算日期 -->
   <picker mode="date" value="{{startDate}}" bindchange="onDate">
@@ -58,7 +57,8 @@
   </view>
 
   <!-- 作用域说明 -->
-  <view class="df-hint">该物品只进入「日价」，不会计入账单支出和统计。</view>
+  <view class="df-hint" wx:if="{{editingId && editingLedgerImpact === 'normal'}}">修改起算日只影响日价计算，原交易时间保持不变。</view>
+  <view class="df-hint" wx:else>该物品只进入「日价」，不会计入账单支出和统计。</view>
 
   <!-- 确认 -->
   <view class="df-submit {{canSubmit ? '' : 'df-submit--disabled'}}" bindtap="onSubmit">

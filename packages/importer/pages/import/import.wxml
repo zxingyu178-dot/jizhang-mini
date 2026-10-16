@@ -43,6 +43,18 @@
       </view>
     </view>
 
+    <!-- 最近导入 -->
+    <view class="imp-hist-label">最近导入</view>
+    <view class="glass-card imp-hist" wx:if="{{history.length}}">
+      <view class="imp-hist__row" wx:for="{{history}}" wx:key="id">
+        <text class="imp-hist__name">{{item.name}}</text>
+        <text class="imp-hist__meta">{{item.time}} · {{item.count}}笔</text>
+      </view>
+    </view>
+    <view class="glass-card imp-hist imp-hist--empty" wx:else>
+      <text class="imp-hist__empty-text">暂无导入记录</text>
+    </view>
+
     <view class="imp-foot">
       <text class="imp-foot__text">文件请先发到微信「文件传输助手」，再在本页选择</text>
     </view>

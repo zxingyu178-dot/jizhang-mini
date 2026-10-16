@@ -96,6 +96,7 @@ function loadStore(wx) {
 
 const TODAY = '2026-10-16';
 const dv = require('../data/daily-value/index');
+const dvForm = require('../data/daily-value/form');
 
 function makeBill(partial) {
   return Object.assign({
@@ -504,6 +505,69 @@ console.log('I. Bill V1→V2 无损');
   // 幂等：再次 init 不重复
   store.init();
   eq(store.ledger.readMonthFile('2026-09').bills.length, 2, '重复 init 不重复');
+}
+
+/* ================= J. 编辑 startDate 作用域（DV-EDIT-NORMAL / DV-EDIT-ONLY） ================= */
+console.log('J. 编辑 startDate 作用域');
+{
+  const wx = buildWx();
+  const store = loadStore(wx);
+  store.init();
+
+  // normal + dailyValue：2026-10-10 18:32 ¥6000
+  const orig = new Date(2026, 9, 10, 18, 32, 0).getTime();
+  const normal = store.addBill({
+    type: 'expense', amountCents: 600000, categoryId: 'c-shopping',
+    occurredAt: orig, source: 'manual', ledgerImpact: 'normal',
+    dailyValue: { enabled: true, mode: 'elapsed', startDate: '2026-10-10' },
+  });
+  // 模拟组件编辑：起算日改到 2026-09-01
+  const patch = dvForm.buildEditPatch({
+    title: '电脑', amountCents: 600000, categoryId: 'c-shopping', note: '',
+    startDate: '2026-09-01', ledgerImpact: 'normal', originalOccurredAt: orig,
+  });
+  store.updateBill(normal.id, patch);
+  // DV-EDIT-NORMAL-01 occurredAt 保持原值
+  eq(store.getBill(normal.id).occurredAt, orig, 'DV-EDIT-NORMAL-01 occurredAt 不变');
+  // DV-EDIT-NORMAL-02 月份不移动
+  eq(store.monthSummary('2026-10').expense, 600000, 'DV-EDIT-NORMAL-02 10月金额不变');
+  eq(store.monthSummary('2026-09').expense, 0, 'DV-EDIT-NORMAL-02 9月不增加');
+  eq(store.getBill(normal.id).dailyValue.startDate, '2026-09-01', 'startDate 已更新');
+
+  // daily-value-only：原 2026-10-01
+  const only = store.addBill({
+    type: 'expense', amountCents: 10000, categoryId: 'c-other',
+    title: '仅日价', occurredAt: new Date(2026, 9, 1).getTime(),
+    source: 'manual', ledgerImpact: 'daily-value-only',
+    dailyValue: { enabled: true, mode: 'elapsed', startDate: '2026-10-01' },
+  });
+  // 起算日改到 2026-08-15
+  const patch2 = dvForm.buildEditPatch({
+    title: '仅日价', amountCents: 10000, categoryId: 'c-other', note: '',
+    startDate: '2026-08-15', ledgerImpact: 'daily-value-only', originalOccurredAt: only.occurredAt,
+  });
+  store.updateBill(only.id, patch2);
+  // DV-EDIT-ONLY-01 occurredAt 跟随起算日
+  const moved = store.getBill(only.id);
+  eq(moved.occurredAt, dvForm.startOfLocalDay('2026-08-15'), 'DV-EDIT-ONLY-01 occurredAt 跟随 startDate');
+  eq(moved.dailyValue.startDate, '2026-08-15', 'DV-EDIT-ONLY-01 startDate 更新');
+}
+
+/* ================= K. 日价表单校验（DV-FORM-VALID） ================= */
+console.log('K. 日价表单校验');
+{
+  // DV-FORM-VALID-01 title 为空 / 空白 → submit disabled
+  eq(dvForm.computeFormCanSubmit('', 10000), false, 'DV-FORM-VALID-01 空标题不可提交');
+  eq(dvForm.computeFormCanSubmit('   ', 10000), false, 'DV-FORM-VALID-01 空白标题不可提交');
+  // DV-FORM-VALID-02 normal bill 无 title 时按 merchant→分类名→兜底回退
+  eq(dvForm.resolveEditTitle({ title: '', merchant: '', categoryId: 'c-food' }, { name: '餐饮' }), '餐饮', 'DV-FORM-VALID-02 回退分类名');
+  eq(dvForm.resolveEditTitle({ title: '', merchant: '瑞幸', categoryId: 'c-food' }, { name: '餐饮' }), '瑞幸', 'DV-FORM-VALID-02 回退 merchant');
+  eq(dvForm.resolveEditTitle({ title: 'MacBook', merchant: '苹果', categoryId: 'c-shopping' }, { name: '购物' }), 'MacBook', 'DV-FORM-VALID-02 优先 title');
+  eq(dvForm.resolveEditTitle({ title: '', merchant: '', categoryId: 'c-food' }, null), '日价物品', 'DV-FORM-VALID-02 兜底日价物品');
+  // DV-FORM-VALID-03 显示可提交状态与 onSubmit 条件一致（名称非空 且 金额非0）
+  eq(dvForm.computeFormCanSubmit('电脑', 0), false, 'DV-FORM-VALID-03 金额 0 不可提交');
+  eq(dvForm.computeFormCanSubmit('电脑', 600000), true, 'DV-FORM-VALID-03 名称+金额可提交');
+  eq(dvForm.computeFormCanSubmit('', 600000), false, 'DV-FORM-VALID-03 标题空不可提交');
 }
 
 /* ================= 汇总 ================= */

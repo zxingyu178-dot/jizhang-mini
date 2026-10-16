@@ -1,8 +1,21 @@
 // packages/importer/pages/import/import.js
 // 导入入口：三个来源 + 导出方法说明 + 从微信文件选择。
 const device = require('../../../../utils/device');
+const store = require('../../../../data/index');
 const detector = require('../../core/detector');
 const diagnosis = require('../../core/diagnosis');
+
+const SOURCE_NAME = {
+  wechat: '微信账单',
+  alipay: '支付宝账单',
+  dailyvalue: 'Android DailyValue',
+  dvmini: 'Mini 备份',
+};
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+}
 
 const SOURCES = [
   {
@@ -49,6 +62,7 @@ Page({
     statusBarHeight: 0,
     headerHeight: 0,
     sources: SOURCES,
+    history: [],
   },
   onLoad() {
     const info = device.get();
@@ -57,6 +71,18 @@ Page({
       statusBarHeight: info.statusBarHeight,
       headerHeight: info.headerHeight,
     });
+  },
+  onShow() {
+    this.loadHistory();
+  },
+  loadHistory() {
+    const history = store.getImportHistory().slice(0, 8).map((r) => ({
+      id: r.id,
+      name: SOURCE_NAME[r.source] || r.fileName || '数据文件',
+      time: fmtTime(r.importedAt),
+      count: r.importedCount,
+    }));
+    this.setData({ history });
   },
   onBack() {
     wx.navigateBack({ delta: 1 });

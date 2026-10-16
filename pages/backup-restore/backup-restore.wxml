@@ -1,0 +1,45 @@
+<view class="br-page" style="height:{{windowHeight}}px;">
+  <view class="br-bg">
+    <view class="br-bg__glow"></view>
+  </view>
+
+  <!-- Header -->
+  <view class="br-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+    <view class="br-back" bindtap="onBack">
+      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
+    </view>
+    <text class="br-title">备份与恢复</text>
+  </view>
+
+  <scroll-view scroll-y class="br-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <!-- 备份 -->
+    <view class="sec-label">备份</view>
+    <view class="glass-card sec">
+      <view class="br-action" bindtap="onExport">
+        <view class="br-action__text">
+          <text class="br-action__name">创建备份</text>
+          <text class="br-action__sub">导出 .dvmini.json，可发送到微信「文件传输助手」</text>
+        </view>
+      </view>
+      <view class="br-info row--last" wx:if="{{lastBackup}}">
+        <text class="br-info__label">最近备份</text>
+        <text class="br-info__val">{{lastBackup}}</text>
+      </view>
+    </view>
+
+    <!-- 恢复 -->
+    <view class="sec-label">恢复</view>
+    <view class="glass-card sec">
+      <view class="br-action row--last" bindtap="onRestore">
+        <view class="br-action__text">
+          <text class="br-action__name">从微信文件选择</text>
+          <text class="br-action__sub">选择此前导出的 .dvmini.json 恢复</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="br-tip">
+      <text class="br-tip__text">恢复会覆盖当前全部数据，操作前建议先创建备份。旧版本备份仍可恢复。</text>
+    </view>
+  </scroll-view>
+</view>
