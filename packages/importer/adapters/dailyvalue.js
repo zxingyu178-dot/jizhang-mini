@@ -98,8 +98,10 @@ function parseRows(rows, source, diag) {
     }
 
     if (ledgerText === '仅日价') {
+      // CSV 不含完整日价字段（title/startDate），无法迁移仅日价物品；
+      // 完整日价迁移请使用 Android 的 .dvbackup。
       if (diag) diag.nonFlowSkipped += 1;
-      continue; // 本版本不开发日价，仅日价账不导入
+      continue;
     }
 
     const date = get(r, ci.date).trim();
@@ -157,8 +159,6 @@ function parseBackup(obj) {
   const bills = [];
 
   srcBills.forEach((b) => {
-    if (b.ledgerImpact === 'daily-value-only') return; // 仅日价不导入
-
     let type;
     if (b.type === 'expense') type = 'expense';
     else if (b.type === 'income') type = 'income';
@@ -169,16 +169,31 @@ function parseBackup(obj) {
     if (!amountCents || !occurredAt) return;
 
     const categoryId = resolveBackupCategoryId(b.categoryId, categories);
-    const merchant = b.title ? String(b.title).trim() : '';
+    const merchant = b.merchant ? String(b.merchant).trim() : '';
     const note = b.note ? String(b.note).trim() : '';
+    const title = b.title ? String(b.title).trim() : '';
+
+    // 完整迁移账本作用域与日价信息（v0.4.0 起不再跳过 daily-value-only）
+    const ledgerImpact = b.ledgerImpact === 'daily-value-only' ? 'daily-value-only' : 'normal';
+    let dailyValue = null;
+    if (b.dailyValue && b.dailyValue.enabled === true && b.dailyValue.startDate) {
+      dailyValue = {
+        enabled: true,
+        mode: b.dailyValue.mode === 'elapsed' ? 'elapsed' : 'elapsed',
+        startDate: String(b.dailyValue.startDate).slice(0, 10),
+      };
+    }
 
     const nb = normalizer.makeBill({
       type,
       amountCents,
       categoryId,
       occurredAt,
+      title,
       merchant,
       note,
+      ledgerImpact,
+      dailyValue,
       source: 'dailyvalue',
       sourceTxnId: b.id ? String(b.id) : '', // 用原 id 做精确去重
     });

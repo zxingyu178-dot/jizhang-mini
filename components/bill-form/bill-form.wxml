@@ -56,6 +56,17 @@
     <input class="bf-row__input" placeholder="添加备注" placeholder-class="bf-row__ph" value="{{note}}" bindinput="onNote" />
   </view>
 
+  <!-- 计算日价（仅支出账单；开启后正常进账本，同时进入日价） -->
+  <view class="bf-daily" wx:if="{{type === 'expense'}}" bindtap="onToggleDaily">
+    <view class="bf-daily__text">
+      <text class="bf-daily__label">计算日价</text>
+      <text class="bf-daily__sub">这笔消费每天值多少钱</text>
+    </view>
+    <view class="bf-switch {{dailyValueEnabled ? 'bf-switch--on' : ''}}">
+      <view class="bf-switch__knob"></view>
+    </view>
+  </view>
+
   <!-- 删除（仅编辑模式） -->
   <view class="bf-delete" wx:if="{{editingId}}" bindtap="onDelete">
     <text>删除此账单</text>

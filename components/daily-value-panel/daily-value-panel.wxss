@@ -1,6 +1,164 @@
-.panel-scroll {
+/* 上下布局：Hero 固定顶部，列表独立垂直滚动 */
+.dvp {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+/* ================= 日价 Hero ================= */
+.dv-hero {
+  position: relative;
+  flex-shrink: 0;
+  margin: 20rpx 28rpx 0;
+  border-radius: 36rpx;
+  background: var(--hero-bg);
+  border: var(--hero-border);
+  box-shadow: var(--hero-shadow);
+  box-sizing: border-box;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.dv-hero::before {
+  content: '';
+  position: absolute;
+  top: -90rpx;
+  right: -60rpx;
+  width: 280rpx;
+  height: 280rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 134, 255, 0.22), transparent 70%);
+  pointer-events: none;
+}
+.dv-hero__body {
+  position: relative;
+  padding: 40rpx 32rpx 36rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.dv-hero__label {
+  font-size: 25rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+.dv-hero__total {
+  margin-top: 12rpx;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 1rpx;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.dv-hero__total--lg { font-size: 68rpx; }
+.dv-hero__total--md { font-size: 56rpx; }
+.dv-hero__total--sm { font-size: 46rpx; }
+.dv-hero__count {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+/* ================= 空态 ================= */
 .dv-empty {
-  padding-top: 160rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 48rpx 0;
+  text-align: center;
+}
+.dv-empty__emoji {
+  font-size: 72rpx;
+  opacity: 0.7;
+  margin-bottom: 20rpx;
+}
+.dv-empty__tip {
+  font-size: 27rpx;
+  color: var(--text-secondary);
+}
+.dv-empty__sub {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+
+/* ================= 日价列表（透明 + 细分割） ================= */
+.dv-list {
+  padding: 8rpx 28rpx 0;
+  box-sizing: border-box;
+}
+.dv-item {
+  display: flex;
+  align-items: center;
+  padding: 22rpx 10rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.055);
+}
+.dv-item:active {
+  background: rgba(255, 255, 255, 0.03);
+}
+.dv-item__icon {
+  flex-shrink: 0;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 40rpx;
+}
+.dv-item__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0 18rpx;
+}
+.dv-item__name {
+  font-size: 29rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-item__meta {
+  margin-top: 5rpx;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-item__origin {
+  margin-top: 3rpx;
+  font-size: 22rpx;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dv-item__right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6rpx;
+}
+.dv-item__daily {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dv-item__chev {
+  font-size: 34rpx;
+  color: var(--text-faint);
+  line-height: 1;
 }

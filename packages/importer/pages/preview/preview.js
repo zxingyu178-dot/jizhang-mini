@@ -119,6 +119,8 @@ Page({
           url:
             '/packages/importer/pages/result/result?imported=' +
             result.imported +
+            '&merged=' +
+            (result.merged || 0) +
             '&restore=' +
             (isRestore ? 1 : 0),
         });

@@ -195,7 +195,7 @@ console.log('场景三：完整备份与恢复');
 
   const backup = store.buildBackup();
   eq(backup.format, 'daily-value-mini-backup', '备份格式标识');
-  eq(backup.schemaVersion, 1, '备份 schema 版本');
+  eq(backup.schemaVersion, 2, '备份 schema 版本（V2）');
   eq(backup.data.bills.length, 2, '备份含 2 账单');
 
   // 清空账本后恢复

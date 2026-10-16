@@ -44,8 +44,11 @@ Page({
     }
     const key = kw.toLowerCase();
     const matched = store.rangeBills().filter((b) => {
+      // 普通「搜索账单」只搜普通账单；日价专属物品只在日价模块展示。
+      if (b.ledgerImpact === 'daily-value-only') return false;
       const cat = store.getCategory(b.categoryId);
-      const fields = [b.merchant || '', b.note || '', cat ? cat.name : '', cat ? cat.id : ''];
+      // 日价物品名（title）也纳入普通账单搜索范围
+      const fields = [b.merchant || '', b.note || '', b.title || '', cat ? cat.name : '', cat ? cat.id : ''];
       return fields.some((f) => f.toLowerCase().indexOf(key) >= 0);
     });
 

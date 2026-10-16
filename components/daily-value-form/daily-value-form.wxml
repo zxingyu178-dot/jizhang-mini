@@ -1,0 +1,67 @@
+<view class="df">
+  <!-- 名称 -->
+  <view class="df-row">
+    <text class="df-row__label">名称</text>
+    <input
+      class="df-row__input"
+      placeholder="如：MacBook Pro / 咖啡机"
+      placeholder-class="df-row__ph"
+      maxlength="30"
+      value="{{title}}"
+      bindinput="onTitle"
+      focus="{{autoFocus}}"
+    />
+  </view>
+
+  <!-- 金额 -->
+  <view class="df-amount">
+    <text class="df-amount__sym">¥</text>
+    <input
+      class="df-amount__input"
+      type="digit"
+      placeholder="0.00"
+      placeholder-class="df-amount__ph"
+      value="{{amountText}}"
+      bindinput="onAmount"
+      adjust-position="{{false}}"
+    />
+  </view>
+
+  <!-- 分类 -->
+  <scroll-view scroll-x class="df-cats" enhanced show-scrollbar="{{false}}">
+    <view class="df-cats__inner">
+      <view
+        wx:for="{{categoryList}}"
+        wx:key="id"
+        class="df-cat {{categoryId === item.id ? 'df-cat--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onCategory"
+      >
+        <text class="df-cat__emoji">{{item.emoji}}</text>
+        <text class="df-cat__name">{{item.name}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 起算日期 -->
+  <picker mode="date" value="{{startDate}}" bindchange="onDate">
+    <view class="df-row">
+      <text class="df-row__label">起算日期</text>
+      <text class="df-row__value">{{startDate}} ›</text>
+    </view>
+  </picker>
+
+  <!-- 备注 -->
+  <view class="df-row">
+    <text class="df-row__label">备注</text>
+    <input class="df-row__input" placeholder="可选，补充说明" placeholder-class="df-row__ph" value="{{note}}" bindinput="onNote" />
+  </view>
+
+  <!-- 作用域说明 -->
+  <view class="df-hint">该物品只进入「日价」，不会计入账单支出和统计。</view>
+
+  <!-- 确认 -->
+  <view class="df-submit {{canSubmit ? '' : 'df-submit--disabled'}}" bindtap="onSubmit">
+    <text>{{editingId ? '保存修改' : '添加日价物品'}}</text>
+  </view>
+</view>

@@ -30,6 +30,12 @@
   font-size: 28rpx;
   color: #9aa4c8;
 }
+.rs-merged {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--primary);
+  text-align: center;
+}
 .rs-tip {
   width: 100%;
   margin-top: 48rpx;

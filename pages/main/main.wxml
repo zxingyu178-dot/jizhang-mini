@@ -48,14 +48,19 @@
     </swiper-item>
   </swiper>
 
-  <!-- 玻璃 FAB（仅记账 Panel） -->
-  <view class="fab-wrap" wx:if="{{current===1}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
+  <!-- 玻璃 FAB（记账 Tab：记一笔；日价 Tab：添加日价物品；统计 Tab 无 FAB） -->
+  <view class="fab-wrap" wx:if="{{current===1||current===2}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
     <text class="fab-icon">+</text>
   </view>
 
   <!-- 记账表单 Bottom Sheet（新增 / 编辑） -->
   <bottom-sheet show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
     <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillDeleted" />
+  </bottom-sheet>
+
+  <!-- 日价新增表单 Bottom Sheet（日价 Tab 的 FAB） -->
+  <bottom-sheet show="{{dvSheetShow}}" title="{{dvSheetTitle}}" bind:close="onDvSheetClose">
+    <daily-value-form id="dvForm" bind:saved="onDvSaved" />
   </bottom-sheet>
 
   <!-- 分类明细弹层（页面级 fixed，相对视口定位） -->

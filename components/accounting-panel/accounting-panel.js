@@ -57,7 +57,9 @@ Component({
     /** 加载某月份（ym 缺省回退当前月 / 当前查看月） */
     loadData(ym) {
       const cur = acc.currentYM();
-      const monthList = acc.buildMonthList(store.listMonths(), cur);
+      // 记账月份导航只取「至少有一笔普通账单」的月份 + 当前月，
+      // 不含仅日价物品所在月 / 删空后的残留分片。
+      const monthList = acc.buildMonthList(store.listAccountingMonths(), cur);
       let active = ym;
       if (monthList.indexOf(active) < 0) {
         active = monthList.indexOf(this.data.ym) >= 0 ? this.data.ym : cur;

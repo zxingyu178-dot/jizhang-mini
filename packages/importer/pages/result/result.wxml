@@ -4,6 +4,7 @@
   <text class="rs-desc">
     {{isRestore ? '已恢复 ' + imported + ' 条账单' : '已把 ' + imported + ' 条账单写入本地账本'}}
   </text>
+  <text wx:if="{{!isRestore && merged > 0}}" class="rs-merged">同时为 {{merged}} 条已有账单补充了日价信息（不重复新增）</text>
   <view class="glass-card rs-tip">
     <text class="rs-tip-text">账单只保存在这台设备，建议定期在「设置」导出备份。</text>
   </view>

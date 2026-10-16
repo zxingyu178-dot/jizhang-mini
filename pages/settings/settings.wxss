@@ -65,6 +65,21 @@
   margin: 0 28rpx 8rpx;
   padding: 0 24rpx;
 }
+/* 导入说明卡 */
+.sec-note {
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+.note-line {
+  font-size: 23rpx;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  padding-bottom: 10rpx;
+}
+.note-line--last {
+  padding-bottom: 0;
+}
 .row {
   display: flex;
   align-items: center;

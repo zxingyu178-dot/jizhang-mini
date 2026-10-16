@@ -1,7 +1,40 @@
-<scroll-view scroll-y class="panel-scroll" type="list" enhanced show-scrollbar="{{false}}">
-  <view class="glass-empty dv-empty">
-    <text class="emoji">📈</text>
-    <text class="tip">日价功能即将上线</text>
-    <text class="tip">记录每天的价值曲线</text>
+<view class="dvp">
+  <!-- 日价 Hero：每日总花费（第一视觉中心） -->
+  <view class="dv-hero">
+    <view class="dv-hero__body">
+      <view class="dv-hero__label">每日总花费</view>
+      <view class="dv-hero__total {{totalSizeClass}}">{{totalText}}</view>
+      <view class="dv-hero__count">{{countText}}</view>
+    </view>
   </view>
-</scroll-view>
+
+  <!-- 日价列表：透明 + 细分割，按当前日价降序 -->
+  <scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
+    <view class="dv-list" style="padding-bottom:{{listPadBottom}}px;">
+      <view class="dv-empty" wx:if="{{isEmpty}}">
+        <text class="dv-empty__emoji">📈</text>
+        <text class="dv-empty__tip">还没有日价物品</text>
+        <text class="dv-empty__sub">点右下角「+」添加，看看它每天值多少钱</text>
+      </view>
+
+      <view
+        wx:for="{{items}}"
+        wx:key="id"
+        class="dv-item"
+        data-id="{{item.id}}"
+        bindtap="onTapItem"
+      >
+        <view class="dv-item__icon"><text>{{item.emoji}}</text></view>
+        <view class="dv-item__main">
+          <text class="dv-item__name">{{item.name}}</text>
+          <text class="dv-item__meta">{{item.metaText}}</text>
+          <text class="dv-item__origin">{{item.originText}}</text>
+        </view>
+        <view class="dv-item__right">
+          <text class="dv-item__daily">{{item.dailyText}}</text>
+          <text class="dv-item__chev">›</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

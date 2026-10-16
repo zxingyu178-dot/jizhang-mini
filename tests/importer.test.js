@@ -139,6 +139,12 @@ async function testWechat() {
   const all = store.rangeBills();
   eq(all.length, 5, '账本 5 笔');
 
+  // 每笔导入账单必须有 id / createdAt / updatedAt（曾因 commit 绕过 createBill 导致 id 缺失）
+  all.forEach((b, i) => {
+    assert(typeof b.id === 'string' && b.id.length > 0, '导入账单第 ' + i + ' 笔有 id');
+    assert(typeof b.createdAt === 'number' && typeof b.updatedAt === 'number', '导入账单第 ' + i + ' 笔有时间戳');
+  });
+
   // 支出 59.10、收入 88.88
   let exp = 0;
   let inc = 0;
@@ -250,13 +256,18 @@ async function testDailyValueCsv() {
 async function testDailyValueBackup() {
   const store = freshStore();
   const session = await runParse(store, 'dailyvalue-backup.json', 'dailyvalue');
-  eq(session.counts.ready, 2, 'DV backup ready=2（仅日价跳过）');
+  // v0.4.0 起 daily-value-only（含日价）也完整导入，ready=3
+  eq(session.counts.ready, 3, 'DV backup ready=3（含仅日价物品）');
   commit.commitImport(session);
   const all = store.rangeBills();
-  eq(all.length, 2, 'DV backup 导入 2 笔');
-  // 原 id 去重
+  eq(all.length, 3, 'DV backup 导入 3 笔');
+  // 日价物品字段完整（title / ledgerImpact / dailyValue）
+  const dvBill = all.find((b) => b.ledgerImpact === 'daily-value-only');
+  eq(dvBill ? dvBill.title : '', '虚构笔记本', '日价物品 title 迁移');
+  eq(dvBill && dvBill.dailyValue ? dvBill.dailyValue.startDate : '', '2026-09-01', '日价 dailyValue 迁移');
+  // 原 id 去重：再次导入全部 existing（不重复，也无补丁）
   const session2 = await runParse(store, 'dailyvalue-backup.json', 'dailyvalue');
-  eq(session2.counts.existing, 2, 'DV backup 重复导入 existing');
+  eq(session2.counts.existing, 3, 'DV backup 重复导入 existing');
 }
 
 async function testMiniRestore() {

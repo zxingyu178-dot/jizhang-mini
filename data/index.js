@@ -12,8 +12,10 @@ const settings = require('./settings');
 const manifest = require('./manifest');
 const ledger = require('./ledger');
 const migration = require('./migration');
+const migrationSchema = require('./migration-schema');
 const backup = require('./backup');
 const importHistory = require('./import-history');
+const dailyValue = require('./daily-value/index');
 
 let initialized = false;
 
@@ -24,7 +26,9 @@ function init() {
   manifest.ensureManifest();
   categories.ensureCategories();
   settings.ensureSettings();
+  // 先迁旧 jm_records（产出的账单已是 V2 形态），再统一把月份分片升到 V2。
   migration.runMigration();
+  migrationSchema.runSchemaMigration();
   initialized = true;
   return getStatus();
 }
@@ -36,8 +40,10 @@ function isInitialized() {
 function getStatus() {
   return {
     initialized,
+    schemaVersion: manifest.getManifest().schemaVersion,
     appVersion: manifest.APP_VERSION,
     migration: manifest.getMigration('jmRecords'),
+    schemaMigration: manifest.getMigration('billV2'),
   };
 }
 
@@ -54,7 +60,19 @@ module.exports = {
   monthSummary: ledger.monthSummary,
   monthGrouped: ledger.monthGrouped,
   listMonths: ledger.listMonths,
+  listAccountingMonths: ledger.listAccountingMonths,
   rangeBills: ledger.rangeBills,
+  // 日价派生（Bill 派生，不另建数据库）
+  listDailyValueItems: function (today) {
+    return dailyValue.computeDailyValueList(ledger.rangeBills(), today, (id) => categories.getCategory(id));
+  },
+  getDailyValueDetail: function (id, today) {
+    return dailyValue.computeDailyValueDetail(
+      ledger.getBill(id),
+      today,
+      (cid) => categories.getCategory(cid)
+    );
+  },
   // 分类
   getCategories: categories.getCategories,
   getCategory: categories.getCategory,
@@ -76,4 +94,7 @@ module.exports = {
   settings,
   manifest,
   backup,
+  migration,
+  migrationSchema,
+  dailyValue,
 };

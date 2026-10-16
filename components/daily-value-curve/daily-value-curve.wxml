@@ -1,0 +1,18 @@
+<view class="curve-wrap">
+  <canvas
+    type="2d"
+    id="dvCurve"
+    class="curve-canvas"
+    bindtouchstart="onTouch"
+    bindtouchmove="onTouch"
+    bindtouchend="onTouchEnd"
+    disable-scroll
+  ></canvas>
+
+  <!-- 触摸轻提示（玻璃小卡，无十字线） -->
+  <view class="curve-tip" wx:if="{{tipShow}}" style="left:{{tipLeft}}px;top:{{tipTop}}px;">
+    <text class="curve-tip__date">{{tipDate}}</text>
+    <text class="curve-tip__days">{{tipDays}}</text>
+    <text class="curve-tip__val">{{tipValue}}</text>
+  </view>
+</view>

@@ -2,7 +2,8 @@
   "pages": [
     "pages/main/main",
     "pages/search/search",
-    "pages/settings/settings"
+    "pages/settings/settings",
+    "pages/daily-value-detail/detail"
   ],
   "window": {
     "navigationStyle": "custom",

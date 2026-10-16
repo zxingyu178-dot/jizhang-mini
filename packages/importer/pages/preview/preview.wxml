@@ -14,6 +14,7 @@
   <view wx:if="{{!isRestore}}" class="glass-card pv-counts">
     <view class="pv-count-row"><text class="pv-count-label">共识别</text><text class="pv-count-value">{{total}} 笔</text></view>
     <view class="pv-count-row"><text class="pv-count-label">准备导入</text><text class="pv-count-value pv-go">{{counts.ready}} 笔</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">补充日价信息</text><text class="pv-count-value pv-merge">{{counts.merge || 0}} 笔</text></view>
     <view class="pv-count-row"><text class="pv-count-label">已存在</text><text class="pv-count-value">{{counts.existing}} 笔</text></view>
     <view class="pv-count-row"><text class="pv-count-label">文件内重复</text><text class="pv-count-value">{{counts.duplicate}} 笔</text></view>
     <view class="pv-count-row"><text class="pv-count-label">疑似重复</text><text class="pv-count-value pv-warn">{{counts.suspect}} 笔</text></view>

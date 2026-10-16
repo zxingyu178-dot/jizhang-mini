@@ -7,6 +7,7 @@
     "daily-value-panel": "../../components/daily-value-panel/daily-value-panel",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
     "bill-form": "../../components/bill-form/bill-form",
+    "daily-value-form": "../../components/daily-value-form/daily-value-form",
     "dv-icon": "../../components/icon/icon"
   }
 }

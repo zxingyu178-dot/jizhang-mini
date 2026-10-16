@@ -42,6 +42,7 @@ function legacyToBill(r) {
     amountCents: Math.round((Number(r.amount) || 0) * 100),
     categoryId: categories.mapLegacyCategory(r.category),
     occurredAt,
+    title: '',
     merchant: r.merchant || r.title || '',
     note: r.note || '',
     source: 'manual',

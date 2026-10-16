@@ -19,6 +19,9 @@ Page({
     menuPad: 16, // 自定义 Header 右侧避让系统胶囊的内边距（px）
     sheetShow: false,
     sheetTitle: '记一笔',
+    // 日价新增表单（日价 Tab 的 FAB）
+    dvSheetShow: false,
+    dvSheetTitle: '添加日价物品',
     // 分类明细弹层（页面级 fixed）
     catDetail: { show: false, title: '', items: [] },
   },
@@ -68,6 +71,14 @@ Page({
     wx.navigateTo({ url: '/pages/settings/settings' });
   },
   onAdd() {
+    // 日价 Tab：FAB 打开「添加日价物品」（只进日价）
+    if (this.data.current === 2) {
+      const dvForm = this.selectComponent('#dvForm');
+      if (dvForm) dvForm.reset();
+      this.setData({ dvSheetTitle: '添加日价物品', dvSheetShow: true });
+      return;
+    }
+    // 记账 Tab：FAB 打开「记一笔」
     const form = this.selectComponent('#billForm');
     if (form) form.reset();
     this.setData({ sheetTitle: '记一笔', sheetShow: true });
@@ -86,6 +97,15 @@ Page({
   /** 表单保存成功：关闭弹层并刷新当前面板 */
   onBillSaved() {
     this.setData({ sheetShow: false });
+    this.refreshPanels();
+  },
+  /** 日价表单遮罩关闭 */
+  onDvSheetClose() {
+    this.setData({ dvSheetShow: false });
+  },
+  /** 日价物品保存成功：关闭弹层并刷新（记账 / 日价面板都可能变化） */
+  onDvSaved() {
+    this.setData({ dvSheetShow: false });
     this.refreshPanels();
   },
   /** 账单删除：关闭弹层并刷新 */
@@ -110,6 +130,8 @@ Page({
     if (acc) acc.refresh();
     const sta = this.selectComponent('#statisticsPanel');
     if (sta) sta.refresh();
+    const dvPanel = this.selectComponent('#dailyValuePanel');
+    if (dvPanel && dvPanel.refresh) dvPanel.refresh();
   },
   /**
    * 开发自检（无 UI 入口，自动化 page.callMethod('__selftest') 调用）。

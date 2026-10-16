@@ -32,6 +32,14 @@
       </view>
     </view>
 
+    <!-- 导入说明 -->
+    <view class="sec-label">导入说明</view>
+    <view class="glass-card sec sec-note">
+      <text class="note-line">微信 / 支付宝：直接选择导出的 Excel / CSV，无需转码</text>
+      <text class="note-line">Android DailyValue 完整迁移（含日价物品）：请选择 .dvbackup 备份</text>
+      <text class="note-line note-line--last">Android CSV 仅能迁移普通账单，无法迁移日价物品</text>
+    </view>
+
     <!-- 最近导入 -->
     <view class="sec-label">最近导入</view>
     <view class="glass-card sec" wx:if="{{history.length}}">

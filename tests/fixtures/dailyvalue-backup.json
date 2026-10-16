@@ -43,7 +43,8 @@
         "date": "2026-09-01",
         "timestamp": 1788224400000,
         "source": "manual",
-        "ledgerImpact": "daily-value-only"
+        "ledgerImpact": "daily-value-only",
+        "dailyValue": { "enabled": true, "mode": "elapsed", "startDate": "2026-09-01" }
       }
     ],
     "categories": [],

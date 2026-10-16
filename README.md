@@ -4,9 +4,9 @@
 
 - 技术栈：微信原生小程序（WXML + WXSS + JavaScript），不引入 uni-app / Taro / Vue / React
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
-- 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V1 + 整数分金额
+- 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V2（兼容 V1，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.3.2（记账主页对齐 Android DailyValue：月份导航并入 Hero 卡、Hero 横滑切月、连续账单时间线、FAB 大圆角方形玻璃、顶部搜索/设置去 Emoji 改本地线性图标）
+- 当前版本：0.4.0（每日的价值核心：Bill V2 数据合同，普通账单可开启「计算日价」、日价页可独立新增仅日价物品；日价列表 / 详情 / 下降曲线（Canvas 2D）/ 里程碑、跨日自动刷新、Android .dvbackup 日价迁移、Mini 备份 V2 兼容 V1）
 
 ## 测试
 
@@ -14,7 +14,7 @@
 npm test
 ```
 
-一条命令在独立子进程依次运行 `tests/device.test.js`、`tests/data.test.js`、`tests/importer.test.js`，任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
+一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`importer.test.js`（当前 364 项），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
 
 ## 已实现功能
 
@@ -26,6 +26,11 @@ npm test
 - **设置页**：数据导入入口、备份 / 恢复（`.dvmini.json`）、最近导入、关于。进入设置页时才在后台预加载 importer 分包，首页启动不背 980KB 解析库。
 - **账单导入**：微信 / 支付宝（XLSX+CSV，含 GBK）、Android DailyValue（CSV + `.dvbackup`）、Mini 完整恢复；三级去重、预览确认、原子化写入、失败脱敏诊断（不含姓名/商户/账号/交易号）。
 - 旧 `jm_records`（wx.Storage）首次启动无损迁移：迁移前快照、失败完整回滚、重复启动不产生重复记录，迁移后保留一个版本。
+- **每日的价值（日价）**：一笔消费可开启「计算日价」，同时进账本 / 统计 / 日价；日价页也可独立新增「仅日价物品」，只进日价、绝不进记账 / 统计 / 普通搜索。当前日价（`金额/已用天数`，购买当天起算、最少 1 天、纯日历日差）不持久化、每天重算。
+- **日价详情 / 曲线 / 里程碑**：日价列表按当前日价降序；详情页以「当前日价」为主，含原生 Canvas 2D 下降曲线（短周期逐日、长周期采样、触摸 tooltip）与里程碑（使用 7/30/100/365… 天、日价 ¥100/50/20/10… 目标），仅陈述数学事实、不做「回本」评价。
+- **跨日自动刷新**：App 回到前台刷新当日日价，并调度到下一个本地午夜的定时器（每次重算，避免 DST 漂移）；进入后台清除。
+- **Android 日价迁移**：`.dvbackup` 完整迁移 `title / ledgerImpact / dailyValue`（含 normal+dailyValue、仅日价物品），已存在账单按源 id 合并补日价、不重复；CSV 无日价字段，仅迁普通账单（对无 id 账单做保守匹配，唯一才补、多条需确认）。
+- **Mini 备份 V2**：完整保存 `title / ledgerImpact / dailyValue`，恢复兼容 V1 + V2。
 
 ## 目录结构
 

@@ -1,20 +1,28 @@
 /**
- * data/ledger.js — 账单账本（Bill V1，整数分，按月分片）
+ * data/ledger.js — 账单账本（Bill V2，整数分，按月分片）
  *
  * 月份分片：<USER_DATA_PATH>/bills/YYYY-MM.json
- *   { ym, version, bills: [Bill...] }
+ *   { ym, version:2, bills: [Bill...] }
  *
- * Bill V1：
+ * Bill V2（在 V1 基础上无损扩展，V1→V2 见 migration-schema.js）：
  *   id, type('expense'|'income'), amountCents, categoryId, occurredAt(ms),
- *   merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact
+ *   title,                       // 日价物品名（普通账单为 ''），缺失时展示回退分类名
+ *   merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt,
+ *   ledgerImpact('normal'|'daily-value-only'),
+ *   dailyValue?                  // { enabled:true, mode:'elapsed', startDate:'yyyy-MM-dd' }
+ *
+ * 账务边界（v0.4.0）：
+ *   - 'normal'：进入记账时间线 / 月度·年度统计 / 普通搜索；
+ *   - 'daily-value-only'：只在日价模块展示，绝不进入记账 / 统计 / 普通搜索。
+ *   日价永远从 Bill 派生（dailyValue.enabled），不维护第二套数据库。
  */
 const fs = require('./fs');
 const paths = require('./paths');
 const { genId } = require('../utils/util');
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
-/** 时间戳 -> 'YYYY-MM' */
+/** 时间戳 -> 'YYYY-MM'（本地业务日期） */
 function ymOf(ts) {
   const d = new Date(ts);
   const y = d.getFullYear();
@@ -22,7 +30,27 @@ function ymOf(ts) {
   return y + '-' + (m < 10 ? '0' + m : '' + m);
 }
 
-/** Bill V1 工厂：部分字段或成型 Bill 都可传入，幂等 */
+/** 是否为 yyyy-MM-dd 日期串 */
+function isDateStr(s) {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+/**
+ * 规范化日价扩展：仅当显式 enabled 且 startDate 合法时返回 V2 dailyValue，
+ * 否则返回 null（表示该账单不启用日价）。当前唯一模式为 'elapsed'。
+ */
+function normalizeDailyValue(dv) {
+  if (!dv || dv.enabled !== true) return null;
+  if (!isDateStr(dv.startDate)) return null;
+  return { enabled: true, mode: 'elapsed', startDate: dv.startDate };
+}
+
+/** 账务作用域归一化（非法值安全回落到 normal） */
+function normalizeLedgerImpact(v) {
+  return v === 'daily-value-only' ? 'daily-value-only' : 'normal';
+}
+
+/** Bill V2 工厂：部分字段或成型 Bill 都可传入，幂等 */
 function createBill(data) {
   data = data || {};
   const now = Date.now();
@@ -31,12 +59,13 @@ function createBill(data) {
   if (amountCents == null) {
     amountCents = data.amount != null ? Math.round(Number(data.amount) * 100) : 0;
   }
-  return {
+  const bill = {
     id: data.id || genId(),
     type: data.type === 'income' ? 'income' : 'expense',
     amountCents,
     categoryId: data.categoryId || 'c-other',
     occurredAt,
+    title: typeof data.title === 'string' ? data.title : '',
     merchant: data.merchant || '',
     note: data.note || '',
     source: data.source || 'manual',
@@ -44,8 +73,11 @@ function createBill(data) {
     importBatchId: data.importBatchId || null,
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || now,
-    ledgerImpact: data.ledgerImpact || 'normal',
+    ledgerImpact: normalizeLedgerImpact(data.ledgerImpact),
   };
+  const dv = normalizeDailyValue(data.dailyValue);
+  if (dv) bill.dailyValue = dv;
+  return bill;
 }
 
 /** 读月份分片（不存在返回空结构） */
@@ -53,12 +85,12 @@ function readMonthFile(ym) {
   return fs.readJSON(paths.billFile(ym), { ym, version: SCHEMA_VERSION, bills: [] });
 }
 
-/** 写月份分片 */
+/** 写月份分片（始终写当前 schema 版本） */
 function writeMonthFile(ym, data) {
   fs.writeJSON(paths.billFile(ym), { ym, version: SCHEMA_VERSION, bills: data.bills });
 }
 
-/** 列出全部月份分片（正序） */
+/** 列出全部月份分片（正序；文件存在即返回，不区分是否有普通账单） */
 function listMonths() {
   fs.ensureDir(paths.DIR.bills);
   return fs
@@ -66,6 +98,20 @@ function listMonths() {
     .filter((n) => /^\d{4}-\d{2}\.json$/.test(n))
     .map((n) => n.replace('.json', ''))
     .sort();
+}
+
+/**
+ * 列出「记账」月份导航节点：至少存在一笔 normal 账单的月份，外加当前月。
+ * daily-value-only 物品所在月、或删除最后一笔后残留的空分片，不成为导航节点。
+ */
+function listAccountingMonths(nowTs) {
+  const set = {};
+  listMonths().forEach((ym) => {
+    const hasNormal = readMonthFile(ym).bills.some((b) => b.ledgerImpact !== 'daily-value-only');
+    if (hasNormal) set[ym] = true;
+  });
+  set[ymOf(nowTs || Date.now())] = true;
+  return Object.keys(set).sort();
 }
 
 function sortBills(arr) {
@@ -101,32 +147,36 @@ function addBills(bills) {
   return { months: Object.keys(groups).sort(), total: bills.length };
 }
 
-/** 月度统计（整数分，仅 ledgerImpact=normal） */
+/** 月度统计（整数分；仅 ledgerImpact=normal，count 也只数普通账单） */
 function monthSummary(ym) {
   const mf = readMonthFile(ym);
   let income = 0;
   let expense = 0;
+  let count = 0;
   mf.bills.forEach((b) => {
     if (b.ledgerImpact !== 'normal') return;
+    count += 1;
     if (b.type === 'income') income += b.amountCents;
     else expense += b.amountCents;
   });
-  return { ym, income, expense, balance: income - expense, count: mf.bills.length };
+  return { ym, income, expense, balance: income - expense, count };
 }
 
-/** 按天分组（倒序，用于记账列表） */
+/**
+ * 按天分组（倒序，用于记账列表）。
+ * 仅返回 ledgerImpact=normal 的账单；daily-value-only 绝不进入普通时间线。
+ */
 function monthGrouped(ym) {
   const mf = readMonthFile(ym);
   const map = {};
   mf.bills.forEach((b) => {
+    if (b.ledgerImpact !== 'normal') return;
     const d = new Date(b.occurredAt);
     const day = d.getDate();
     if (!map[day]) map[day] = { day, label: d.getMonth() + 1 + '月' + day + '日', income: 0, expense: 0, bills: [] };
     map[day].bills.push(b);
-    if (b.ledgerImpact === 'normal') {
-      if (b.type === 'income') map[day].income += b.amountCents;
-      else map[day].expense += b.amountCents;
-    }
+    if (b.type === 'income') map[day].income += b.amountCents;
+    else map[day].expense += b.amountCents;
   });
   return Object.keys(map)
     .map((k) => map[k])
@@ -170,13 +220,18 @@ function snapshotMonths(yms) {
   return snap;
 }
 
-/** 用快照恢复分片；快照为 null 的月份删除其文件 */
+/**
+ * 用快照恢复分片；快照为 null 的月份删除其文件。
+ * 直接按快照原样写回（保留快照自身的 version），避免回滚到旧版本分片时
+ * 被 writeMonthFile 强行写成当前 schema 版本、造成版本号与内容不一致。
+ */
 function restoreMonths(snap) {
   Object.keys(snap).forEach((ym) => {
     if (snap[ym] === null) {
       fs.remove(paths.billFile(ym));
     } else {
-      writeMonthFile(ym, snap[ym]);
+      const s = snap[ym];
+      fs.writeJSON(paths.billFile(ym), { ym, version: s.version || 1, bills: s.bills });
     }
   });
 }
@@ -199,10 +254,25 @@ function verifySingleBill(id, oldYm, newYm) {
 }
 
 /**
+ * 把 patch 中的 V2 扩展字段应用到 updated（处理 dailyValue 的挂载 / 移除）。
+ * 约定：
+ *   - patch 不含 dailyValue 键：保持原值；
+ *   - patch.dailyValue 为合法启用对象：规范化后挂载；
+ *   - patch.dailyValue 为 null / false / 非法：移除该键（移出日价 / 关闭开关）。
+ */
+function applyDailyValuePatch(updated, patch) {
+  if (!Object.prototype.hasOwnProperty.call(patch, 'dailyValue')) return;
+  const dv = normalizeDailyValue(patch.dailyValue);
+  if (dv) updated.dailyValue = dv;
+  else delete updated.dailyValue;
+}
+
+/**
  * 按 id 更新；返回更新后的 Bill（找不到返回 null）。
  * - 同月：原位更新。
  * - 跨月（patch.occurredAt 落到别的月份）：从旧分片删除、写入新分片。
  * id 保持不变；全过程对涉及分片做快照，任一步失败回滚到更新前状态。
+ * V2：支持 title 更新与 dailyValue 的挂载 / 移除（不改变 ledgerImpact，除非显式传入）。
  */
 function updateBill(id, patch) {
   const months = listMonths();
@@ -221,6 +291,10 @@ function updateBill(id, patch) {
 
   // id 永远不可被 patch 改写；刷新 updatedAt
   const updated = Object.assign({}, oldBill, patch, { id, updatedAt: Date.now() });
+  // 防御：非法 ledgerImpact 不落盘
+  updated.ledgerImpact = normalizeLedgerImpact(updated.ledgerImpact);
+  applyDailyValuePatch(updated, patch);
+  if (typeof updated.title !== 'string') updated.title = '';
   const newYm = ymOf(updated.occurredAt);
 
   if (newYm === oldYm) {
@@ -266,7 +340,7 @@ function updateBill(id, patch) {
   }
 }
 
-/** 区间内全部账单（用于统计/导出） */
+/** 区间内全部账单（用于统计 / 导出 / 日价派生；含两类 ledgerImpact） */
 function rangeBills(ymStart, ymEnd) {
   const all = [];
   listMonths()
@@ -280,10 +354,14 @@ function rangeBills(ymStart, ymEnd) {
 module.exports = {
   SCHEMA_VERSION,
   ymOf,
+  isDateStr,
+  normalizeDailyValue,
+  normalizeLedgerImpact,
   createBill,
   readMonthFile,
   writeMonthFile,
   listMonths,
+  listAccountingMonths,
   sortBills,
   addBill,
   addBills,

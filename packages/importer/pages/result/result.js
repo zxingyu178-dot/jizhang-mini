@@ -2,12 +2,14 @@
 Page({
   data: {
     imported: 0,
+    merged: 0,
     isRestore: false,
   },
 
   onLoad(query) {
     this.setData({
       imported: Number(query.imported || 0),
+      merged: Number(query.merged || 0),
       isRestore: query.restore === '1',
     });
   },

@@ -120,6 +120,58 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
+/* 计算日价开关 */
+.bf-daily {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  padding: 20rpx 20rpx;
+  border-radius: 18rpx;
+  background: rgba(255, 255, 255, 0.04);
+}
+.bf-daily__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.bf-daily__label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.bf-daily__sub {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--text-faint);
+}
+.bf-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 84rpx;
+  height: 48rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.2s ease;
+}
+.bf-switch--on {
+  background: linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
+}
+.bf-switch__knob {
+  position: absolute;
+  top: 5rpx;
+  left: 5rpx;
+  width: 38rpx;
+  height: 38rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.3);
+}
+.bf-switch--on .bf-switch__knob {
+  transform: translateX(36rpx);
+}
+
 /* 删除按钮 */
 .bf-delete {
   margin-top: 20rpx;

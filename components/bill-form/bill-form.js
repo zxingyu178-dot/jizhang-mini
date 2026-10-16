@@ -29,6 +29,8 @@ Component({
     dateStr: '',
     merchant: '',
     note: '',
+    // 计算日价开关（默认关；仅支出账单可开）
+    dailyValueEnabled: false,
     canSubmit: false,
     autoFocus: false,
   },
@@ -51,6 +53,7 @@ Component({
         dateStr: util.formatDate(new Date()),
         merchant: '',
         note: '',
+        dailyValueEnabled: false,
         canSubmit: false,
         autoFocus: false,
       });
@@ -75,6 +78,7 @@ Component({
         dateStr: util.formatDate(d),
         merchant: bill.merchant || '',
         note: bill.note || '',
+        dailyValueEnabled: Boolean(bill.dailyValue && bill.dailyValue.enabled),
         canSubmit: bill.amountCents !== 0,
         autoFocus: false,
       });
@@ -88,7 +92,9 @@ Component({
       if (!list.find((c) => c.id === categoryId)) {
         categoryId = type === 'income' ? 'c-salary' : 'c-food';
       }
-      this.setData({ type, categoryList: list, categoryId });
+      // 日价只对支出物品有意义：切到收入时关闭开关
+      const dailyValueEnabled = type === 'income' ? false : this.data.dailyValueEnabled;
+      this.setData({ type, categoryList: list, categoryId, dailyValueEnabled });
     },
     onCategory(e) {
       this.setData({ categoryId: e.currentTarget.dataset.id });
@@ -108,6 +114,11 @@ Component({
     },
     onNote(e) {
       this.setData({ note: e.detail.value });
+    },
+    /** 切换「计算日价」开关（仅支出账单可交互） */
+    onToggleDaily() {
+      if (this.data.type === 'income') return;
+      this.setData({ dailyValueEnabled: !this.data.dailyValueEnabled });
     },
     onDelete() {
       const id = this.data.editingId;
@@ -144,6 +155,13 @@ Component({
         merchant: this.data.merchant.trim(),
         note: this.data.note.trim(),
       };
+      // 计算日价：开启则以账单日期为起算日（ledgerImpact 始终 normal）；
+      // 编辑关闭开关时显式传 null 删除 dailyValue（移出日价），普通账单不删。
+      if (payload.type === 'expense' && this.data.dailyValueEnabled) {
+        payload.dailyValue = { enabled: true, mode: 'elapsed', startDate: this.data.dateStr };
+      } else if (isEditing) {
+        payload.dailyValue = null;
+      }
       if (this.data.editingId) {
         store.updateBill(this.data.editingId, payload);
         this.triggerEvent('saved', { id: this.data.editingId });

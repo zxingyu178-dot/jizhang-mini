@@ -3,13 +3,17 @@
  *
  * manifest.json：
  *   { schemaVersion, appVersion, createdAt, updatedAt,
- *     migrations: { jmRecords: { status, ... } } }
+ *     migrations: { jmRecords:{...}, billV2:{...} } }
+ *
+ * schemaVersion 演进：
+ *   1：Bill V1（无 title / dailyValue）；
+ *   2：Bill V2（新增 title / ledgerImpact 语义完善 / dailyValue 扩展）。
  */
 const fs = require('./fs');
 const paths = require('./paths');
 const { APP_VERSION } = require('../utils/version');
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 function ensureManifest() {
   const existing = fs.readJSON(paths.FILE.manifest, null);
@@ -22,6 +26,7 @@ function ensureManifest() {
     updatedAt: now,
     migrations: {
       jmRecords: { status: 'pending' },
+      billV2: { status: 'pending' },
     },
   };
   fs.writeJSON(paths.FILE.manifest, manifest);
@@ -45,6 +50,15 @@ function setMigrationResult(name, result) {
   return m.migrations[name];
 }
 
+/** 更新顶层 schemaVersion（不改动其它字段） */
+function setSchemaVersion(v) {
+  const m = getManifest();
+  m.schemaVersion = v;
+  m.updatedAt = Date.now();
+  fs.writeJSON(paths.FILE.manifest, m);
+  return m;
+}
+
 module.exports = {
   SCHEMA_VERSION,
   APP_VERSION,
@@ -52,4 +66,5 @@ module.exports = {
   getManifest,
   getMigration,
   setMigrationResult,
+  setSchemaVersion,
 };

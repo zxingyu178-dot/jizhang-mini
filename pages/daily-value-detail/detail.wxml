@@ -1,0 +1,99 @@
+<view class="dpage">
+  <!-- 背景层 -->
+  <view class="dpage-bg">
+    <view class="dpage-bg__glow"></view>
+  </view>
+
+  <!-- 自定义 Header：返回 + 编辑 -->
+  <view class="dpage-header" style="padding-top:{{statusBarHeight}}px;height:{{navBarHeight + statusBarHeight}}px;">
+    <view class="dpage-header__bar" style="height:{{navBarHeight}}px;">
+      <view class="dpage-header__back" bindtap="onBack">
+        <text class="dpage-header__back-icon">‹</text>
+      </view>
+      <text class="dpage-header__title">日价详情</text>
+      <view class="dpage-header__edit" bindtap="onEdit" wx:if="{{ok}}">
+        <text>编辑</text>
+      </view>
+      <view class="dpage-header__placeholder" wx:else></view>
+    </view>
+  </view>
+
+  <!-- 不存在 -->
+  <scroll-view scroll-y class="dpage-scroll" wx:if="{{!ok}}">
+    <view class="dpage-missing">该日价物品不存在或已被移出。</view>
+  </scroll-view>
+
+  <scroll-view scroll-y class="dpage-scroll" wx:if="{{ok}}">
+    <!-- Hero：当前日价主数字 -->
+    <view class="detail-hero">
+      <view class="detail-hero__body">
+        <view class="detail-hero__name">
+          <text class="detail-hero__emoji">{{emoji}}</text>
+          <text class="detail-hero__title">{{name}}</text>
+        </view>
+        <text class="detail-hero__label">当前日价</text>
+        <text class="detail-hero__value {{heroSizeClass}}">{{heroValue}}</text>
+        <text class="detail-hero__elapsed">已使用 {{elapsed}} 天</text>
+        <view class="detail-hero__sub">
+          <text class="detail-hero__origin">原价 {{originText}}</text>
+          <text class="detail-hero__start">{{startText}} 开始计算</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 曲线 -->
+    <view class="detail-section">
+      <text class="detail-section__title">日价下降曲线</text>
+      <daily-value-curve id="detailCurve" bill-id="{{id}}" />
+    </view>
+
+    <!-- 里程碑摘要 -->
+    <view class="detail-summary" wx:if="{{summaryAchieved}}">
+      <text class="detail-summary__achieved">{{summaryAchieved}}</text>
+      <text class="detail-summary__next" wx:if="{{summaryNext}}">{{summaryNext}}</text>
+    </view>
+
+    <!-- 使用时间节点 -->
+    <view class="detail-section">
+      <text class="detail-section__title">使用时间</text>
+      <view class="ms-list">
+        <view class="ms-item" wx:for="{{usageItems}}" wx:key="target">
+          <text class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
+            <text wx:if="{{item.achieved}}">✓</text>
+          </text>
+          <text class="ms-item__label">{{item.target}} 天</text>
+          <text class="ms-item__status {{item.achieved ? 'ms-item__status--on' : ''}}">{{item.statusText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 日价目标节点 -->
+    <view class="detail-section" wx:if="{{priceItems.length}}">
+      <text class="detail-section__title">日价目标</text>
+      <view class="ms-list">
+        <view class="ms-item" wx:for="{{priceItems}}" wx:key="targetYuan">
+          <text class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
+            <text wx:if="{{item.achieved}}">✓</text>
+          </text>
+          <text class="ms-item__label">¥{{item.targetYuan}}/天</text>
+          <text class="ms-item__status {{item.achieved ? 'ms-item__status--on' : ''}}">{{item.statusText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部操作：移出日价（normal）/ 删除（daily-value-only） -->
+    <view class="detail-actions" style="padding-bottom:{{safeBottom + 24}}px;">
+      <view class="detail-actions__remove" wx:if="{{ledgerImpact === 'normal'}}" bindtap="onRemove">
+        <text>移出日价</text>
+      </view>
+      <view class="detail-actions__delete" wx:if="{{ledgerImpact === 'daily-value-only'}}" bindtap="onDelete">
+        <text>删除此物品</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 编辑 Bottom Sheet -->
+  <bottom-sheet show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
+    <daily-value-form id="dvEditForm" bind:saved="onDvSaved" />
+  </bottom-sheet>
+</view>
