@@ -5,7 +5,7 @@
 - Version：**0.4.0**
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`（顶部 + packages 两处）、`README.md`）
 - 上一版本基线：v0.3.2（HEAD `434327fc`）
-- 本次提交：v0.4.0（见文末 Git 状态，push 后回填 SHA）
+- 本次提交：v0.4.0（Commit `aa06882`，已 push，见文末 Git 状态）
 
 ---
 
@@ -157,8 +157,10 @@
 
 ---
 
-## 8. Git 状态（push 后回填）
+## 8. Git 状态（已 push）
 
+- Commit SHA：**aa06882aafec898909b5b96c43ea4da6b7abf82b**
+- origin/main SHA：**aa06882aafec898909b5b96c43ea4da6b7abf82b**
 - 提交信息：`v0.4.0: Daily Value core, detail, curve and migration`
 - 推送方式：经显式代理 `http://127.0.0.1:33210`
-- 要求：HEAD == origin/main，ahead=0 / behind=0，working tree clean
+- 结果：HEAD == origin/main，**ahead=0 / behind=0，working tree clean**
