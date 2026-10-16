@@ -66,8 +66,9 @@
   max-width: 300rpx;
 }
 .header__search-icon {
-  font-size: 22rpx;
   margin-right: 8rpx;
+  display: flex;
+  align-items: center;
 }
 .header__search-text {
   font-size: 24rpx;
@@ -75,12 +76,10 @@
 .header__setting {
   width: 56rpx;
   height: 56rpx;
+  margin-left: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.header__setting-icon {
-  font-size: 34rpx;
 }
 
 /* ---- 顶部 Tabs ---- */
@@ -101,21 +100,23 @@
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.42);
   position: relative;
+  transition: color 0.18s ease;
 }
 .tabs__item.active {
-  color: var(--text-primary);
+  color: #f2f3ff;
   font-weight: 600;
 }
 .tabs__item.active::after {
   content: '';
   position: absolute;
-  bottom: 4rpx;
+  bottom: 5rpx;
   width: 44rpx;
   height: 6rpx;
   border-radius: 3rpx;
-  background: var(--primary);
+  background: linear-gradient(90deg, var(--primary), var(--primary-deep));
+  box-shadow: 0 0 10rpx var(--primary-glow);
 }
 
 /* ---- Swiper ---- */
@@ -127,25 +128,27 @@
   z-index: 10;
 }
 
-/* ---- 玻璃 FAB ---- */
+/* ---- 玻璃 FAB（大圆角方形，非圆形浮球；柔和紫光） ---- */
 .fab-wrap {
   position: absolute;
   right: 36rpx;
   z-index: 30;
-  width: 104rpx;
-  height: 104rpx;
-  border-radius: 50%;
+  width: 116rpx;
+  height: 116rpx;
+  border-radius: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(124, 134, 255, 0.45), rgba(124, 134, 255, 0.16));
-  border: 1rpx solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 12rpx 36rpx rgba(124, 134, 255, 0.42);
+  background: var(--fab-bg);
+  border: var(--fab-border);
+  box-shadow: var(--fab-shadow);
+  backdrop-filter: blur(8rpx);
 }
 .fab-icon {
-  font-size: 56rpx;
+  font-size: 60rpx;
   color: #ffffff;
   font-weight: 300;
+  line-height: 1;
 }
 
 /* ---- 分类明细弹层（页面级 fixed，相对视口） ---- */

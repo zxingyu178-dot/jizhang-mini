@@ -1,122 +1,252 @@
-.panel-scroll {
-  height: 100%;
-}
+/* 上下布局：Hero 固定顶部，时间线独立垂直滚动（保证 Hero catchtouchmove 可靠拦截外层 swiper） */
 .acc {
-  padding: 12rpx 28rpx 48rpx;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
-.month-title {
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.timeline-wrap {
+  padding: 0 28rpx;
+  box-sizing: border-box;
+}
+
+/* ================= 记账 Hero（唯一月份区域，顶部常驻） ================= */
+.hero {
+  position: relative;
+  flex-shrink: 0;
+  margin: 20rpx 28rpx 0;
+  border-radius: 36rpx;
+  background: var(--hero-bg);
+  border: var(--hero-border);
+  box-shadow: var(--hero-shadow);
+  box-sizing: border-box;
+  overflow: hidden;
+  /* 横滑由 catchtouchmove 拦截并交 JS 切月，不冒泡给一级 swiper */
+  touch-action: pan-y;
+}
+.hero::before {
+  /* 紫色只做局部光，不做实体紫卡 */
+  content: '';
+  position: absolute;
+  top: -90rpx;
+  left: -60rpx;
+  width: 280rpx;
+  height: 280rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 134, 255, 0.22), transparent 70%);
+  pointer-events: none;
+}
+.hero__body {
+  position: relative;
+  padding: 30rpx 32rpx 26rpx;
+}
+.hero__body--anim {
+  animation: heroFade 0.2s ease-out;
+}
+@keyframes heroFade {
+  from { opacity: 0; transform: translateY(8rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 8rpx 0 20rpx;
 }
-.month-title__text {
-  font-size: 36rpx;
+.hero__month {
+  font-size: 28rpx;
   font-weight: 600;
-  color: var(--text-primary);
+  color: rgba(255, 255, 255, 0.92);
 }
-.month-arrow {
-  width: 64rpx;
-  height: 64rpx;
+.hero__arrows {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+}
+.hero__arrow {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 44rpx;
-  color: var(--text-secondary);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hero-arrow-bg);
+  transition: opacity 0.16s ease, background 0.16s ease;
 }
-.month-arrow--disabled {
+.hero__arrow:active {
+  background: var(--hero-arrow-active);
+}
+.hero__arrow--disabled {
   opacity: 0.3;
 }
-.acc__numbers {
-  display: flex;
-  flex-direction: column;
-  padding: 28rpx;
-  margin-bottom: 28rpx;
+
+.hero__label {
+  margin-top: 22rpx;
+  text-align: center;
+  font-size: 25rpx;
+  color: rgba(255, 255, 255, 0.6);
 }
-.num-block {
-  margin-bottom: 26rpx;
-}
-.num-label {
-  font-size: 24rpx;
-  color: var(--text-secondary);
-  margin-bottom: 8rpx;
-}
-.num-value {
-  font-size: 46rpx;
+.hero__expense {
+  margin-top: 6rpx;
+  text-align: center;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff;
+  letter-spacing: 1rpx;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
-.num-row {
+.hero__expense--lg { font-size: 64rpx; }
+.hero__expense--md { font-size: 54rpx; }
+.hero__expense--sm { font-size: 44rpx; }
+
+.hero__sub {
   display: flex;
   flex-direction: row;
-  height: 130rpx;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 22rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
 }
-.num-half {
+.hero__sub-item {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.num-half .num-value {
-  font-size: 32rpx;
+.hero__sub-item--right {
+  align-items: flex-end;
+  text-align: right;
 }
-.day-head {
+.hero__sub-label {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+.hero__sub-val {
+  margin-top: 6rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #eef1f8;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__tip {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 21rpx;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+/* ================= 空态 ================= */
+.timeline-empty {
+  padding: 80rpx 0 40rpx;
+  text-align: center;
+  font-size: 25rpx;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ================= 连续时间线 ================= */
+.tl-day {
+  padding-top: 28rpx;
+}
+.tl-day__head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 8rpx 8rpx 12rpx;
+  justify-content: space-between;
+  padding: 0 6rpx 14rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.07);
 }
-.day-head__label {
+.tl-day__date {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+}
+.tl-day__md {
   font-size: 26rpx;
-  color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-primary);
 }
-.day-head__sum {
+.tl-day__week {
+  margin-left: 10rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.tl-day__flag {
+  margin-left: 12rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  background: var(--primary-tint);
+  color: var(--primary);
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.tl-day__total {
+  flex-shrink: 0;
+  margin-left: 16rpx;
   font-size: 22rpx;
   color: var(--text-faint);
+  white-space: nowrap;
 }
-.day-card {
-  margin-bottom: 20rpx;
-  overflow: hidden;
+
+.tl-day__list {
+  padding: 0 2rpx;
 }
-.bill-item {
+.tl-item {
   display: flex;
   align-items: center;
-  padding: 22rpx 24rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.05);
+  padding: 16rpx 8rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.045);
 }
-.bill-item:last-child {
+.tl-item:last-child {
   border-bottom: none;
 }
-.bill-item__emoji {
+.tl-item__icon {
+  flex-shrink: 0;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
   font-size: 40rpx;
-  width: 64rpx;
 }
-.bill-item__main {
+.tl-item__main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  margin: 0 16rpx;
+  margin: 0 18rpx;
 }
-.bill-item__name {
+.tl-item__name {
   font-size: 28rpx;
+  font-weight: 500;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.bill-item__note {
+.tl-item__note {
+  margin-top: 4rpx;
   font-size: 22rpx;
   color: var(--text-faint);
-  margin-top: 4rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.bill-item__amount {
-  font-size: 28rpx;
+.tl-item__amount {
+  flex-shrink: 0;
+  font-size: 30rpx;
   font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

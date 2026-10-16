@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V1 + 整数分金额
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.3.1（统计真实验收修复：年度月均支出改为「有支出月份总支出/有支出月份数」，分类 Top5 明细只含支出不混入收入）
+- 当前版本：0.3.2（记账主页对齐 Android DailyValue：月份导航并入 Hero 卡、Hero 横滑切月、连续账单时间线、FAB 大圆角方形玻璃、顶部搜索/设置去 Emoji 改本地线性图标）
 
 ## 测试
 

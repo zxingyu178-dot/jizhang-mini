@@ -11,11 +11,11 @@
       <text class="header__title">每日的价值</text>
       <view class="header__actions">
         <view class="glass-pill header__search" bindtap="onSearch">
-          <text class="header__search-icon">🔍</text>
+          <dv-icon name="search" size="14" color="rgba(255,255,255,0.62)" class="header__search-icon" />
           <text class="header__search-text">搜索账单</text>
         </view>
         <view class="header__setting" bindtap="onSettings">
-          <text class="header__setting-icon">⚙️</text>
+          <dv-icon name="settings" size="22" color="rgba(255,255,255,0.72)" />
         </view>
       </view>
     </view>

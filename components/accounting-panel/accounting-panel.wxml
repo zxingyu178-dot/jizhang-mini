@@ -1,55 +1,88 @@
-<scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
-  <view class="acc" style="padding-bottom:{{listPadBottom}}px;">
-    <view class="month-title">
-      <view class="month-arrow" bindtap="onPrevMonth">‹</view>
-      <text class="month-title__text">{{monthLabel}}</text>
-      <view class="month-arrow {{canNext ? '' : 'month-arrow--disabled'}}" bindtap="onNextMonth">›</view>
-    </view>
-
-    <view class="glass-card acc__numbers">
-      <view class="num-block">
-        <view class="num-label">本月支出</view>
-        <view class="num-value money-expense">¥{{monthExpense}}</view>
-      </view>
-      <view class="num-row">
-        <view class="num-half">
-          <view class="num-label">收入</view>
-          <view class="num-value money-income">¥{{monthIncome}}</view>
-        </view>
-        <view class="num-half">
-          <view class="num-label">结余</view>
-          <view class="num-value">¥{{monthBalance}}</view>
-        </view>
-      </view>
-    </view>
-
-    <view class="glass-empty" wx:if="{{isEmpty}}">
-      <text class="emoji">📝</text>
-      <text class="tip">本月还没有账单，点右下角记一笔</text>
-    </view>
-
-    <block wx:for="{{groups}}" wx:key="date" wx:for-item="g">
-      <view class="day-head">
-        <text class="day-head__label">{{g.dateLabel}}</text>
-        <text class="day-head__sum">支出 ¥{{g.dayExpense}}<text wx:if="{{g.dayIncome !== '0.00'}}">　收入 ¥{{g.dayIncome}}</text></text>
-      </view>
-      <view class="glass-card day-card">
-        <view
-          wx:for="{{g.records}}"
-          wx:for-item="r"
-          wx:key="id"
-          class="bill-item"
-          data-id="{{r.id}}"
-          bindtap="onTapBill"
-        >
-          <text class="bill-item__emoji">{{r.emoji}}</text>
-          <view class="bill-item__main">
-            <text class="bill-item__name">{{r.name}}</text>
-            <text class="bill-item__note" wx:if="{{r.note}}">{{r.note}}</text>
+<view class="acc">
+  <!-- 记账 Hero：唯一月份区域。
+       固定在时间线 scroll-view 之外（顶部常驻），使 catchtouchmove 直接作用于
+       一级 swiper-item 子层，可靠拦截横滑——横滑只切月、绝不冒泡误切统计 / 日价；
+       切月由 JS 按 dx/dy 判定。纵滑由下方 scroll-view 负责。 -->
+  <view
+    class="hero"
+    bindtouchstart="onHeroTouchStart"
+    catchtouchmove="onHeroTouchMove"
+    bindtouchend="onHeroTouchEnd"
+    bindtouchcancel="onHeroTouchEnd"
+  >
+    <view class="hero__body {{heroAnim ? 'hero__body--anim' : ''}}">
+      <view class="hero__head">
+        <text class="hero__month">{{monthLabel}}</text>
+        <view class="hero__arrows">
+          <view class="hero__arrow {{canPrev ? '' : 'hero__arrow--disabled'}}" bindtap="onPrevMonth">
+            <dv-icon name="chevronLeft" size="17" color="rgba(255,255,255,0.92)" />
           </view>
-          <text class="bill-item__amount {{r.isExpense ? 'money-expense' : 'money-income'}}">{{r.amountText}}</text>
+          <view class="hero__arrow {{canNext ? '' : 'hero__arrow--disabled'}}" bindtap="onNextMonth">
+            <dv-icon name="chevronRight" size="17" color="rgba(255,255,255,0.92)" />
+          </view>
         </view>
       </view>
-    </block>
+
+      <view class="hero__label">本月支出</view>
+      <view class="hero__expense {{expenseSizeClass}}">{{monthExpenseText}}</view>
+
+      <view class="hero__sub">
+        <view class="hero__sub-item">
+          <text class="hero__sub-label">收入</text>
+          <text class="hero__sub-val">{{monthIncomeText}}</text>
+        </view>
+        <view class="hero__sub-item hero__sub-item--right">
+          <text class="hero__sub-label">结余</text>
+          <text class="hero__sub-val">{{monthBalanceText}}</text>
+        </view>
+      </view>
+
+      <view class="hero__tip">左右滑动切换月份</view>
+    </view>
   </view>
-</scroll-view>
+
+  <!-- 时间线：独立垂直滚动；底部为 FAB 预留安全区 -->
+  <scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
+    <view class="timeline-wrap" style="padding-bottom:{{listPadBottom}}px;">
+      <!-- 空态：Hero 保留，仅提示无账单 -->
+      <view class="timeline-empty" wx:if="{{isEmpty}}">本月还没有账单</view>
+
+      <!-- 连续账单时间线（不再按日套 card） -->
+      <block wx:for="{{timeline}}" wx:key="dateKey" wx:for-item="g">
+        <view class="tl-day">
+          <view class="tl-day__head">
+            <view class="tl-day__date">
+              <text class="tl-day__md">{{g.month}}月{{g.day}}日</text>
+              <text class="tl-day__week">{{g.week}}</text>
+              <text class="tl-day__flag" wx:if="{{g.isToday}}">今天</text>
+              <text class="tl-day__flag" wx:elif="{{g.isYesterday}}">昨天</text>
+            </view>
+            <view class="tl-day__total">
+              <text wx:if="{{g.kind==='both'}}">支出 ¥{{g.dayExpenseText}} · 收入 ¥{{g.dayIncomeText}}</text>
+              <text wx:elif="{{g.kind==='expense'}}">支出 ¥{{g.dayExpenseText}}</text>
+              <text wx:elif="{{g.kind==='income'}}">收入 ¥{{g.dayIncomeText}}</text>
+            </view>
+          </view>
+
+          <view class="tl-day__list">
+            <view
+              wx:for="{{g.bills}}"
+              wx:for-item="r"
+              wx:key="id"
+              class="tl-item"
+              data-id="{{r.id}}"
+              bindtap="onTapBill"
+            >
+              <view class="tl-item__icon"><text>{{r.emoji}}</text></view>
+              <view class="tl-item__main">
+                <text class="tl-item__name">{{r.name}}</text>
+                <text class="tl-item__note" wx:if="{{r.note}}">{{r.note}}</text>
+              </view>
+              <text class="tl-item__amount {{r.isExpense ? 'money-expense' : 'money-income'}}">{{r.amountText}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+  </scroll-view>
+</view>

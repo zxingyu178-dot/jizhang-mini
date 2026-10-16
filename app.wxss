@@ -13,7 +13,7 @@ page {
   --glow-1: rgba(124, 134, 255, 0.34);
   --glow-2: rgba(91, 103, 240, 0.22);
 
-  /* ---- 玻璃 Surface ---- */
+  /* ---- 玻璃 Surface（共享 Glass Token） ---- */
   --surface: rgba(255, 255, 255, 0.05);
   --surface-strong: rgba(255, 255, 255, 0.07);
   --surface-soft: rgba(255, 255, 255, 0.035);
@@ -21,6 +21,26 @@ page {
   --card-border: rgba(255, 255, 255, 0.10);
   --card-border-hi: rgba(255, 255, 255, 0.18);
   --card-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.28);
+
+  /* 语义化玻璃别名（Hero / FAB / 软底统一复用） */
+  --glass-card-bg: var(--card-bg);
+  --glass-soft-bg: var(--surface-soft);
+  --glass-border: var(--card-border);
+  --glass-highlight: var(--card-border-hi);
+  --glass-shadow: var(--card-shadow);
+  --glass-glow: var(--primary-glow);
+
+  /* 记账 Hero：透明深色玻璃 + 紫色只做光，不做紫色实体卡 */
+  --hero-bg: linear-gradient(135deg, rgba(124, 134, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 46%, rgba(91, 103, 240, 0.10) 100%);
+  --hero-border: 1rpx solid rgba(255, 255, 255, 0.14);
+  --hero-shadow: 0 14rpx 44rpx rgba(8, 10, 24, 0.46), inset 0 1rpx 0 rgba(255, 255, 255, 0.14);
+  --hero-arrow-bg: rgba(255, 255, 255, 0.14);
+  --hero-arrow-active: rgba(255, 255, 255, 0.26);
+
+  /* FAB：大圆角方形玻璃（柔和紫光，不做霓虹球） */
+  --fab-bg: linear-gradient(150deg, rgba(124, 134, 255, 0.34) 0%, rgba(124, 134, 255, 0.10) 100%);
+  --fab-border: 1rpx solid rgba(255, 255, 255, 0.22);
+  --fab-shadow: 0 10rpx 28rpx rgba(124, 134, 255, 0.28), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
 
   /* ---- 玻璃胶囊（搜索） ---- */
   --pill-bg: rgba(255, 255, 255, 0.08);
