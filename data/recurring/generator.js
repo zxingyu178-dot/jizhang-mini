@@ -102,54 +102,124 @@ function generateDueBillsForRule(rule, nowDate) {
   return { generated, diagnosed, nextOccurrence, lastGeneratedDate };
 }
 
-/** 为所有启用规则生成到期 Bill（先统一 sanitize 并持久化被纠正字段） */
+/**
+ * 为所有启用规则生成到期 Bill（先统一 sanitize 并持久化被纠正字段）。
+ * 单条规则的清洗 / 生成异常（IO 失败、损坏字段）只隔离该规则，绝不拖垮其他规则或 App 刷新。
+ */
 function generateDueBills(nowDate) {
   nowDate = nowDate || new Date();
   const rules = store.getRules();
+  const result = {
+    totalGenerated: 0,
+    diagnosedRules: 0,
+    corruptRules: 0,
+    failedRules: 0,
+    diagnostics: [],
+  };
   const cleaned = [];
   for (const r of rules) {
-    const safe = core.sanitizeRecurringRule(r);
-    const changed =
-      safe.interval !== r.interval ||
-      safe.enabled !== r.enabled ||
-      safe.day !== r.day ||
-      safe.time !== r.time ||
-      (r.frequency === 'yearly' && safe.month !== r.month);
-    if (changed) {
-      const patch = {
-        interval: safe.interval,
-        enabled: safe.enabled,
-        day: safe.day,
-        time: safe.time,
-      };
-      if (r.frequency === 'yearly') patch.month = safe.month;
-      store.updateRule(r.id, patch);
+    try {
+      const safe = core.sanitizeRecurringRule(r);
+      const changed =
+        safe.interval !== r.interval ||
+        safe.enabled !== r.enabled ||
+        safe.day !== r.day ||
+        safe.time !== r.time ||
+        (r.frequency === 'yearly' && safe.month !== r.month);
+      if (changed) {
+        const patch = {
+          interval: safe.interval,
+          enabled: safe.enabled,
+          day: safe.day,
+          time: safe.time,
+        };
+        if (r.frequency === 'yearly') patch.month = safe.month;
+        store.updateRule(r.id, patch);
+      }
+      cleaned.push(safe);
+    } catch (e) {
+      // 该规则清洗 / 持久化失败：隔离，继续处理其他规则
+      result.failedRules++;
+      result.diagnostics.push({
+        ruleId: r.id,
+        failed: true,
+        stage: 'sanitize',
+        message: String((e && e.message) || e),
+      });
+      console.error('[recurring] rule ' + r.id + ' 清洗失败，已隔离', e);
     }
-    cleaned.push(safe);
   }
 
   const enabled = cleaned.filter((r) => r.enabled);
-  const result = { totalGenerated: 0, diagnosedRules: 0, diagnostics: [] };
   for (const rule of enabled) {
-    const res = generateDueBillsForRule(rule, nowDate);
-    result.totalGenerated += res.generated;
-    if (res.diagnosed) {
-      result.diagnosedRules++;
-      console.warn(
-        '[recurring] rule ' +
-          rule.id +
-          ' 达到 catch-up 保护上限，已停止补齐并留下诊断；nextOccurrence=' +
-          res.nextOccurrence
-      );
+    // 损坏规则（非法 startDate / 金额 / 周期域）→ 跳过，不生成、不产生 NaN 日期或异常账单
+    const v = core.validateRecurringRule(rule);
+    if (!v.ok) {
+      result.corruptRules++;
+      result.diagnostics.push({ ruleId: rule.id, corrupt: true, reason: v.reason });
+      console.warn('[recurring] rule ' + rule.id + ' 校验未通过（' + v.reason + '），跳过生成');
+      continue;
     }
-    result.diagnostics.push({
-      ruleId: rule.id,
-      generated: res.generated,
-      nextOccurrence: res.nextOccurrence,
-      diagnosed: res.diagnosed,
-    });
+    try {
+      const res = generateDueBillsForRule(rule, nowDate);
+      result.totalGenerated += res.generated;
+      if (res.diagnosed) {
+        result.diagnosedRules++;
+        console.warn(
+          '[recurring] rule ' +
+            rule.id +
+            ' 达到 catch-up 保护上限，已停止补齐并留下诊断；nextOccurrence=' +
+            res.nextOccurrence
+        );
+      }
+      result.diagnostics.push({
+        ruleId: rule.id,
+        generated: res.generated,
+        nextOccurrence: res.nextOccurrence,
+        diagnosed: res.diagnosed,
+      });
+    } catch (e) {
+      // 单条规则生成失败（如月份文件 IO 异常）：隔离，继续其他规则
+      result.failedRules++;
+      result.diagnostics.push({
+        ruleId: rule.id,
+        failed: true,
+        stage: 'generate',
+        message: String((e && e.message) || e),
+      });
+      console.error('[recurring] rule ' + rule.id + ' 生成失败，已隔离', e);
+    }
   }
   return result;
+}
+
+/**
+ * 预估规则从 startDate 到当前的到期 occurrence 数量（新建保存前「补记 N 笔」提示）。
+ * 不写库、不推进游标；口径与生成器一致（本地时间、time、365 上限）。
+ * @returns {{count:number, truncated:boolean, invalid?:boolean, reason?:string}}
+ *   count 为本轮实际会补记数量（<=365）；truncated=true 表示历史到期超过 365，需后续继续。
+ */
+function countDueForRule(rule, nowDate) {
+  nowDate = nowDate || new Date();
+  const normalized = store.normalizeRule(rule);
+  const check = core.validateRecurringRule(normalized);
+  if (!check.ok) return { count: 0, truncated: false, invalid: true, reason: check.reason };
+  const nowMs = nowDate.getTime();
+  let count = 0;
+  let truncated = false;
+  for (let i = 0; i < core.MAX_CATCHUP_PER_RULE + 1; i++) {
+    const d = core.occurrenceDate(normalized, i);
+    if (d < normalized.startDate) continue;
+    const ms = core.occurrenceTimestamp(d, normalized.time);
+    if (ms > nowMs) break;
+    if (count < core.MAX_CATCHUP_PER_RULE) {
+      count++;
+    } else {
+      truncated = true;
+      break;
+    }
+  }
+  return { count, truncated };
 }
 
 /* ---- 并发锁：单一 drain Promise + rerun 不丢触发 ---- */
@@ -162,27 +232,54 @@ let rerunRequested = false;
  * 当前轮结束若 rerunRequested 则继续，直到 drain 完才 resolve。
  */
 function runRecurringGenerator(nowDate) {
+  // 已有一轮在等待 / 运行：标记「再来一轮」并复用同一 Promise（drain 时补跑，绝不丢触发）。
   if (runningPromise) {
     rerunRequested = true;
     return runningPromise;
   }
-  runningPromise = new Promise((resolve) => {
-    let lastResult = { totalGenerated: 0, diagnosedRules: 0, diagnostics: [] };
+  runningPromise = (async () => {
+    // 让出当前同步栈：同一 tick 内 onLaunch / onShow / 编辑保存 / 导入恢复 多次触发
+    // 会被合并成一次 drain（rerunRequested），避免并发写月份文件互相覆盖。
+    await Promise.resolve();
+    const empty = () => ({
+      totalGenerated: 0,
+      diagnosedRules: 0,
+      corruptRules: 0,
+      failedRules: 0,
+      diagnostics: [],
+    });
+    let lastResult = empty();
     try {
       do {
         rerunRequested = false;
         lastResult = generateDueBills(nowDate);
       } while (rerunRequested);
-    } finally {
-      runningPromise = null;
+    } catch (e) {
+      // 兜底：per-rule 已隔离，正常不会走到这里；即便如此也绝不 reject，
+      // 周期是附加能力，失败只记录诊断，不能阻断 App onShow 的预算 / 日价 / 主界面刷新。
+      console.error('[recurring] 生成器整体异常，已隔离', e);
+      lastResult = Object.assign(empty(), lastResult, {
+        fatalError: String((e && e.message) || e),
+      });
     }
-    resolve(lastResult);
-  });
-  return runningPromise;
+    return lastResult;
+  })();
+  const p = runningPromise;
+  // settle 后才释放锁（不能在同步 executor 内置 null，会被外层赋值覆盖，导致锁永不释放）。
+  p.then(
+    () => {
+      if (runningPromise === p) runningPromise = null;
+    },
+    () => {
+      if (runningPromise === p) runningPromise = null;
+    }
+  );
+  return p;
 }
 
 module.exports = {
   generateDueBillsForRule,
   generateDueBills,
+  countDueForRule,
   runRecurringGenerator,
 };

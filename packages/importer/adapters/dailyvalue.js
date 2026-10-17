@@ -7,6 +7,7 @@ const money = require('../../../data/money');
 const normalizer = require('../core/normalizer');
 const diagnosis = require('../core/diagnosis');
 const header = require('../core/header');
+const recurringCore = require('../../../data/recurring/core');
 
 // Android 分类中文名 → Mini 分类 id
 const NAME_TO_ID = {
@@ -151,14 +152,42 @@ function safeIdPart(s) {
   return String(s).replace(/[^a-zA-Z0-9_-]/g, '');
 }
 
-/** 自定义分类在 Mini 的确定性 id */
-function miniCategoryId(androidId) {
-  return 'dvcat-' + safeIdPart(androidId);
+/** 稳定短 hash（djb2 → base36），仅用于安全 id 碰撞时消除歧义 */
+function stableShortHash(s) {
+  let h = 5381;
+  const str = String(s);
+  for (let i = 0; i < str.length; i++) {
+    h = (((h << 5) + h + str.charCodeAt(i)) >>> 0) || h;
+  }
+  return h.toString(36);
 }
 
-/** 周期规则在 Mini 的确定性 id（避免与 Mini 手工规则 id 冲突，重复导入幂等） */
-function miniRuleId(androidId) {
-  return 'dvrule-' + safeIdPart(androidId);
+/**
+ * 确定性安全 id 工厂（同一原始 id 永远得到同一 mini id）。
+ * 正常情况：prefix + safeIdPart(original)，与历史映射完全一致（已导入用户重复导入不产生新 id）。
+ * 仅当不同原始 id 清洗后碰撞（如 abc@1 与 abc#1 都→…abc1）时，给后来者追加稳定短 hash 消歧。
+ */
+function makeSafeIdFactory(prefix) {
+  const usedIds = new Set();
+  const originalToId = new Map();
+  return function (originalId) {
+    const key = String(originalId);
+    if (originalToId.has(key)) return originalToId.get(key);
+    const base = safeIdPart(key);
+    let id = prefix + base;
+    if (usedIds.has(id)) {
+      let candidate = prefix + base + '-' + stableShortHash(key);
+      let n = 1;
+      while (usedIds.has(candidate)) {
+        n++;
+        candidate = prefix + base + '-' + stableShortHash(key + ':' + n);
+      }
+      id = candidate;
+    }
+    usedIds.add(id);
+    originalToId.set(key, id);
+    return id;
+  };
 }
 
 /**
@@ -169,6 +198,7 @@ function mapBackupCategories(backupCats) {
   const idMap = {};
   const toCreate = [];
   const seen = new Set();
+  const catIdFactory = makeSafeIdFactory('dvcat-');
   backupCats.forEach((c) => {
     if (!c || !c.id || seen.has(c.id)) return;
     seen.add(c.id);
@@ -176,7 +206,7 @@ function mapBackupCategories(backupCats) {
       idMap[c.id] = c.id;
       return;
     }
-    const mid = miniCategoryId(c.id);
+    const mid = catIdFactory(c.id);
     idMap[c.id] = mid;
     const name = String(c.name || '').trim().slice(0, 8) || '自定义';
     toCreate.push({ id: mid, name, emoji: String(c.emoji || '📦') });
@@ -192,17 +222,30 @@ function resolveCategoryRef(androidId, idMap) {
   return 'c-other';
 }
 
-/** 映射周期规则（金额元→整数分；保留游标，不从头补账；忽略分类快照） */
-function mapRecurringRules(backupRules, idMap) {
+/**
+ * 映射周期规则（金额元→整数分；保留游标，不从头补账；忽略分类快照）。
+ * day 按 frequency 分频率保留原始值，最终交给 data/recurring/core.sanitize 统一钳制，
+ * 绝不在 Adapter 用 Math.max(1, day) 把 weekly 周日(0) 错改成周一(1)：
+ *   weekly 0..6（0=周日…6=周六，与 JS getDay 一致）；monthly/yearly 1..31；daily 忽略 day。
+ * 非法 / 损坏规则（金额 0、startDate 不是真实日期）直接跳过，由调用方进入脱敏诊断。
+ */
+function mapRecurringRules(backupRules, idMap, ruleIdFactory) {
+  ruleIdFactory = ruleIdFactory || makeSafeIdFactory('dvrule-');
   const out = [];
+  const skipped = [];
   const seen = new Set();
   backupRules.forEach((r) => {
     if (!r || !r.id || seen.has(r.id)) return;
     seen.add(r.id);
     const amountCents = Math.abs(money.yuanToCents(r.amount));
     const frequency = BACKUP_FREQUENCIES.indexOf(r.frequency) >= 0 ? r.frequency : 'daily';
+    // 硬校验：金额必须为正、startDate 必须是真实日历日期（否则跳过，不产生 NaN/异常账单）
+    if (!amountCents || !recurringCore.isValidDateStr(r.startDate)) {
+      skipped.push({ id: String(r.id), reason: !amountCents ? 'invalid-amount' : 'invalid-start-date' });
+      return;
+    }
     const rule = {
-      id: miniRuleId(r.id),
+      id: ruleIdFactory(r.id),
       enabled: r.enabled === true,
       type: r.type === 'income' ? 'income' : 'expense',
       amountCents,
@@ -210,19 +253,27 @@ function mapRecurringRules(backupRules, idMap) {
       note: r.note ? String(r.note) : '',
       frequency,
       interval: Number.isFinite(r.interval) ? Math.min(999, Math.max(1, Math.round(r.interval))) : 1,
-      day: Number.isFinite(r.day) ? Math.max(1, Math.round(r.day)) : 1,
       startDate: r.startDate,
       time: r.time,
       createdAt: r.createdAt || Date.now(),
     };
-    if (r.month != null && Number.isFinite(r.month)) rule.month = Math.min(12, Math.max(1, Math.round(r.month)));
+    // day 分频率：仅保留合法域原始值；非法/缺失则不带 day，由 sanitize 回退默认（weekly→startDate 星期）
+    if (frequency === 'weekly') {
+      if (Number.isInteger(r.day) && r.day >= 0 && r.day <= 6) rule.day = r.day;
+    } else if (frequency === 'monthly' || frequency === 'yearly') {
+      if (Number.isInteger(r.day) && r.day >= 1 && r.day <= 31) rule.day = r.day;
+    }
+    // yearly month 可选：缺失则不带（core / 文案统一回退 startDate 所在月）
+    if (frequency === 'yearly' && r.month != null && Number.isFinite(r.month)) {
+      rule.month = Math.min(12, Math.max(1, Math.round(r.month)));
+    }
     if (r.scheduleEffectiveAt != null) rule.scheduleEffectiveAt = Number(r.scheduleEffectiveAt);
     if (r.lastGeneratedDate) rule.lastGeneratedDate = r.lastGeneratedDate;
     if (r.nextOccurrence) rule.nextOccurrence = r.nextOccurrence;
     if (r.updatedAt != null) rule.updatedAt = Number(r.updatedAt);
-    if (amountCents && r.startDate) out.push(rule);
+    out.push(rule);
   });
-  return out;
+  return { rules: out, skipped };
 }
 
 /**
@@ -241,6 +292,8 @@ function parseBackup(obj) {
 
   const catResult = mapBackupCategories(srcCats);
   const idMap = catResult.idMap;
+  // 账单与规则共用同一 id 工厂，保证账单 recurringRuleId 与待建规则 id 严格一致（含碰撞 hash）
+  const ruleIdFactory = makeSafeIdFactory('dvrule-');
   const bills = [];
 
   srcBills.forEach((b) => {
@@ -281,17 +334,22 @@ function parseBackup(obj) {
       source: 'dailyvalue',
       sourceTxnId: b.id ? String(b.id) : '', // 原 id 精确去重
     });
-    // 周期账单：把来源规则 id 映射为 Mini 规则 id（与待建规则一致）
+    // 周期账单：把来源规则 id 映射为 Mini 规则 id（与待建规则一致，共用同一工厂）
     if (b.source === 'recurring' && b.recurringRuleId) {
-      nb.recurringRuleId = miniRuleId(b.recurringRuleId);
+      nb.recurringRuleId = ruleIdFactory(b.recurringRuleId);
     }
     nb.fingerprint = normalizer.makeFingerprint(nb);
     bills.push(nb);
   });
 
-  const recurringRules = mapRecurringRules(srcRules, idMap);
+  const ruleResult = mapRecurringRules(srcRules, idMap, ruleIdFactory);
 
-  return { bills, categories: catResult.toCreate, recurringRules };
+  return {
+    bills,
+    categories: catResult.toCreate,
+    recurringRules: ruleResult.rules,
+    skippedRecurringRules: ruleResult.skipped,
+  };
 }
 
 module.exports = {

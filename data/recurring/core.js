@@ -32,6 +32,23 @@ function toDateStr(y, m, d) {
   return y + '-' + pad2(m) + '-' + pad2(d);
 }
 
+/** 严格 yyyy-MM-dd 形态（补零、四位年） */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 严格校验真实日历日期 yyyy-MM-dd。
+ * 拒绝：非字符串、未补零（2026-1-1）、非法月日（2026-13-01、2026-02-30）、含时间。
+ * 损坏的备份 / Android 规则若放行，会在 occurrenceDate 算出 NaN 日期或 2026-09-00 业务日期。
+ */
+function isValidDateStr(s) {
+  if (typeof s !== 'string' || !DATE_RE.test(s)) return false;
+  const c = parseDate(s);
+  if (![c.y, c.m, c.d].every(Number.isFinite)) return false;
+  if (c.m < 1 || c.m > 12 || c.d < 1 || c.d > daysInMonth(c.y, c.m)) return false;
+  // 重新规范化必须与原串一致（排除 2026-1-01 之类未补零被放过）
+  return toDateStr(c.y, c.m, c.d) === s;
+}
+
 /** 日期编号（自 UTC 纪元天数；仅用于索引推导，与业务日期 / DST 无关） */
 function dayNumber(dateStr) {
   const c = parseDate(dateStr);
@@ -114,6 +131,54 @@ function sanitizeRecurringRule(rule) {
   // time：非法 HH:mm → 安全默认 00:00
   out.time = typeof rule.time === 'string' && HHMM_RE.test(rule.time) ? rule.time : '00:00';
   return out;
+}
+
+/**
+ * 校验规则是否可安全用于生成（迁移 / 恢复 / 损坏数据的防线）。
+ * 返回 { ok:true } 或 { ok:false, reason }。
+ *
+ * 这些是 sanitize 无法安全兜底、否则会产生 NaN 日期或异常账单的硬条件：
+ *  - startDate 必须是真实 yyyy-MM-dd（occurrence 计算的基准）；
+ *  - amountCents 必须为正整数（0 / 负 / NaN 金额不生成账单）；
+ *  - frequency 必须受支持；interval 1..999；
+ *  - weekly day 0..6（0=周日）；monthly/yearly day 1..31；yearly month 1..12。
+ * time 非法不在此拒绝（sanitize 已安全兜底为 00:00）。
+ */
+function validateRecurringRule(rule) {
+  rule = rule || {};
+  if (!isValidDateStr(rule.startDate)) return { ok: false, reason: 'invalid-start-date' };
+  if (
+    !(
+      Number.isFinite(rule.amountCents) &&
+      Number.isInteger(rule.amountCents) &&
+      rule.amountCents > 0
+    )
+  ) {
+    return { ok: false, reason: 'invalid-amount' };
+  }
+  if (FREQUENCIES.indexOf(rule.frequency) < 0) return { ok: false, reason: 'invalid-frequency' };
+  const iv = Number(rule.interval);
+  if (!(Number.isInteger(iv) && iv >= 1 && iv <= 999)) {
+    return { ok: false, reason: 'invalid-interval' };
+  }
+  if (rule.frequency === 'weekly') {
+    if (isWeeklyDayInvalid(rule)) return { ok: false, reason: 'invalid-day' };
+  } else if (rule.frequency === 'monthly') {
+    if (!(Number.isInteger(rule.day) && rule.day >= 1 && rule.day <= 31)) {
+      return { ok: false, reason: 'invalid-day' };
+    }
+  } else if (rule.frequency === 'yearly') {
+    if (
+      rule.month != null &&
+      !(Number.isInteger(Number(rule.month)) && rule.month >= 1 && rule.month <= 12)
+    ) {
+      return { ok: false, reason: 'invalid-month' };
+    }
+    if (!(Number.isInteger(rule.day) && rule.day >= 1 && rule.day <= 31)) {
+      return { ok: false, reason: 'invalid-day' };
+    }
+  }
+  return { ok: true };
 }
 
 /** 当月天数（m 为 1-12） */
@@ -240,15 +305,18 @@ module.exports = {
   RECURRING_BILL_PREFIX,
   FREQUENCIES,
   HHMM_RE,
+  DATE_RE,
   pad2,
   parseDate,
   toDateStr,
+  isValidDateStr,
   dayNumber,
   localDateKey,
   startDateWeekday,
   isWeeklyDayInvalid,
   resolveWeeklyDay,
   sanitizeRecurringRule,
+  validateRecurringRule,
   daysInMonth,
   isLeapYear,
   clampDay,

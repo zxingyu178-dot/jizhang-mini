@@ -29,32 +29,33 @@ function frequencyText(rule) {
       return rule.interval > 1
         ? '每 ' + rule.interval + ' 月·' + rule.day + ' 日'
         : '每月 ' + rule.day + ' 日';
-    case 'yearly':
+    case 'yearly': {
+      // Android 规则 month 可选：缺失时语义为 startDate 所在月（core 已同口径 fallback），
+      // 列表文案不能直接 rule.month + '月'，否则显示「每年 undefined 月 16 日」。
+      const sc = core.parseDate(rule.startDate);
+      const m = Number.isInteger(rule.month)
+        ? rule.month
+        : Number.isFinite(sc.m)
+          ? sc.m
+          : 1;
       return (
         (rule.interval > 1 ? '每 ' + rule.interval + ' 年 ' : '每年 ') +
-        rule.month +
+        m +
         ' 月 ' +
         rule.day +
         ' 日'
       );
+    }
   }
   return '';
 }
 
-/** 从某 startDate 到当前，到期 occurrence 数量（新增规则补记提示用） */
-function countDue(rule, now) {
-  const normalized = store.recurring.store.normalizeRule(rule);
-  const nowMs = now.getTime();
-  let count = 0;
-  for (let i = 0; i < core.MAX_CATCHUP_PER_RULE + 4; i++) {
-    const d = core.occurrenceDate(normalized, i);
-    if (d < normalized.startDate) continue;
-    const ms = core.occurrenceTimestamp(d, normalized.time);
-    if (ms > nowMs) break;
-    count++;
-    if (count > core.MAX_CATCHUP_PER_RULE) break;
-  }
-  return count;
+/** yyyy-MM-dd → M月D日（列表「下次」短日期）；非法返回空串 */
+function fmtDateShort(dateStr) {
+  if (!dateStr) return '';
+  const c = core.parseDate(dateStr);
+  if (![c.y, c.m, c.d].every(Number.isFinite)) return '';
+  return c.m + '月' + c.d + '日';
 }
 
 Page({
@@ -118,7 +119,8 @@ Page({
         emoji: cat.emoji,
         categoryName: cat.name,
         note: r.note,
-        nextText: r.nextOccurrence || '',
+        // 停用规则保留 nextOccurrence 游标便于恢复，但列表显示「已停用」，不写「下次」
+        nextText: r.enabled ? fmtDateShort(r.nextOccurrence) : '',
       };
     });
     this.setData({ rules, empty: rules.length === 0 });
@@ -191,8 +193,15 @@ Page({
     const id = e.currentTarget.dataset.id;
     const enabled = e.detail.value;
     store.recurring.setRuleEnabled(id, enabled);
-    if (enabled) store.recurring.runRecurringGenerator();
-    this.load();
+    if (enabled) {
+      // 重新启用：setRuleEnabled 已置 scheduleEffectiveAt=now（不补停用期间），
+      // 等生成器重算真实 nextOccurrence 后再刷新，避免列表短暂显示旧日期。
+      Promise.resolve(store.recurring.runRecurringGenerator())
+        .catch((err) => console.error('启用后周期补齐失败', err))
+        .then(() => this.load());
+    } else {
+      this.load();
+    }
   },
 
   /** 删除规则（已生成 Bill 保留） */
@@ -296,25 +305,34 @@ Page({
 
     const doSave = () => {
       if (d.editingId) {
+        // 编辑：scheduleEffectiveAt=now，只影响之后 occurrence，不回填历史
         store.recurring.editRule(d.editingId, {
           ...rule,
           scheduleEffectiveAt: Date.now(),
         });
       } else {
         store.recurring.createRule(rule);
-        store.recurring.runRecurringGenerator();
       }
-      this.setData({ editorShow: false });
-      this.load();
+      // 无论新建 / 编辑，保存后立即重算 nextOccurrence / 补齐到期账单，再刷新列表，
+      // 不能等下一次 onShow（否则编辑后「下次」仍停留在旧值）。
+      Promise.resolve(store.recurring.runRecurringGenerator())
+        .catch((err) => console.error('保存后周期补齐失败', err))
+        .then(() => {
+          this.setData({ editorShow: false });
+          this.load();
+        });
     };
 
     if (!d.editingId && rule.startDate <= core.localDateKey(now)) {
-      const n = countDue(rule, now);
-      if (n > 0) {
+      const due = store.recurring.countDueForRule(rule, now);
+      if (due.count > 0) {
+        const content = due.truncated
+          ? '历史到期记录超过 365 笔。为避免一次生成过多数据，本次最多补记 365 笔，剩余记录将在后续打开小程序时继续补齐。'
+          : '从 ' + rule.startDate + ' 起共有 ' +
+            due.count + ' 笔到期记录，保存后将补记 ' + due.count + ' 笔账单。';
         wx.showModal({
           title: '补记周期账单',
-          content:
-            '从 ' + rule.startDate + ' 起共有 ' + n + ' 笔到期记录，保存后将补记 ' + n + ' 笔账单。',
+          content,
           confirmText: '补记',
           cancelText: '取消',
           success: (res) => {

@@ -101,6 +101,12 @@ Page({
               ' 条周期规则使用，请先修改这些周期规则的分类。',
             showCancel: false,
           });
+        } else if (r.reason === 'recurring-check-failed') {
+          wx.showModal({
+            title: '暂时无法归档',
+            content: '暂时无法确认该分类是否被周期规则使用，请稍后再试。',
+            showCancel: false,
+          });
         } else if (r.reason === 'builtin') {
           wx.showModal({ title: '无法归档', content: '系统分类不可归档。', showCancel: false });
         } else {

@@ -224,6 +224,25 @@ console.log('D. 周期引用保护');
   eq(C.archiveCategory('c-travel').ok, true, '未被引用分类可归档');
 }
 
+/* ================= E. 归档 fail-closed：周期引用检查异常不放行（v0.6.1） ================= */
+console.log('E. 归档 fail-closed（周期引用检查异常）');
+{
+  const s = freshStore();
+  const rec = s.recurring;
+  const orig = rec.countRulesByCategory;
+  // 模拟 recurring.json 损坏 / IO 失败：周期引用检查抛错
+  rec.countRulesByCategory = function () {
+    throw new Error('recurring.json corrupt');
+  };
+  const r = s.categories.archiveCategory('c-drink');
+  eq(r.ok, false, '周期引用检查失败时禁止归档');
+  eq(r.reason, 'recurring-check-failed', '返回 recurring-check-failed');
+  eq(s.categories.getCategory('c-drink').archived, false, '分类未被归档（fail-closed 安全）');
+  // 恢复检查后可正常归档
+  rec.countRulesByCategory = orig;
+  eq(s.categories.archiveCategory('c-drink').ok, true, '检查恢复后可正常归档');
+}
+
 /* ================= 汇总 ================= */
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

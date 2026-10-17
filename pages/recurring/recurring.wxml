@@ -38,7 +38,8 @@
         <text class="rc-card__cat">{{item.categoryName}}</text>
         <text class="rc-card__note" wx:if="{{item.note}}">· {{item.note}}</text>
       </view>
-      <view class="rc-card__next" wx:if="{{item.nextText}}">下次 {{item.nextText}}</view>
+      <view class="rc-card__next" wx:if="{{item.enabled && item.nextText}}">下次 {{item.nextText}}</view>
+      <view class="rc-card__next rc-card__next--off" wx:elif="{{!item.enabled}}">已停用</view>
     </view>
 
     <!-- 新建 -->
@@ -83,7 +84,7 @@
       <!-- 周期日期：weekly -->
       <block wx:if="{{frequency==='weekly'}}">
         <view class="re-label">星期</view>
-        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+        <scroll-view scroll-x enable-flex class="re-chips" enhanced show-scrollbar="{{false}}">
           <view class="re-chip {{weekDay===item.v?'active':''}}" wx:for="{{weekOptions}}" wx:key="v" data-v="{{item.v}}" bindtap="onWeekDay">{{item.label}}</view>
         </scroll-view>
       </block>
@@ -91,7 +92,7 @@
       <!-- 周期日期：monthly -->
       <block wx:if="{{frequency==='monthly'}}">
         <view class="re-label">日期</view>
-        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+        <scroll-view scroll-x enable-flex class="re-chips" enhanced show-scrollbar="{{false}}">
           <view class="re-chip {{monthDay===item?'active':''}}" wx:for="{{dayOptions}}" wx:key="*this" data-v="{{item}}" bindtap="onMonthDay">{{item}}</view>
         </scroll-view>
       </block>
@@ -99,11 +100,11 @@
       <!-- 周期日期：yearly -->
       <block wx:if="{{frequency==='yearly'}}">
         <view class="re-label">月份</view>
-        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+        <scroll-view scroll-x enable-flex class="re-chips" enhanced show-scrollbar="{{false}}">
           <view class="re-chip {{yearMonth===item?'active':''}}" wx:for="{{monthOptions}}" wx:key="*this" data-v="{{item}}" bindtap="onYearMonth">{{item}}</view>
         </scroll-view>
         <view class="re-label">日期</view>
-        <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+        <scroll-view scroll-x enable-flex class="re-chips" enhanced show-scrollbar="{{false}}">
           <view class="re-chip {{yearDay===item?'active':''}}" wx:for="{{dayOptions}}" wx:key="*this" data-v="{{item}}" bindtap="onYearDay">{{item}}</view>
         </scroll-view>
       </block>
@@ -125,7 +126,7 @@
 
       <!-- 分类 -->
       <view class="re-label">分类</view>
-      <scroll-view scroll-x class="re-chips" enhanced show-scrollbar="{{false}}">
+      <scroll-view scroll-x enable-flex class="re-chips" enhanced show-scrollbar="{{false}}">
         <view class="re-chip re-chip--cat {{categoryId===item.id?'active':''}}" wx:for="{{cats}}" wx:key="id" data-id="{{item.id}}" bindtap="onCategory">
           <text class="re-chip__emoji">{{item.emoji}}</text>
           <text class="re-chip__name">{{item.name}}</text>

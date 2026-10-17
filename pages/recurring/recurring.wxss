@@ -116,6 +116,10 @@
   font-size: 23rpx;
   color: var(--text-faint);
 }
+.rc-card__next--off {
+  opacity: 0.6;
+  letter-spacing: 1rpx;
+}
 
 /* 新建 */
 .rc-add {
@@ -229,10 +233,16 @@
 }
 
 .re-chips {
-  white-space: nowrap;
   width: 100%;
+  height: 72rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 .re-chip {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;

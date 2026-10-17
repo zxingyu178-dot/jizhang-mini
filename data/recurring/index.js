@@ -50,5 +50,6 @@ module.exports = {
   replaceAllRules: store.replaceAllRules,
   // 生成
   generateDueBills: generator.generateDueBills,
+  countDueForRule: generator.countDueForRule,
   runRecurringGenerator: generator.runRecurringGenerator,
 };

@@ -204,14 +204,18 @@ function archiveCategory(id) {
   if (!cat) return { ok: false, reason: 'not-found' };
   if (cat.builtin) return { ok: false, reason: 'builtin' };
 
-  // Gate E：被周期规则引用时阻止归档（延迟 require，避免底层反向依赖）
+  // Gate E：被周期规则引用时阻止归档（延迟 require，避免底层反向依赖）。
+  // recurring 模块已正式存在：检查失败（recurring.json 损坏 / IO 异常 / 模块异常）必须
+  // fail-closed —— 宁可不归档，也不能放行一个仍被周期规则引用的分类导致后续生成悬空分类。
+  let usage;
   try {
     const recurring = require('./recurring/index');
-    const usage = recurring.countRulesByCategory(id);
-    if (usage > 0) return { ok: false, reason: 'in-use', recurringCount: usage };
+    usage = recurring.countRulesByCategory(id);
   } catch (e) {
-    // recurring 模块尚未建立：跳过检查
+    return { ok: false, reason: 'recurring-check-failed' };
   }
+  if (!Number.isFinite(usage)) return { ok: false, reason: 'recurring-check-failed' };
+  if (usage > 0) return { ok: false, reason: 'in-use', recurringCount: usage };
 
   cat.archived = true;
   fs.writeJSON(paths.FILE.categories, all);

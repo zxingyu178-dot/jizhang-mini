@@ -90,6 +90,16 @@ function doParse(buffer, file, lower, diag) {
     bills = parsed.bills;
     extraCategories = parsed.categories || [];
     extraRecurringRules = parsed.recurringRules || [];
+    // 损坏周期规则被跳过：脱敏诊断仅记录数量与原因（不含规则 id / 金额 / 名称）
+    const skipped = parsed.skippedRecurringRules || [];
+    if (skipped.length) {
+      diag.recurringRulesSkipped = (diag.recurringRulesSkipped || 0) + skipped.length;
+      diag.recurringSkipReasons = diag.recurringSkipReasons || {};
+      skipped.forEach((s) => {
+        const key = s && s.reason ? s.reason : 'unknown';
+        diag.recurringSkipReasons[key] = (diag.recurringSkipReasons[key] || 0) + 1;
+      });
+    }
   }
 
   if (lower.endsWith('.xlsx')) {

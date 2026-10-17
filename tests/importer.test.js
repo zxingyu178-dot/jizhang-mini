@@ -97,6 +97,7 @@ const detector = require(path.join(ROOT, 'packages', 'importer', 'core', 'detect
 const commit = require(path.join(ROOT, 'packages', 'importer', 'core', 'commit'));
 const diagnosis = require(path.join(ROOT, 'packages', 'importer', 'core', 'diagnosis'));
 const wechatAdapter = require(path.join(ROOT, 'packages', 'importer', 'adapters', 'wechat'));
+const dvAdapter = require(path.join(ROOT, 'packages', 'importer', 'adapters', 'dailyvalue'));
 const FIX = path.join(__dirname, 'fixtures');
 
 function freshStore() {
@@ -383,6 +384,148 @@ async function testDiagnosis() {
   eq(bad.headerFound, false, '诊断标记表头未找到');
 }
 
+/* ---------- v0.6.1：Android 周期星期语义 / 损坏规则 / 年度月 / ID 碰撞 ---------- */
+function dvBackup(rules, cats, bills) {
+  return {
+    format: 'daily-value-backup',
+    schemaVersion: 1,
+    data: {
+      bills: bills || [],
+      categories: cats || [],
+      recurringRules: rules || [],
+      settings: {},
+    },
+  };
+}
+
+function testDailyValueRecurringMigration() {
+  // P0：weekly day=0 周日必须保留（旧 Math.max(1, day) 会把周日错改成周一）
+  const wk = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'sun', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, day: 0, startDate: '2026-10-18', time: '08:00' },
+      { id: 'sat', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, day: 6, startDate: '2026-10-17', time: '08:00' },
+      { id: 'mon', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, day: 1, startDate: '2026-10-19', time: '08:00' },
+      { id: 'bi', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 2, day: 0, startDate: '2026-10-18', time: '08:00' },
+    ])
+  );
+  const wkById = {};
+  wk.recurringRules.forEach((r) => { wkById[r.id] = r; });
+  eq(wkById['dvrule-sun'].day, 0, '每周日 day=0 保留为周日');
+  eq(wkById['dvrule-sun'].frequency, 'weekly', '周日规则频率 weekly');
+  eq(wkById['dvrule-sat'].day, 6, '每周六 day=6 保留');
+  eq(wkById['dvrule-mon'].day, 1, '每周一 day=1 保留');
+  eq(wkById['dvrule-bi'].interval, 2, '每 2 周 interval=2 保留');
+  eq(wkById['dvrule-bi'].day, 0, '每 2 周·周日 day=0');
+
+  // monthly 域 1..31：day=0 非法不保留（交 sanitize 回退），day=31 保留
+  const mo = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'm0', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'monthly', interval: 1, day: 0, startDate: '2026-10-01', time: '08:00' },
+      { id: 'm31', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'monthly', interval: 1, day: 31, startDate: '2026-01-31', time: '08:00' },
+    ])
+  );
+  const m0 = mo.recurringRules.find((r) => r.id === 'dvrule-m0');
+  assert(m0 && !Object.prototype.hasOwnProperty.call(m0, 'day'), 'monthly day=0 不保留（交 sanitize 回退）');
+  eq(mo.recurringRules.find((r) => r.id === 'dvrule-m31').day, 31, 'monthly day=31 保留');
+
+  // 损坏规则：金额 0 / startDate 不是真实日历日期 → skipped，不进规则，不产生 NaN
+  const bad = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'zero', enabled: true, type: 'expense', amount: 0, categoryId: 'c-food', frequency: 'daily', interval: 1, day: 1, startDate: '2026-10-01', time: '08:00' },
+      { id: 'feb30', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'daily', interval: 1, day: 1, startDate: '2026-02-30', time: '08:00' },
+      { id: 'good', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'daily', interval: 1, day: 1, startDate: '2026-10-16', time: '08:00' },
+    ])
+  );
+  eq(bad.recurringRules.length, 1, '仅 1 条合法规则迁入');
+  eq(bad.recurringRules[0].id, 'dvrule-good', '合法规则为 good');
+  eq(bad.skippedRecurringRules.length, 2, '2 条损坏规则进入 skipped');
+  eq(bad.skippedRecurringRules.find((x) => x.id === 'zero').reason, 'invalid-amount', '0 金额原因 invalid-amount');
+  eq(bad.skippedRecurringRules.find((x) => x.id === 'feb30').reason, 'invalid-start-date', '非法日期原因 invalid-start-date');
+
+  // yearly month 可选：缺失不带 month（core/文案回退 startDate 月），显式 month 保留
+  const yr = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'ym', enabled: true, type: 'expense', amount: 100, categoryId: 'c-housing', frequency: 'yearly', interval: 1, day: 16, startDate: '2026-10-16', time: '09:00' },
+      { id: 'y3', enabled: true, type: 'expense', amount: 100, categoryId: 'c-housing', frequency: 'yearly', interval: 1, day: 16, month: 3, startDate: '2026-01-01', time: '09:00' },
+    ])
+  );
+  const ym = yr.recurringRules.find((r) => r.id === 'dvrule-ym');
+  assert(!Object.prototype.hasOwnProperty.call(ym, 'month'), 'yearly month 缺失不带 month');
+  eq(store.recurring.core.occurrenceDate(ym, 0), '2026-10-16', 'month 缺失回退 startDate 月 → 10-16（无 undefined 月）');
+  eq(yr.recurringRules.find((r) => r.id === 'dvrule-y3').month, 3, 'yearly 显式 month=3 保留');
+
+  // 自定义分类安全 id 碰撞：abc@1 与 abc#1 清洗后都 → abc1，后来者追加稳定 hash
+  const col = dvAdapter.parseBackup(
+    dvBackup([], [
+      { id: 'abc@1', name: '甲类', emoji: '📦' },
+      { id: 'abc#1', name: '乙类', emoji: '📦' },
+    ])
+  );
+  eq(col.categories.length, 2, '两个碰撞分类都创建');
+  const ids = col.categories.map((c) => c.id).sort();
+  eq(ids[0], 'dvcat-abc1', '首个保持兼容 id dvcat-abc1');
+  assert(ids[1] !== 'dvcat-abc1' && ids[1].indexOf('dvcat-abc1-') === 0, '第二个追加稳定 hash 消歧');
+  // 同一原始 id 重复只建一次
+  const col2 = dvAdapter.parseBackup(
+    dvBackup([], [
+      { id: 'abc@1', name: '甲类', emoji: '📦' },
+      { id: 'abc@1', name: '甲类', emoji: '📦' },
+    ])
+  );
+  eq(col2.categories.length, 1, '同原始 id 重复只建一个分类');
+}
+
+/** 用 adapter.parseBackup 结果构造最小可提交 session（绕过 detector / 文件） */
+function sessionFromBackup(backup) {
+  const parsed = dvAdapter.parseBackup(backup);
+  return {
+    bills: parsed.bills.map((b) => Object.assign({}, b, { status: 'ready' })),
+    extraCategories: parsed.categories,
+    extraRecurringRules: parsed.recurringRules,
+  };
+}
+
+/* ---------- v0.6.1：同名归档分类恢复 + 导入后 nextOccurrence 重算 ---------- */
+async function testRecurringImportCommit() {
+  const s = freshStore();
+  // 预置：Mini 已有同名「咖啡」且被用户归档
+  const coffee = s.categories.addCategory({ name: '咖啡', emoji: '☕' });
+  assert(coffee.ok, '建咖啡分类成功');
+  const archivedId = coffee.category.id;
+  s.categories.archiveCategory(archivedId);
+  eq(s.categories.getCategory(archivedId).archived, true, '预置：咖啡已归档');
+
+  // Android 备份含有效分类「咖啡」+ 引用它的未来周期规则（未来开始避免补历史账单）
+  const backup = dvBackup([
+    { id: 'rule-coffee', enabled: true, type: 'expense', amount: 25, categoryId: 'cat-coffee', categoryName: '咖啡', frequency: 'weekly', interval: 1, day: 1, startDate: '2027-01-04', time: '08:00' },
+  ], [
+    { id: 'cat-coffee', name: '咖啡', emoji: '☕' },
+  ]);
+  const session = sessionFromBackup(backup);
+  commit.commitImport(session);
+  // 导入提交已触发周期补齐（合并到同一轮 generator）；等待其 drain 完成
+  await s.recurring.runRecurringGenerator();
+
+  // 同名归档分类被复用并恢复 active（既不新建 dvcat-，也不停留在归档导致新记账看不到）
+  const cats = s.categories.getCategories().filter((x) => x.name === '咖啡');
+  eq(cats.length, 1, '只有一个「咖啡」分类（未新建重复）');
+  eq(cats[0].id, archivedId, '复用原分类 id');
+  eq(cats[0].archived, false, '同名归档分类恢复 active');
+
+  // 规则引用恢复后的分类，不悬空
+  const rule = s.recurring.getRule('dvrule-rule-coffee');
+  assert(rule, '周期规则已写入');
+  eq(rule.categoryId, archivedId, '规则分类指向恢复后的原分类');
+
+  // 导入后立即重算 nextOccurrence（未来每周一 2027-01-04），无需切后台
+  eq(rule.nextOccurrence, '2027-01-04', '导入后 nextOccurrence 已重算');
+
+  // 锁释放：上一轮 settle 后再次触发（模拟后续 onShow / 编辑保存）必须真正重跑并拿到最新结果
+  const later = await s.recurring.runRecurringGenerator(new Date(2027, 0, 5, 12));
+  assert(later && typeof later.totalGenerated === 'number', '锁释放后再次触发返回新一轮结果');
+  eq(s.recurring.getRule('dvrule-rule-coffee').lastGeneratedDate, '2027-01-04', '再次触发在 2027-01-05 补出 01-04 账单');
+}
+
 async function run() {
   const tests = [
     testWechat,
@@ -393,6 +536,8 @@ async function run() {
     testDailyValueCsv,
     testDailyValueBackup,
     testDailyValueCustom,
+    testDailyValueRecurringMigration,
+    testRecurringImportCommit,
     testMiniRestore,
     testDiagnosis,
   ];

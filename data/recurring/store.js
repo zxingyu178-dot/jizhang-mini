@@ -35,17 +35,23 @@ function normalizeRule(raw) {
   raw = raw || {};
   const frequency = core.FREQUENCIES.indexOf(raw.frequency) >= 0 ? raw.frequency : 'daily';
   const safe = core.sanitizeRecurringRule(Object.assign({}, raw, { frequency }));
+  // amountCents：非有限值（undefined/NaN）兜底为 0，避免 NaN 入库（generator 会跳过 0 金额规则）
+  const amountCents = Number.isFinite(raw.amountCents)
+    ? Math.max(0, Math.round(raw.amountCents))
+    : 0;
   const out = {
     id: raw.id || genId(),
     enabled: safe.enabled,
     type: raw.type === 'income' ? 'income' : 'expense',
-    amountCents: Math.max(0, Math.round(raw.amountCents)),
+    amountCents,
     categoryId: raw.categoryId || 'c-other',
     note: raw.note || '',
     frequency,
     interval: safe.interval,
     day: safe.day,
-    startDate: raw.startDate,
+    // startDate 原样保留为字符串（非法日期不在此静默兜底，由 generator/adapter 校验拦截，
+    // 避免损坏规则被悄悄改写成「今天开始」而生成意外账单）。
+    startDate: typeof raw.startDate === 'string' ? raw.startDate : '',
     time: safe.time,
     createdAt: raw.createdAt || Date.now(),
   };

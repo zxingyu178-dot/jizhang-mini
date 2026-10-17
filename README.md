@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.6.0（Categories & Recurring：分类管理（软归档，不物理删除；自定义新增 / 改名 / 归档 / 恢复，核心 5 类内置保护、归档分类历史账单仍可解析）、周期记账（每天 / 每周 / 每月 / 每年 + 每 N，月末钳制、确定性 Bill id、catch-up 上限 365、删除不复活、编辑只影响未来、停用不补、打开小程序时自动补齐，不承诺后台准点）、Android `.dvbackup` 自定义分类与周期规则迁移（不再全部变「其他」）、Bill V3（新增 `recurringRuleId`）、Backup V3（新增 `recurringRules`，兼容 V1/V2）、预算空态（未设预算不显示全灰日历）。沿用 0.5.1 的预算口径与 0.5.0 的预算节奏）
+- 当前版本：0.6.1（Recurring & Migration Closure：修复 Android 每周日 `day=0` 被旧 `Math.max(1,day)` 错导成周一（按频率分域规范化：weekly 0–6、monthly/yearly 1–31、daily 忽略 day）；编辑 / 停用 / 启用 / 导入 / 恢复后立即重算 `nextOccurrence`，并修复 v0.6.0 遗留的生成器并发锁永不释放缺陷（改为微任务调度 + drain 合并，settle 后释放锁）；停用规则显示「已停用」但保留游标；>365 补记提示据实（`countDueForRule` 返回 `{count,truncated}`，明确「本次最多补 365，剩余后续继续」）；生成器整体异常 resolve 带 `fatalError` 且不阻断主界面刷新；分类归档 fail-closed（周期引用检查失败返回 `recurring-check-failed` 不放行）；年度规则 `month` 缺失按 `startDate` 回退，不再出现「undefined 月」；规则输入严格校验（真实 `yyyy-MM-dd` / `amountCents>0` / time 规范化，损坏规则跳过并进入脱敏诊断，不产生 NaN 账单）；Android 自定义 ID 仅在检测到碰撞时追加稳定短 hash，保留既有 `dvcat-`/`dvrule-` 兼容；导入同名已归档分类自动复用并恢复 active；测试 664→743。沿用 0.6.0 的分类管理、周期记账、Bill V3、Backup V3、Android 自定义分类 / 周期迁移与预算空态）
 
 ## 测试
 
@@ -14,7 +14,7 @@
 npm test
 ```
 
-一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`categories.test.js`、`recurring.test.js`、`settings.test.js`、`importer.test.js`（当前 664 项，10 套件），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
+一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`categories.test.js`、`recurring.test.js`、`settings.test.js`、`importer.test.js`（当前 743 项，10 套件），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
 
 ## 已实现功能
 

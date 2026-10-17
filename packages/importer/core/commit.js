@@ -10,6 +10,23 @@ const backup = require('../../../data/backup');
 const ledger = require('../../../data/ledger');
 const categories = require('../../../data/categories');
 const recurringStore = require('../../../data/recurring/store');
+const recurringGenerator = require('../../../data/recurring/generator');
+
+/**
+ * 导入 / 恢复写入规则后，立即重算 nextOccurrence 并补齐到期账单（fire-and-forget）。
+ * 生成器内部带并发锁、永不 reject、单规则异常隔离，无需用户把小程序切后台再回来。
+ * 已随备份导入的历史周期账单因确定性 id 命中而跳过，不会重复生成。
+ */
+function scheduleRecurringCatchup() {
+  try {
+    const p = recurringGenerator.runRecurringGenerator();
+    if (p && typeof p.catch === 'function') {
+      p.catch((e) => console.error('导入后周期补齐失败', e));
+    }
+  } catch (e) {
+    console.error('导入后周期补齐失败', e);
+  }
+}
 
 /**
  * 幂等写入 Gate F 自定义分类（同 id 跳过、同名复用、否则按确定性 id 新建），
@@ -19,12 +36,17 @@ const recurringStore = require('../../../data/recurring/store');
 function ensureExtraCategories(session, bills) {
   const remap = {};
   (session.extraCategories || []).forEach((c) => {
-    if (categories.getCategories().find((x) => x.id === c.id)) {
-      remap[c.id] = c.id;
+    // 备份中的分类为有效分类：若 Mini 已有同 id 分类（哪怕之前被归档），复用并恢复为 active
+    const existing = categories.getCategories().find((x) => x.id === c.id);
+    if (existing) {
+      if (existing.archived) categories.restoreCategory(existing.id);
+      remap[c.id] = existing.id;
       return;
     }
     const dup = categories.findDuplicateName(c.name);
     if (dup) {
+      // 同名分类处于归档状态时复用并恢复 active，避免导入的周期规则引用新记账里看不到的归档分类
+      if (dup.archived) categories.restoreCategory(dup.id);
       remap[c.id] = dup.id;
       return;
     }
@@ -133,6 +155,9 @@ function commitImport(session, opts) {
       throw new Error('导入条数校验不一致');
     }
 
+    // 5. Gate G：规则已写入，立即重算 nextOccurrence / 补齐到期账单（带历史账单的确定性 id 会跳过）
+    scheduleRecurringCatchup();
+
     return { imported: toImport.length, merged: toMerge.length, batchId, months };
   } catch (e) {
     // 回滚到快照
@@ -145,6 +170,8 @@ function commitImport(session, opts) {
 /** 完整恢复（Mini 备份） */
 function commitRestore(session) {
   const result = backup.restoreBackup(session.restoreObj);
+  // 恢复后立即重算周期 nextOccurrence / 补齐到期账单（不强制用户切后台再回来）
+  scheduleRecurringCatchup();
   return { imported: result.restored, months: result.months };
 }
 

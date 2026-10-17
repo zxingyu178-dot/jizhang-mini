@@ -20,7 +20,10 @@ App({
     try {
       this.dataStatus = store.init();
       // 冷启动补齐「已到期但未生成」的周期账单（含长期未打开后的 catch-up）。
-      this.runRecurringCatchup();
+      // 附加能力，失败不阻断启动（生成器内部已隔离，这里再兜底防止 unhandled rejection）。
+      this.runRecurringCatchup().catch((e) => {
+        console.error('启动周期补生成失败', e);
+      });
     } catch (e) {
       console.error('数据层初始化失败', e);
       this.dataStatus = { error: String(e && e.message) };
@@ -29,9 +32,14 @@ App({
 
   onShow() {
     // 回前台：先补齐后台期间到期的周期账单，再刷新时间敏感视图（日价 / 预算 / 周期），排午夜。
-    this.runRecurringCatchup().then(() => {
-      this.refreshTimeSensitiveViews();
-    });
+    // 周期是附加能力：无论补生成成功与否（含 rejected），刷新都必须执行，且不产生 unhandled rejection。
+    this.runRecurringCatchup()
+      .catch((e) => {
+        console.error('周期账单补生成失败', e);
+      })
+      .finally(() => {
+        this.refreshTimeSensitiveViews();
+      });
     this.scheduleMidnight();
   },
 

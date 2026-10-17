@@ -74,6 +74,12 @@ Page({
             if (!r.confirm) return;
             try {
               const result = store.restoreBackup(backup);
+              // 恢复后立即重算周期 nextOccurrence / 补齐到期账单，不强制用户切后台再回来
+              if (store.recurring && typeof store.recurring.runRecurringGenerator === 'function') {
+                Promise.resolve(store.recurring.runRecurringGenerator()).catch((e) => {
+                  console.error('恢复后周期补齐失败', e);
+                });
+              }
               wx.showToast({ title: '已恢复 ' + result.restored + ' 笔', icon: 'none' });
             } catch (e) {
               wx.showToast({ title: '恢复失败，已回滚', icon: 'none' });

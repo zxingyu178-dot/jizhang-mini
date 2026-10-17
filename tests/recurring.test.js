@@ -401,7 +401,158 @@ console.log('I. Backup V3 往返');
   eq(restored.categoryId, 'c-housing', '恢复规则分类一致');
 }
 
+/* ================= J. 规则校验与损坏数据隔离（v0.6.1） ================= */
+console.log('J. 规则校验与损坏数据隔离');
+{
+  // weekly 星期语义：0=周日…6=周六（与 JS getDay 一致），2026-10-16 为周五
+  const wsun = { frequency: 'weekly', interval: 1, startDate: '2026-10-16', day: 0 };
+  eq(core.occurrenceDate(wsun, 0), '2026-10-18', 'weekly day=0 → 周日 10-18');
+  const wsat = { frequency: 'weekly', interval: 1, startDate: '2026-10-16', day: 6 };
+  eq(core.occurrenceDate(wsat, 0), '2026-10-17', 'weekly day=6 → 周六 10-17');
+  const w2sun = { frequency: 'weekly', interval: 2, startDate: '2026-10-18', day: 0 };
+  eq(core.occurrenceDate(w2sun, 1), '2026-11-01', '每 2 周·周日 occ1=11-01');
+
+  // isValidDateStr 真实日历日期
+  eq(core.isValidDateStr('2026-10-16'), true, '合法日期');
+  eq(core.isValidDateStr('2028-02-29'), true, '闰年 2-29');
+  eq(core.isValidDateStr('2026-02-29'), false, '平年 2-29 非法');
+  eq(core.isValidDateStr('2026-02-30'), false, '2-30 非法');
+  eq(core.isValidDateStr('2026-13-01'), false, '13 月非法');
+  eq(core.isValidDateStr('2026-1-1'), false, '未补零非法');
+  eq(core.isValidDateStr('2026-10-16 09:00'), false, '含时间非法');
+  eq(core.isValidDateStr(''), false, '空串非法');
+  eq(core.isValidDateStr(null), false, 'null 非法');
+
+  // validateRecurringRule
+  const okRule = {
+    frequency: 'daily', interval: 1, startDate: '2026-10-01',
+    amountCents: 1000, day: 1, time: '09:00',
+  };
+  eq(core.validateRecurringRule(okRule).ok, true, '合法规则通过');
+  eq(core.validateRecurringRule(Object.assign({}, okRule, { startDate: '2026-02-30' })).reason, 'invalid-start-date', '非法 startDate');
+  eq(core.validateRecurringRule(Object.assign({}, okRule, { amountCents: 0 })).reason, 'invalid-amount', '0 金额');
+  eq(core.validateRecurringRule(Object.assign({}, okRule, { amountCents: -5 })).reason, 'invalid-amount', '负金额');
+  eq(core.validateRecurringRule(Object.assign({}, okRule, { amountCents: NaN })).reason, 'invalid-amount', 'NaN 金额');
+  eq(core.validateRecurringRule(Object.assign({}, okRule, { interval: 0 })).reason, 'invalid-interval', 'interval=0');
+  eq(core.validateRecurringRule(Object.assign({}, okRule, { frequency: 'hourly' })).reason, 'invalid-frequency', '非法 frequency');
+  eq(core.validateRecurringRule({ frequency: 'weekly', interval: 1, startDate: '2026-10-18', day: 0, amountCents: 1 }).ok, true, 'weekly day=0 合法');
+  eq(core.validateRecurringRule({ frequency: 'weekly', interval: 1, startDate: '2026-10-18', day: 6, amountCents: 1 }).ok, true, 'weekly day=6 合法');
+  eq(core.validateRecurringRule({ frequency: 'weekly', interval: 1, startDate: '2026-10-18', day: 7, amountCents: 1 }).reason, 'invalid-day', 'weekly day=7 非法');
+  eq(core.validateRecurringRule({ frequency: 'monthly', interval: 1, startDate: '2026-10-01', day: 31, amountCents: 1 }).ok, true, 'monthly day=31 合法（月末钳制）');
+  eq(core.validateRecurringRule({ frequency: 'monthly', interval: 1, startDate: '2026-10-01', day: 0, amountCents: 1 }).reason, 'invalid-day', 'monthly day=0 非法');
+  eq(core.validateRecurringRule({ frequency: 'yearly', interval: 1, startDate: '2026-10-01', day: 15, month: 13, amountCents: 1 }).reason, 'invalid-month', 'yearly month=13 非法');
+  eq(core.validateRecurringRule({ frequency: 'yearly', interval: 1, startDate: '2026-10-16', day: 16, amountCents: 1 }).ok, true, 'yearly month 缺省合法（回退 startDate 月）');
+
+  // 损坏规则进入生成器：跳过，不生成、不产生 NaN 日期 / 异常账单
+  const s = freshStore();
+  s.recurring.replaceAllRules([
+    { id: 'bad-date', enabled: true, type: 'expense', amountCents: 1000, categoryId: 'c-food', frequency: 'daily', interval: 1, startDate: '2026-02-30', time: '09:00' },
+    { id: 'zero-amt', enabled: true, type: 'expense', amountCents: 0, categoryId: 'c-food', frequency: 'daily', interval: 1, startDate: '2026-10-01', time: '09:00' },
+    { id: 'good', enabled: true, type: 'expense', amountCents: 500, categoryId: 'c-food', frequency: 'daily', interval: 1, startDate: '2026-10-16', time: '09:00' },
+  ]);
+  const res = s.recurring.generateDueBills(at(2026, 10, 16, 12));
+  eq(res.corruptRules, 2, '2 条损坏规则被标记');
+  eq(res.totalGenerated, 1, '仅合法规则生成 1 条');
+  eq(s.rangeBills().length, 1, '账本只有 1 条，无 NaN / 异常账单');
+  assert(!s.getBill(billId('bad-date', '2026-02-30')), '坏日期规则无账单');
+
+  // 单条规则生成异常：隔离，不影响其他规则，generateDueBills 不向上抛
+  const ledger = require(path.join(ROOT, 'data', 'ledger'));
+  const origAdd = ledger.addBill;
+  ledger.addBill = function () {
+    throw new Error('mock IO failure');
+  };
+  let threw = false;
+  let isolated;
+  try {
+    isolated = s.recurring.generateDueBills(at(2026, 10, 17, 12));
+  } catch (e) {
+    threw = true;
+  }
+  ledger.addBill = origAdd;
+  eq(threw, false, '单规则 IO 异常不向上抛');
+  eq(isolated.failedRules, 1, '失败规则计数 1（good 规则）');
+}
+
+/* ================= K. 编辑后立即重算 nextOccurrence + 停用游标保留（v0.6.1） ================= */
+console.log('K. 编辑后立即重算 / 停用游标保留');
+{
+  const s = freshStore();
+  s.recurring.createRule({
+    id: 'rent', enabled: true, type: 'expense', amountCents: 200000, categoryId: 'c-housing',
+    frequency: 'monthly', interval: 1, day: 1, startDate: '2026-10-01', time: '09:00',
+  });
+  // 今天 10-16，1 日已过 → 下次 11-01
+  s.recurring.generateDueBills(at(2026, 10, 16, 12));
+  eq(s.recurring.getRule('rent').nextOccurrence, '2026-11-01', '初始下次 11-01');
+
+  // 编辑为每月 20 日（未来）+ scheduleEffectiveAt=now；保存后立即重算 → 下次 10-20（不等 onShow）
+  s.recurring.editRule('rent', { day: 20, scheduleEffectiveAt: at(2026, 10, 16, 12).getTime() });
+  s.recurring.generateDueBills(at(2026, 10, 16, 12));
+  eq(s.recurring.getRule('rent').nextOccurrence, '2026-10-20', '编辑后下次立即变 10-20');
+
+  // 停用：enabled=false，nextOccurrence 游标保留（UI 显示「已停用」，恢复后可重算）
+  s.recurring.setRuleEnabled('rent', false);
+  const off = s.recurring.getRule('rent');
+  eq(off.enabled, false, '已停用');
+  assert(off.nextOccurrence === '2026-10-20', '停用后 nextOccurrence 游标保留');
+}
+
+/* ================= L. countDueForRule 补记预估（v0.6.1） ================= */
+console.log('L. countDueForRule 补记预估');
+{
+  const s = freshStore();
+  const base = { type: 'expense', amountCents: 100, categoryId: 'c-food', frequency: 'daily', interval: 1, time: '00:00' };
+  // 10-01 ~ 10-16（每天 00:00，均 <= 10-16 12:00）→ 16 笔，未截断
+  const d1 = s.recurring.countDueForRule(Object.assign({}, base, { startDate: '2026-10-01' }), at(2026, 10, 16, 12));
+  eq(d1.count, 16, '预估补记 16 笔');
+  eq(d1.truncated, false, '未截断');
+  // 开始于两年前 → 远超 365，截断在 365
+  const d2 = s.recurring.countDueForRule(Object.assign({}, base, { startDate: '2024-01-01' }), at(2026, 10, 16, 12));
+  eq(d2.count, 365, '截断在 365');
+  eq(d2.truncated, true, '标记 truncated');
+  // 未来开始 → 0 笔
+  const d3 = s.recurring.countDueForRule(Object.assign({}, base, { startDate: '2026-11-01' }), at(2026, 10, 16, 12));
+  eq(d3.count, 0, '未来开始 0 笔');
+  eq(d3.truncated, false, '未来不截断');
+  // 非法规则 → invalid，不计数
+  const d4 = s.recurring.countDueForRule(Object.assign({}, base, { startDate: '2026-13-99' }), at(2026, 10, 16, 12));
+  eq(d4.invalid, true, '非法规则 invalid');
+  eq(d4.count, 0, '非法规则不计数');
+}
+
+/* ================= M. runRecurringGenerator 整体异常不 reject（v0.6.1，异步） ================= */
+{
+  const s = freshStore();
+  s.recurring.createRule({
+    type: 'expense', amountCents: 100, categoryId: 'c-food',
+    frequency: 'daily', interval: 1, startDate: '2026-10-16', time: '09:00',
+  });
+  const rstore = s.recurring.store;
+  const origGetRules = rstore.getRules;
+  global.__v061AsyncChecks = global.__v061AsyncChecks || [];
+  global.__v061AsyncChecks.push(
+    (async () => {
+      // 模拟 recurring.json 损坏导致 getRules 抛错
+      rstore.getRules = function () {
+        throw new Error('corrupt recurring.json');
+      };
+      try {
+        const result = await s.recurring.runRecurringGenerator(at(2026, 10, 17, 12));
+        assert(result && typeof result.fatalError === 'string', '整体异常时 resolve 带 fatalError，不 reject');
+      } catch (e) {
+        assert(false, 'runRecurringGenerator 绝不 reject');
+      } finally {
+        rstore.getRules = origGetRules;
+      }
+    })()
+  );
+}
+
 /* ================= 汇总 ================= */
-console.log('\n' + pass + ' passed, ' + fail + ' failed');
-if (fail > 0) process.exit(1);
-process.exit(0);
+const asyncChecks = global.__v061AsyncChecks || [];
+Promise.all(asyncChecks).then(() => {
+  console.log('\n' + pass + ' passed, ' + fail + ' failed');
+  if (fail > 0) process.exit(1);
+  process.exit(0);
+});
