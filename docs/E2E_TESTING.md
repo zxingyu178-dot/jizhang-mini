@@ -11,7 +11,7 @@
 
 | 层级 | 工具 | 命令 | 覆盖什么 | 谁来跑 |
 | --- | --- | --- | --- | --- |
-| ① 纯逻辑单测（主力） | Node 原生断言 | `npm test` | 预算/分类/周期/导入/日价/统计等所有数据口径与边界，743 项 | 每次改动必跑，CI 友好 |
+| ① 纯逻辑单测（主力） | Node 原生断言 | `npm test` | 预算/分类/周期/导入/日价/统计/健康体检等所有数据口径与边界，**833 项 / 11 套件** | 每次改动必跑，CI 友好 |
 | ② GUI 自动化（本 harness） | miniprogram-automator | `npm run e2e` | 页面渲染、数据绑定、交互闭环（增/改/停用/删）、自动截图 | 每次版本、改 UI 后 |
 | ③ 真机 Gate（人工） | 真实微信 Android/iOS | 按版本 `DEVICE_GATE` | Canvas 曲线、毛玻璃 Bottom Sheet 穿字、性能、触控、安全区 | **用户本人**，助手不代签 |
 
@@ -35,7 +35,7 @@ npm run e2e
 
 1. 若 9420 端口已有自动化实例 → 直接复用；
 2. 若没有 → 自动拉起微信开发者工具 `cli auto`（隐藏窗口），等待端口监听并等首页编译就绪；
-3. 顺序跑黄金路径 7 个用例，每个用例自动断言 + 自动截图；
+3. 顺序跑黄金路径 12 个用例（T01–T12），每个用例自动断言，子页自动截图；
 4. 断开连接后，把截图从项目外暂存目录复制到 `docs/screenshots/e2e/`；
 5. 退出码：全绿 `0`，有失败 `1`。
 
@@ -70,27 +70,34 @@ tests/e2e/
 ├── config.js       # 路径/端口/超时/CLI 解析/截图目录，支持环境变量覆盖
 ├── launcher.js     # 幂等启动/复用 IDE：ensureAutomation / waitForReady / spawnCli
 ├── helpers.js      # Ctx 测试上下文：导航、等待、断言、标准截图
-├── golden-path.js  # 黄金路径 7 个用例（数据 + UI 绑定 + 截图）
+├── golden-path.js  # 黄金路径 12 个用例（T01–T12，数据 + UI 绑定 + 子页截图）
 └── run.js          # 一键入口：连接 → 跑用例 → 收集日志 → 归档截图 → 退出码
 ```
 
-黄金路径（全部在模拟器，测试数据用唯一备注 `E2E回归` 标识，开头清理、结尾删除，**幂等**）：
+黄金路径（全部在模拟器，测试数据用唯一备注 `E2E回归` / `E2E账单回归` / `E2E日价回归物品` 标识，开头清理、结尾删除，**幂等**）：
 
 | 用例 | 断言要点 |
 | --- | --- |
 | T01 主页 | 标题「每日的价值」、顶部 3 个 Tab、FAB 存在、`#accountingPanel` 已渲染 |
 | T02 设置 | 版本号与 `utils/version.js` 一致、每日预算提示含 ¥ |
-| T03 分类 | 系统核心 5 类（餐饮/交通/购物/娱乐/生活）只读、无归档按钮；自定义分类各行带归档按钮 |
-| T04 周期新建 | 每周·周日 ¥28 餐饮、备注「E2E回归」、下次=下一个周日（**覆盖 Android 周日 day=0 口径**） |
-| T05 停用 | `enabled=false`、显示「已停用」、不再显示「下次」 |
-| T06 重启用 | 重新计算并显示下次日期 |
-| T07 编辑+删除 | 编辑改金额 38 生效；删除后测试规则消失、数据恢复（幂等） |
+| T03 分类 | 系统核心 5 类只读、无归档按钮；自定义分类各行带归档按钮 |
+| T04 周期新建 | 每周·周日 ¥28 餐饮，`startDate`=严格未来的下一个周日（确定性）、下次=该周日（**周日 day=0 口径**） |
+| T05 停用+重启用 | 停用 `enabled=false` 显示「已停用」、无下次；重启用重算下次 |
+| T06 编辑+删除 | 编辑改金额 38 生效；删除后规则消失、数据恢复（幂等） |
+| T07 预算设置 | 开关/金额联动 canSave；保存 ¥66/天；**结束恢复原预算** |
+| T08 预算 Hero | 预算模式 + 今日/本周/本月分段 DOM 断言（`bd.hasBudget` / 文案），随后恢复原预算 |
+| T09 搜索 | 初始空态、无结果空态（input focus 页**不截图**，只 DOM 断言） |
+| T10 快速记账新增 | FAB → 金额/备注 → 保存，新账单进入时间线（DOM 断言） |
+| T11 快速记账编辑 | 点开回填 → 改 56.78 → 重开断言；删除清理（mock showModal） |
+| T12 日价新增 | 切日价 Tab → 建日价物品 → 进列表 → 详情整单删除（按 `item.name` 定位） |
 
-产出：`docs/screenshots/e2e/e2e_*_simulator.png`（8 张：main / settings / category_manage / recurring_weekly_sunday / disabled / enabled / edit / empty）。
+> 主页三态（预算 Hero / 快速记账结果 / 日价 Tab）是常驻 main 上的状态，截图会帧冻结（见坑 7），T08/T10/T12 **只做 DOM 断言不截图**；真实视觉留档用独立冷启动脚本（见坑 7）。
+>
+> 产出：`docs/screenshots/e2e/e2e_*_simulator.png`（8 张**子页**：main / settings / category_manage / recurring_weekly_sunday / disabled / enabled / edit / empty）。
 
 ---
 
-## 4. 核心经验：六条必守的坑（automator 0.12.1 + Skyline 实测）
+## 4. 核心经验：十条必守的坑（automator 0.12.1 + Skyline 实测）
 
 > 以下每一条都曾导致「T01 过、T02 起全部 `timeout waiting for automator response`」，
 > 或「逻辑 data 正确但渲染层整块不绘制」，用二分法逐一定位，**务必照搬，不要重新踩**。
@@ -182,6 +189,47 @@ spawn(q(config.CLI_PATH), args.map(q), { shell: true, windowsHide: true, ... });
 
 **绝对不要删 `WeappLocalData`**——会丢掉 `wx.storage` 里的测试账单。
 
+### 坑 7：常驻主页 main 截图会「帧冻结」（v0.7.0 实测，最反直觉）
+
+现象：automator + Skyline 下，**常驻主页 `pages/main/main` 在同一会话里，`mp.screenshot` 只对第一张主页帧新鲜；之后无论怎么 `navigateBack` 回主页、真实 tap 切 Tab、`callMethod/setData`，截图都永久停在本会话第一张主页画面**。
+
+- 但 `page.data()` / 组件 `data()` **已经正确变化**（DOM 断言全绿，证明接线正确），只是截屏 surface 不更新；
+- 对比：`navigateTo` 打开的**二级子页每次都是新页面，截图始终新鲜**（settings / category / recurring 都正常）；
+- 同页内 swiper 切「统计/记账/日价」属于**同一页面内切换**，不产生新页面，所以也被冻结。
+
+**结论与对策**：
+
+1. GUI 回归对主页三态**一律以 DOM/data 断言为准**，不要相信截图、也不要为截图服务（T08/T10/T12 不截图）；
+2. 确实需要主页真实视觉留档时，**每个目标场景独立重启一次 IDE**：`cli quit` → 重新 `cli auto` 拉起 → 新连接后**只做一次**切 Tab（真实 tap，触发面板加载）→ 立即截图。全新会话的第一次主页画面是新鲜的；
+3. 不要用 `reLaunch` 试图在同一会话内刷新主页——reLaunch 后 `currentPage()`/tap 会与新页面失步，截到的仍是旧帧。
+4. 参考实现：v0.7.0 冷启动留档脚本（temp，不入仓库）对记账/统计/日价/预算 Hero 各自独立重启会话；二级子页（日价详情等）在同一会话 `navigateTo` 即可。
+
+### 坑 8：自定义组件内部节点必须用「组件实例」的 `$$` 穿透
+
+`page.$$('empty-state .es__action')` 这类**跨组件后代选择器返回 0**，点不到组件内部的按钮。
+
+**正确做法**：先拿组件实例，再在实例上 `$$`：
+
+```js
+const es = await page.$('empty-state');   // CustomElement
+const btns = await es.$$('.es__action');  // 组件内部节点
+await btns[0].tap();
+```
+
+同理，`#accountingPanel` 内的支出/预算分段、周期 Sheet 内 chips 等，都要先 `page.$('#组件 id')` 再 `$$`。注意：组件内部继续 `$$` 拿到的是普通 `WxmlElement`，**没有 `data()` 方法**（只有最外层组件实例有 `data()/callMethod()/setData()`）。
+
+### 坑 9：input 聚焦（键盘弹起）的页面不要截图，只做 DOM 断言
+
+搜索页、金额/备注输入等会让 input `focus=true`、唤起软键盘，此时 `mp.screenshot` 会永久 timeout 或截到异常帧。
+
+**对策**：这类页面只做 DOM 断言（如 T09 搜索验证 `groups=[]`、空态渲染），不截图；金额输入优先用 `callMethod('onAmount', {detail:{value}})` 注入，避免真实键盘干扰同帧截图。
+
+### 坑 10：空列表的新建入口可能在 empty-state 组件里（选择器随数据变化）
+
+v0.7.0 周期页 `.rc-add` 改为 `wx:if="{{!empty}}"`——**有规则时才渲染底部新建按钮，空列表时新建入口是 empty-state 的 action 按钮**（`.es__action`，在组件内部）。
+
+因此周期页 `goto` 的就绪选择器不能用 `.rc-add`（空态时不存在 → 超时），要用恒在的容器（`.rc-page` / `page-header`）；打开新建编辑器要分两种情况：非空点 `.rc-add`，空态走 `empty-state` 组件的 `.es__action`（配合坑 8）。
+
 ### 补充：几个交互/诊断事实
 
 - **切 main 顶部自定义 Tab 必须用真实元素 tap**：`page.$$('.tabs__item')[i].tap()` 有效；
@@ -230,6 +278,10 @@ spawn(q(config.CLI_PATH), args.map(q), { shell: true, windowsHide: true, ... });
 | `callMethod('onTab')` 切不了 Tab | 构造的 event 不完整 | 用 `page.$$('.tabs__item')[i].tap()` |
 | `'C:\Program' is not recognized` | CLI 路径含空格未加引号 | 见坑 4 |
 | 某用例偶发超时 | 页面动画/加载比固定 sleep 慢 | 用 `waitFor(selector)` 轮询代替固定 sleep；必要时调大 |
+| 主页 DOM 已变但截图还是旧画面 | 常驻 main 帧冻结（坑 7） | 主页以 DOM 断言为准；真实视觉每场景独立重启 IDE 拍首张 |
+| `page.$$('组件 .内部类')` 返回 0 | 跨组件后代选择器不穿透（坑 8） | 先 `page.$('组件')` 再用组件实例 `$$('.内部类')` |
+| 截图永久 timeout / 画面异常 | input focus 唤起键盘（坑 9） | 搜索/金额页只 DOM 断言不截图，金额用 callMethod 注入 |
+| 周期页等待 `.rc-add` 超时 | 空列表时新建按钮在 empty-state 里（坑 10） | 就绪选择器用恒在的 `.rc-page`，新建走组件 `.es__action` |
 | 残留「E2E回归」测试规则 | 上次中途异常退出 | 下次运行 T04 开头 `cleanupTestRules` 会自动清理 |
 
 关闭全部 IDE：`cli quit`；查 9420：`Get-NetTCPConnection -LocalPort 9420 -State Listen`（PowerShell）。

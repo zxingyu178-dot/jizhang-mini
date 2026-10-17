@@ -6,15 +6,21 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.6.1（Recurring & Migration Closure：修复 Android 每周日 `day=0` 被旧 `Math.max(1,day)` 错导成周一（按频率分域规范化：weekly 0–6、monthly/yearly 1–31、daily 忽略 day）；编辑 / 停用 / 启用 / 导入 / 恢复后立即重算 `nextOccurrence`，并修复 v0.6.0 遗留的生成器并发锁永不释放缺陷（改为微任务调度 + drain 合并，settle 后释放锁）；停用规则显示「已停用」但保留游标；>365 补记提示据实（`countDueForRule` 返回 `{count,truncated}`，明确「本次最多补 365，剩余后续继续」）；生成器整体异常 resolve 带 `fatalError` 且不阻断主界面刷新；分类归档 fail-closed（周期引用检查失败返回 `recurring-check-failed` 不放行）；年度规则 `month` 缺失按 `startDate` 回退，不再出现「undefined 月」；规则输入严格校验（真实 `yyyy-MM-dd` / `amountCents>0` / time 规范化，损坏规则跳过并进入脱敏诊断，不产生 NaN 账单）；Android 自定义 ID 仅在检测到碰撞时追加稳定短 hash，保留既有 `dvcat-`/`dvrule-` 兼容；导入同名已归档分类自动复用并恢复 active；测试 664→743。沿用 0.6.0 的分类管理、周期记账、Bill V3、Backup V3、Android 自定义分类 / 周期迁移与预算空态）
+- 当前版本：0.7.0（Experience & Reliability：1.0 前整体体验 / 性能 / 稳定性收口，**不新增业务模块，冻结 Bill V3 / Recurring Store V1 / Budget V1 数据合同**）。统一 Design Token、抽 `page-header` 组件并迁移全部二级页、Bottom Sheet 全量收敛到公共组件、系统操作图标去 Emoji 改用 `dv-icon`（分类图标仍用 Emoji）；快速记账 Sheet 真机健壮性（大金额不裁切）、周期卡信息层级降工具感；分类解析改单次渲染快照（`getCategoryMap`，消除逐条读盘）并新增 1k/5k/10k 大账本性能 Gate；统一 `empty-state` 空态组件、新增 `data/health.js` 只读数据健康体检、备份恢复接入健康校验（error 回滚 / warning 放行）；E2E 黄金路径扩到 T01–T12，并修复 E2E 周日时间陷阱与 Android 周期迁移 fail-closed（损坏规则跳过而非偷偷改成 daily）。单测 743→833（11 套件），另含 E2E 12 用例与性能 Gate。沿用 0.6.x 的分类管理、周期记账、Bill V3、Backup V3、Android 自定义分类 / 周期迁移与预算能力）
 
 ## 测试
 
 ```bash
-npm test
+npm test     # 纯逻辑单测
+npm run e2e  # miniprogram-automator 跑微信开发者工具 GUI 端到端回归
+npm run perf # 1k/5k/10k 大账本性能 Gate
 ```
 
-一条命令在独立子进程依次运行 `tests/device.test.js`、`data.test.js`、`accounting.test.js`、`statistics.test.js`、`daily-value.test.js`、`budget.test.js`、`categories.test.js`、`recurring.test.js`、`settings.test.js`、`importer.test.js`（当前 743 项，10 套件），任一失败即以非零退出码结束（跨平台，不依赖 shell）。App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` 的 `version` 保持一致。
+- `npm test` 在独立子进程依次运行 `device`、`data`、`accounting`、`statistics`、`daily-value`、`budget`、`categories`、`recurring`、`settings`、`health`、`importer` **11 个套件、833 项**，任一失败即以非零退出码结束（跨平台，不依赖 shell）。
+- `npm run e2e`（`tests/e2e/`，T01–T12 共 12 用例）自动拉起 / 复用微信开发者工具，验证页面渲染、data 绑定与增改停用删交互闭环；数学口径仍归 Node 单测。运行前需开启开发者工具「服务端口」，详见 `docs/E2E_TESTING.md`。
+- `npm run perf`（`tests/perf/large-ledger.perf.js`）用虚构账单验证冷启动、当月 Timeline、统计、搜索、预算日历在 1k/5k/10k 规模下无崩溃、近线性、分类快照只读一次盘。
+
+App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` / `package-lock.json` 的 `version` 保持一致。
 
 ## 已实现功能
 
