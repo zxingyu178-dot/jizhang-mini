@@ -417,16 +417,16 @@ function testDailyValueRecurringMigration() {
   eq(wkById['dvrule-bi'].interval, 2, '每 2 周 interval=2 保留');
   eq(wkById['dvrule-bi'].day, 0, '每 2 周·周日 day=0');
 
-  // monthly 域 1..31：day=0 非法不保留（交 sanitize 回退），day=31 保留
+  // monthly 域 1..31（fail-closed）：day=0 非法 → 跳过（不再静默回退），day=31 合法保留
   const mo = dvAdapter.parseBackup(
     dvBackup([
       { id: 'm0', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'monthly', interval: 1, day: 0, startDate: '2026-10-01', time: '08:00' },
       { id: 'm31', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'monthly', interval: 1, day: 31, startDate: '2026-01-31', time: '08:00' },
     ])
   );
-  const m0 = mo.recurringRules.find((r) => r.id === 'dvrule-m0');
-  assert(m0 && !Object.prototype.hasOwnProperty.call(m0, 'day'), 'monthly day=0 不保留（交 sanitize 回退）');
+  assert(!mo.recurringRules.find((r) => r.id === 'dvrule-m0'), 'monthly day=0 不迁入（fail-closed）');
   eq(mo.recurringRules.find((r) => r.id === 'dvrule-m31').day, 31, 'monthly day=31 保留');
+  eq(mo.skippedRecurringRules.find((x) => x.id === 'm0').reason, 'invalid-day', 'monthly day=0 原因 invalid-day');
 
   // 损坏规则：金额 0 / startDate 不是真实日历日期 → skipped，不进规则，不产生 NaN
   const bad = dvAdapter.parseBackup(
@@ -473,6 +473,69 @@ function testDailyValueRecurringMigration() {
     ])
   );
   eq(col2.categories.length, 1, '同原始 id 重复只建一个分类');
+}
+
+/* ---------- v0.7.0 P0：Android 周期规则迁移 fail-closed（不偷改损坏语义） ---------- */
+function testDailyValueRecurringFailClosed() {
+  // 非法 frequency 不能被偷改成 daily：识别为损坏并跳过，合法规则不受污染
+  const badFreq = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'foo', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'foobar', interval: 1, day: 1, startDate: '2026-10-01', time: '08:00' },
+      { id: 'ok', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'daily', interval: 1, startDate: '2026-10-01', time: '08:00' },
+    ])
+  );
+  eq(badFreq.recurringRules.length, 1, '非法频率场景仅 1 条合法迁入');
+  eq(badFreq.recurringRules[0].frequency, 'daily', '合法规则仍是 daily（未被污染）');
+  eq(badFreq.skippedRecurringRules.find((x) => x.id === 'foo').reason, 'invalid-frequency', '非法频率原因 invalid-frequency');
+  assert(!badFreq.recurringRules.find((r) => r.id === 'dvrule-foo'), '非法频率规则未被改成 daily 迁入');
+
+  // weekly day 必须 0..6：0（周日）保留；7 / -1 / 缺失 → 跳过
+  const wk = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'sun', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, day: 0, startDate: '2026-10-18', time: '08:00' },
+      { id: 'w7', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, day: 7, startDate: '2026-10-18', time: '08:00' },
+      { id: 'wn', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, day: -1, startDate: '2026-10-18', time: '08:00' },
+      { id: 'wmiss', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'weekly', interval: 1, startDate: '2026-10-18', time: '08:00' },
+    ])
+  );
+  eq(wk.recurringRules.length, 1, 'weekly 仅周日(0)合法迁入');
+  eq(wk.recurringRules[0].day, 0, 'weekly 周日 day=0 迁入');
+  ['w7', 'wn', 'wmiss'].forEach((id) => {
+    const s = wk.skippedRecurringRules.find((x) => x.id === id);
+    eq(s && s.reason, 'invalid-day', 'weekly ' + id + ' 原因 invalid-day');
+  });
+
+  // monthly day=32 / 缺失 → 跳过
+  const mo = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'm32', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'monthly', interval: 1, day: 32, startDate: '2026-10-01', time: '08:00' },
+      { id: 'mmiss', enabled: true, type: 'expense', amount: 10, categoryId: 'c-food', frequency: 'monthly', interval: 1, startDate: '2026-10-01', time: '08:00' },
+    ])
+  );
+  eq(mo.recurringRules.length, 0, 'monthly 非法/缺失 day 全部跳过');
+  ['m32', 'mmiss'].forEach((id) => {
+    eq(mo.skippedRecurringRules.find((x) => x.id === id).reason, 'invalid-day', 'monthly ' + id + ' invalid-day');
+  });
+
+  // yearly：month 有值非法（13/0）→ invalid-month；month 缺失允许；day 非法跳过；月末钳制属正常
+  const yr = dvAdapter.parseBackup(
+    dvBackup([
+      { id: 'ybad', enabled: true, type: 'expense', amount: 10, categoryId: 'c-housing', frequency: 'yearly', interval: 1, day: 0, month: 13, startDate: '2026-10-01', time: '08:00' },
+      { id: 'ym0', enabled: true, type: 'expense', amount: 10, categoryId: 'c-housing', frequency: 'yearly', interval: 1, day: 16, month: 0, startDate: '2026-10-16', time: '09:00' },
+      { id: 'yok', enabled: true, type: 'expense', amount: 10, categoryId: 'c-housing', frequency: 'yearly', interval: 1, day: 16, startDate: '2026-10-16', time: '09:00' },
+      { id: 'yok2', enabled: true, type: 'expense', amount: 10, categoryId: 'c-housing', frequency: 'yearly', interval: 1, day: 29, month: 2, startDate: '2024-02-29', time: '09:00' },
+    ])
+  );
+  const ids = yr.recurringRules.map((r) => r.id).sort();
+  eq(ids.join(','), 'dvrule-yok,dvrule-yok2', 'yearly 仅 month 缺失/合法两条迁入');
+  eq(yr.skippedRecurringRules.find((x) => x.id === 'ybad').reason, 'invalid-month', 'yearly month=13 invalid-month');
+  eq(yr.skippedRecurringRules.find((x) => x.id === 'ym0').reason, 'invalid-month', 'yearly month=0 invalid-month');
+  // 合法 yearly 的 2/29 在非闰年钳到 2/28（正常业务钳制，不是损坏）
+  const yok2 = yr.recurringRules.find((r) => r.id === 'dvrule-yok2');
+  eq(store.recurring.core.occurrenceDate(yok2, 1), '2025-02-28', 'yearly 2/29 非闰年钳到 2/28');
+
+  // 识别口径守恒：合法 + 跳过 = 备份规则总数
+  eq(badFreq.recurringRules.length + badFreq.skippedRecurringRules.length, 2, '识别守恒（合法+跳过=总数）');
 }
 
 /** 用 adapter.parseBackup 结果构造最小可提交 session（绕过 detector / 文件） */
@@ -537,6 +600,7 @@ async function run() {
     testDailyValueBackup,
     testDailyValueCustom,
     testDailyValueRecurringMigration,
+    testDailyValueRecurringFailClosed,
     testRecurringImportCommit,
     testMiniRestore,
     testDiagnosis,

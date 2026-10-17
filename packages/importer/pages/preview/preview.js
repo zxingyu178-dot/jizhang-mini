@@ -31,6 +31,7 @@ Page({
     isRestore: false,
     currentCount: 0,
     submitting: false,
+    recurringStats: null, // { recognized, imported, skipped } | null（仅 Android .dvbackup 有）
   },
 
   onLoad() {
@@ -69,6 +70,17 @@ Page({
       rangeText = fmtDate(session.dateRange.start) + ' ～ ' + fmtDate(session.dateRange.end);
     }
 
+    // 周期规则迁移口径（fail-closed）：仅 Android .dvbackup 会有；识别/导入/跳过计数
+    const diag0 = session.diagnostic || {};
+    let recurringStats = null;
+    if (diag0.recurringRulesRecognized > 0) {
+      recurringStats = {
+        recognized: diag0.recurringRulesRecognized,
+        imported: diag0.recurringRulesImported || 0,
+        skipped: diag0.recurringRulesSkipped || 0,
+      };
+    }
+
     this.setData({
       session,
       sourceLabel: SOURCE_LABEL[session.source] || '账单',
@@ -78,6 +90,7 @@ Page({
       samples,
       isRestore: !!session.isRestore,
       currentCount,
+      recurringStats,
     });
   },
 

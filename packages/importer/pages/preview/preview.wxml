@@ -22,6 +22,14 @@
     <view class="pv-count-row"><text class="pv-count-label">不计收支/异常</text><text class="pv-count-value">{{counts.skipped}} 笔</text></view>
   </view>
 
+  <!-- 周期规则迁移（Android .dvbackup；fail-closed 跳过格式异常） -->
+  <view wx:if="{{recurringStats}}" class="glass-card pv-counts">
+    <view class="pv-count-row"><text class="pv-count-label">周期规则 · 识别</text><text class="pv-count-value">{{recurringStats.recognized}} 条</text></view>
+    <view class="pv-count-row"><text class="pv-count-label">周期规则 · 导入</text><text class="pv-count-value pv-go">{{recurringStats.imported}} 条</text></view>
+    <view wx:if="{{recurringStats.skipped > 0}}" class="pv-count-row"><text class="pv-count-label">周期规则 · 跳过</text><text class="pv-count-value pv-warn">{{recurringStats.skipped}} 条</text></view>
+    <view wx:if="{{recurringStats.skipped > 0}}" class="pv-recurring-note">{{recurringStats.skipped}} 条周期规则格式异常，已跳过；不会影响其他规则与账单。</view>
+  </view>
+
   <!-- 疑似重复开关 -->
   <view wx:if="{{!isRestore && counts.suspect > 0}}" class="pv-toggle" bindtap="onToggleSuspect">
     <text class="pv-toggle-text">同时导入 {{counts.suspect}} 笔疑似重复</text>

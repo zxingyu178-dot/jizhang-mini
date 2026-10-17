@@ -18,15 +18,29 @@ const { APP_VERSION } = require(path.join(__dirname, '..', '..', 'utils', 'versi
 
 const TEST_NOTE = 'E2E回归';
 
-/** 计算「从今天起下一个星期 weekday」的短日期 M月D日（weekday: 0=周日）。 */
-function nextWeekdayShort(weekday) {
+/**
+ * 计算「严格未来的下一个星期 weekday」（weekday: 0=周日；不含今天）。
+ * 返回 { key: 'yyyy-MM-dd', short: 'M月D日' }。
+ * 关键：E2E 用它把规则 startDate 固定为「未来的目标星期」、time 固定 00:00，
+ * 这样无论测试在星期几、几点运行，startDate 都在未来、没有任何到期记录，
+ * 既不会弹「补记周期账单」，下次日期也唯一确定——彻底与运行当日的星期/钟点解耦。
+ */
+function nextFutureWeekday(weekday) {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   let add = (weekday - d.getDay() + 7) % 7;
-  if (add === 0) add = 7; // 不含今天本身
+  if (add === 0) add = 7; // 今天正好是该星期时顺延到下周，保证严格未来
   d.setDate(d.getDate() + add);
-  return d.getMonth() + 1 + '月' + d.getDate() + '日';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return {
+    key: `${d.getFullYear()}-${mm}-${dd}`,
+    short: `${d.getMonth() + 1}月${d.getDate()}日`,
+  };
 }
+
+// 全套用例统一引用的「未来周日」：新建规则的开始日 = 该日期，避免补记弹窗。
+const FUTURE_SUNDAY = nextFutureWeekday(0);
 
 module.exports = async function goldenPath(ctx) {
   const mp = ctx.mp;
@@ -118,9 +132,17 @@ module.exports = async function goldenPath(ctx) {
     await (await page.$('.re-field__input')).input(TEST_NOTE);
     await sleep(300);
 
+    // 确定性关键：开始日期固定为「严格未来的周日」、时间固定 00:00。
+    // 原生 picker 不便自动化，直接派发 picker change 事件。
+    await page.callMethod('onStartDate', { detail: { value: FUTURE_SUNDAY.key } });
+    await page.callMethod('onTime', { detail: { value: '00:00' } });
+    await sleep(300);
+
     const ed = await page.data();
     ctx.eq(ed.frequency, 'weekly', '频率 weekly');
     ctx.eq(ed.weekDay, 0, '星期 day=0（周日）');
+    ctx.eq(ed.startDate, FUTURE_SUNDAY.key, '开始日期=严格未来的周日');
+    ctx.eq(ed.time, '00:00', '时间=00:00（未来日期无到期，不弹补记）');
     ctx.eq(ed.canSave, true, '填完后可保存');
 
     await ctx.tap(page, '.re-save');
@@ -132,7 +154,7 @@ module.exports = async function goldenPath(ctx) {
     ctx.eq(rule.amountText, '28.00', '金额显示 28.00');
     ctx.eq(rule.categoryName, '餐饮', '支出默认分类餐饮');
     ctx.eq(rule.enabled, true, '新建默认启用');
-    ctx.eq(rule.nextText, nextWeekdayShort(0), '下次日期为下一个周日');
+    ctx.eq(rule.nextText, FUTURE_SUNDAY.short, '下次日期=确定的未来周日（与运行日无关）');
 
     await ctx.shot('e2e_recurring_weekly_sunday');
   });
@@ -170,7 +192,7 @@ module.exports = async function goldenPath(ctx) {
 
     rule = await findTestRule(page);
     ctx.eq(rule.enabled, true, '重启用后 enabled=true');
-    ctx.eq(rule.nextText, nextWeekdayShort(0), '重启用后显示下次日期');
+    ctx.eq(rule.nextText, FUTURE_SUNDAY.short, '重启用后显示下次日期（确定的未来周日）');
 
     await ctx.shot('e2e_recurring_enabled');
   });

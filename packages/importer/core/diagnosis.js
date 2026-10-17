@@ -71,6 +71,17 @@ const TYPE_LABEL = {
   unknown: '未知',
 };
 
+// 周期规则被 fail-closed 跳过的原因（枚举化，不含任何用户内容）
+const RECURRING_SKIP_REASON_LABEL = {
+  'invalid-frequency': '频率不支持',
+  'invalid-day': '周期日期非法',
+  'invalid-month': '周期月份非法',
+  'invalid-amount': '金额非法',
+  'invalid-start-date': '开始日期非法',
+  'invalid-interval': '间隔非法',
+  unknown: '未知格式异常',
+};
+
 function line(label, value) {
   return label + '：' + value;
 }
@@ -106,6 +117,19 @@ function toText(diag, fatalMessage) {
     out.push(line('已存在（重复，跳过）', (c.existing || 0) + (c.duplicate || 0)));
     out.push(line('需确认（退款/关闭等）', c.needconfirm || 0));
     out.push(line('不计收支/异常跳过', (c.skipped || 0) + diag.nonFlowSkipped));
+  }
+  // 周期规则迁移（fail-closed）：识别 / 导入 / 跳过（仅计数 + 枚举原因，无规则内容）
+  if (diag.recurringRulesRecognized > 0) {
+    out.push(line('周期规则识别', diag.recurringRulesRecognized));
+    out.push(line('周期规则导入', diag.recurringRulesImported || 0));
+    out.push(line('周期规则跳过（格式异常）', diag.recurringRulesSkipped || 0));
+    if ((diag.recurringRulesSkipped || 0) > 0 && diag.recurringSkipReasons) {
+      const parts = Object.keys(diag.recurringSkipReasons).map((k) => {
+        const label = RECURRING_SKIP_REASON_LABEL[k] || k;
+        return label + ' ' + diag.recurringSkipReasons[k] + ' 条';
+      });
+      out.push('  跳过原因：' + parts.join('、'));
+    }
   }
   if (diag.errors && diag.errors.length) {
     out.push('无法解析的行（最多 ' + MAX_ERRORS + ' 条）：');

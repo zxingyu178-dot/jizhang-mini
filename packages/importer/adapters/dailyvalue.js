@@ -145,7 +145,7 @@ const STANDARD_IDS = [
   'c-bill', 'c-salary', 'c-medical', 'c-housing', 'c-travel', 'c-other',
 ];
 const STANDARD_SET = new Set(STANDARD_IDS);
-const BACKUP_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
+// 支持的频率以 data/recurring/core.FREQUENCIES 为单一事实源（不在此重复定义）。
 
 /** 清理 id 中不安全字符（确定性 id） */
 function safeIdPart(s) {
@@ -224,10 +224,16 @@ function resolveCategoryRef(androidId, idMap) {
 
 /**
  * 映射周期规则（金额元→整数分；保留游标，不从头补账；忽略分类快照）。
- * day 按 frequency 分频率保留原始值，最终交给 data/recurring/core.sanitize 统一钳制，
- * 绝不在 Adapter 用 Math.max(1, day) 把 weekly 周日(0) 错改成周一(1)：
- *   weekly 0..6（0=周日…6=周六，与 JS getDay 一致）；monthly/yearly 1..31；daily 忽略 day。
- * 非法 / 损坏规则（金额 0、startDate 不是真实日期）直接跳过，由调用方进入脱敏诊断。
+ *
+ * fail-closed 原则（v0.7.0）：不确定 / 损坏的规则一律「跳过」，绝不偷偷改变语义——
+ *   · 非法 frequency（不在 daily/weekly/monthly/yearly）→ 跳过，不能把「每年」修成「每天」；
+ *   · weekly day 必须是整数 0..6（0=周日…6=周六，与 JS getDay 一致），缺失/非法 → 跳过；
+ *   · monthly / yearly day 必须是整数 1..31，缺失/非法 → 跳过；
+ *   · yearly month 缺失允许（core / 文案统一回退 startDate 所在月），有值但非 1..12 → 跳过；
+ *   · 金额必须为正、startDate 必须是真实 yyyy-MM-dd，否则跳过。
+ * 所有判定统一委托 data/recurring/core.validateRecurringRule（单一事实源，不重复造一套口径）。
+ * 合法规则的月末钳制（如 31 日在 2 月）仍由 core 正常处理，那不是损坏。
+ * @returns {{rules:array, skipped:array<{id:string,reason:string}>}}
  */
 function mapRecurringRules(backupRules, idMap, ruleIdFactory) {
   ruleIdFactory = ruleIdFactory || makeSafeIdFactory('dvrule-');
@@ -238,12 +244,20 @@ function mapRecurringRules(backupRules, idMap, ruleIdFactory) {
     if (!r || !r.id || seen.has(r.id)) return;
     seen.add(r.id);
     const amountCents = Math.abs(money.yuanToCents(r.amount));
-    const frequency = BACKUP_FREQUENCIES.indexOf(r.frequency) >= 0 ? r.frequency : 'daily';
-    // 硬校验：金额必须为正、startDate 必须是真实日历日期（否则跳过，不产生 NaN/异常账单）
-    if (!amountCents || !recurringCore.isValidDateStr(r.startDate)) {
-      skipped.push({ id: String(r.id), reason: !amountCents ? 'invalid-amount' : 'invalid-start-date' });
+    // 硬校验 1：金额必须为正（0 / 负 / NaN 不生成账单）
+    if (!amountCents) {
+      skipped.push({ id: String(r.id), reason: 'invalid-amount' });
       return;
     }
+    // 硬校验 2：startDate 必须是真实日历日期，否则 occurrence 会算出 NaN / 2026-09-00
+    if (!recurringCore.isValidDateStr(r.startDate)) {
+      skipped.push({ id: String(r.id), reason: 'invalid-start-date' });
+      return;
+    }
+    // interval 缺失默认 1 是 Android 常见且安全的语义；钳到 1..999，保证后续校验必通过
+    const interval = Number.isFinite(r.interval)
+      ? Math.min(999, Math.max(1, Math.round(r.interval)))
+      : 1;
     const rule = {
       id: ruleIdFactory(r.id),
       enabled: r.enabled === true,
@@ -251,21 +265,22 @@ function mapRecurringRules(backupRules, idMap, ruleIdFactory) {
       amountCents,
       categoryId: resolveCategoryRef(r.categoryId, idMap),
       note: r.note ? String(r.note) : '',
-      frequency,
-      interval: Number.isFinite(r.interval) ? Math.min(999, Math.max(1, Math.round(r.interval))) : 1,
+      // frequency 保留原始值：不把损坏的「每年」偷改成「每天」，交由 validate 判定
+      frequency: r.frequency,
+      interval,
       startDate: r.startDate,
       time: r.time,
       createdAt: r.createdAt || Date.now(),
     };
-    // day 分频率：仅保留合法域原始值；非法/缺失则不带 day，由 sanitize 回退默认（weekly→startDate 星期）
-    if (frequency === 'weekly') {
-      if (Number.isInteger(r.day) && r.day >= 0 && r.day <= 6) rule.day = r.day;
-    } else if (frequency === 'monthly' || frequency === 'yearly') {
-      if (Number.isInteger(r.day) && r.day >= 1 && r.day <= 31) rule.day = r.day;
-    }
-    // yearly month 可选：缺失则不带（core / 文案统一回退 startDate 所在月）
-    if (frequency === 'yearly' && r.month != null && Number.isFinite(r.month)) {
-      rule.month = Math.min(12, Math.max(1, Math.round(r.month)));
+    // day / month 保留原始数值（不做域钳制、不猜测星期），统一由 validateRecurringRule 判定。
+    // 注意 day=0（周日）必须能被保留：用 != null + isFinite 而非 truthy 判断。
+    if (r.day != null && Number.isFinite(Number(r.day))) rule.day = Number(r.day);
+    if (r.month != null && Number.isFinite(Number(r.month))) rule.month = Number(r.month);
+    // fail-closed：频率/日/月任一非法 → 跳过，进入脱敏诊断，绝不静默改写
+    const verdict = recurringCore.validateRecurringRule(rule);
+    if (!verdict.ok) {
+      skipped.push({ id: String(r.id), reason: verdict.reason });
+      return;
     }
     if (r.scheduleEffectiveAt != null) rule.scheduleEffectiveAt = Number(r.scheduleEffectiveAt);
     if (r.lastGeneratedDate) rule.lastGeneratedDate = r.lastGeneratedDate;

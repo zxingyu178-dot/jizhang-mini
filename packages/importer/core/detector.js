@@ -90,10 +90,14 @@ function doParse(buffer, file, lower, diag) {
     bills = parsed.bills;
     extraCategories = parsed.categories || [];
     extraRecurringRules = parsed.recurringRules || [];
-    // 损坏周期规则被跳过：脱敏诊断仅记录数量与原因（不含规则 id / 金额 / 名称）
+    const validRules = extraRecurringRules;
     const skipped = parsed.skippedRecurringRules || [];
+    // 周期规则迁移口径（fail-closed）：识别 = 有效（待导入）+ 跳过（格式异常）。
+    // 仅记录数量与枚举化原因，不含规则 id / 金额 / 名称等任何用户内容。
+    diag.recurringRulesRecognized = validRules.length + skipped.length;
+    diag.recurringRulesImported = validRules.length;
+    diag.recurringRulesSkipped = skipped.length;
     if (skipped.length) {
-      diag.recurringRulesSkipped = (diag.recurringRulesSkipped || 0) + skipped.length;
       diag.recurringSkipReasons = diag.recurringSkipReasons || {};
       skipped.forEach((s) => {
         const key = s && s.reason ? s.reason : 'unknown';
