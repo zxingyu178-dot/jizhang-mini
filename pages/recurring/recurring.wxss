@@ -24,23 +24,12 @@
   left: 0; right: 0; bottom: 0;
 }
 
-/* 空态 */
-.rc-hint {
-  margin: 40rpx 28rpx 10rpx;
-  padding: 40rpx 28rpx;
-  text-align: center;
-}
-.rc-hint__text {
+/* 空态（empty-state 组件）顶部留白 */
+.rc-list-empty {
   display: block;
-  font-size: 30rpx;
-  color: var(--text-secondary);
-  margin-bottom: 14rpx;
-}
-.rc-hint__sub {
-  display: block;
-  font-size: 24rpx;
-  color: var(--text-faint);
-  line-height: 1.6;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: 70rpx;
 }
 
 /* 规则卡片 */

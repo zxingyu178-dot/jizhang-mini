@@ -7,10 +7,16 @@
   <page-header title="周期记账"></page-header>
 
   <scroll-view scroll-y class="rc-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
-    <view class="rc-hint" wx:if="{{empty}}">
-      <text class="rc-hint__text">还没有周期规则</text>
-      <text class="rc-hint__sub">例如房租、会员、话费、工资，打开小程序时会自动补齐。</text>
-    </view>
+    <empty-state
+      wx:if="{{empty}}"
+      class="rc-list-empty"
+      icon="empty"
+      primary
+      title="还没有周期规则"
+      desc="房租、会员、话费、工资等固定账单，每次打开小程序时会自动补齐。"
+      action-text="新建周期"
+      bind:action="onAdd"
+    />
 
     <!-- 规则卡片：金额为主，分类·频率次之，下次执行弱化；开关右上 -->
     <view class="rc-card {{item.enabled?'':'rc-card--off'}}" wx:for="{{rules}}" wx:key="id" data-id="{{item.id}}" bindtap="onEdit">
@@ -38,8 +44,8 @@
       <view class="rc-card__next rc-card__next--off" wx:elif="{{!item.enabled}}">已停用</view>
     </view>
 
-    <!-- 新建 -->
-    <view class="rc-add" bindtap="onAdd">
+    <!-- 新建（空态时由 empty-state 的动作按钮承担） -->
+    <view class="rc-add" wx:if="{{!empty}}" bindtap="onAdd">
       <text class="rc-add__icon">+</text>
       <text class="rc-add__text">新建周期</text>
     </view>

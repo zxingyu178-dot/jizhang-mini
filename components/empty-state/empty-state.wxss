@@ -1,0 +1,97 @@
+/* 统一空态组件（透明背景，外层决定卡片 / 页面容器） */
+/* :host 强制宿主占满父容器宽度，避免自定义组件宿主 shrink-to-fit
+   导致内部长文案按自然宽度不换行、溢出屏幕（Skyline 实测）。 */
+:host {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+.es {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 48rpx 32rpx;
+  text-align: center;
+}
+.es__icon {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1rpx solid rgba(255, 255, 255, 0.07);
+  margin-bottom: 22rpx;
+  flex-shrink: 0;
+}
+.es__title {
+  font-size: 30rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  width: 100%;
+  max-width: 560rpx;
+  box-sizing: border-box;
+  word-break: break-word;
+}
+.es__desc {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--text-faint);
+  width: 100%;
+  max-width: 560rpx;
+  box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.es__action {
+  margin-top: 28rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 16rpx 48rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  color: #fff;
+  background: rgba(124, 134, 255, 0.2);
+  border: 1rpx solid rgba(124, 134, 255, 0.38);
+}
+.es__action--hover {
+  background: rgba(124, 134, 255, 0.32);
+}
+/* 主 CTA：实色渐变 */
+.es__action--primary {
+  background: var(--button-primary);
+  border-color: transparent;
+  color: var(--button-primary-text);
+  font-weight: 600;
+  box-shadow: var(--button-primary-shadow);
+}
+.es__action--primary.es__action--hover {
+  opacity: 0.88;
+}
+
+/* 紧凑版：卡片 / Hero 内的空态 */
+.es--compact {
+  padding: 26rpx 20rpx;
+}
+.es--compact .es__title {
+  font-size: 28rpx;
+  max-width: 100%;
+}
+.es--compact .es__desc {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  max-width: 100%;
+}
+.es--compact .es__action {
+  margin-top: 20rpx;
+  padding: 12rpx 38rpx;
+  font-size: 24rpx;
+}

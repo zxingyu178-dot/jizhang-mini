@@ -1,0 +1,8 @@
+<view class="es {{compact ? 'es--compact' : ''}}">
+  <view class="es__icon" wx:if="{{icon && !compact}}">
+    <dv-icon name="{{icon}}" size="{{iconSize}}" color="{{iconColor}}"></dv-icon>
+  </view>
+  <text class="es__title" wx:if="{{title}}">{{title}}</text>
+  <text class="es__desc" wx:if="{{desc}}">{{desc}}</text>
+  <view class="es__action {{primary ? 'es__action--primary' : ''}}" wx:if="{{actionText}}" hover-class="es__action--hover" hover-stay-time="60" bindtap="onAction">{{actionText}}</view>
+</view>

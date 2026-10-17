@@ -271,31 +271,12 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* 空态：引导设置 */
-.hb-empty {
-  padding: 40rpx 24rpx 28rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.hb-empty__title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #fff;
-}
-.hb-empty__desc {
-  margin-top: 12rpx;
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.55);
-}
-.hb-empty__btn {
-  margin-top: 26rpx;
-  padding: 18rpx 60rpx;
-  border-radius: 999rpx;
-  background: var(--button-primary);
-  color: var(--button-primary-text);
-  font-size: 27rpx;
-  font-weight: 600;
+/* 空态组件宿主：占满 Hero 卡片宽度（自定义组件宿主默认 shrink-to-fit，
+   不显式占宽会导致内部长说明不换行、溢出） */
+empty-state {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 今日 / 本周 / 本月 分段 */
@@ -353,35 +334,6 @@
 }
 .hb-pace--surplus { color: var(--budget-surplus); }
 .hb-pace--over { color: var(--budget-over); }
-
-/* 周期无预算（有规则历史但当前时段未启用） */
-.hb-nobudget {
-  padding: 36rpx 24rpx 24rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.hb-nobudget__title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #fff;
-}
-.hb-nobudget__desc {
-  margin-top: 12rpx;
-  font-size: 23rpx;
-  color: rgba(255, 255, 255, 0.52);
-  text-align: center;
-}
-.hb-nobudget__btn {
-  margin-top: 24rpx;
-  padding: 16rpx 52rpx;
-  border-radius: 999rpx;
-  background: rgba(124, 134, 255, 0.22);
-  border: 1rpx solid rgba(124, 134, 255, 0.4);
-  color: #fff;
-  font-size: 26rpx;
-  font-weight: 600;
-}
 
 /* 明细行（已花 / 截至今日预算 / 剩余，小字） */
 .hb-rows {

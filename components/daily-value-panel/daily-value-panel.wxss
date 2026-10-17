@@ -65,25 +65,12 @@
 }
 
 /* ================= 空态 ================= */
-.dv-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 100rpx 48rpx 0;
-  text-align: center;
-}
-.dv-empty__icon {
-  margin-bottom: 20rpx;
-}
-.dv-empty__tip {
-  font-size: 27rpx;
-  color: var(--text-secondary);
-}
-.dv-empty__sub {
-  margin-top: 10rpx;
-  font-size: 23rpx;
-  line-height: 1.6;
-  color: var(--text-faint);
+/* 空态（empty-state 组件）顶部留白 */
+.dv-list-empty {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: 80rpx;
 }
 
 /* ================= 日价列表（透明 + 细分割） ================= */

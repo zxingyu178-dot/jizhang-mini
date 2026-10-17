@@ -24,14 +24,20 @@
 
   <!-- 结果区 -->
   <scroll-view scroll-y class="s-results" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
-    <view class="s-hint" wx:if="{{!kw}}">
-      <dv-icon class="s-hint__icon" name="search" size="36" color="rgba(255,255,255,0.40)"></dv-icon>
-      <text class="s-hint__text">输入关键词，搜索商户、备注或分类</text>
-    </view>
-    <view class="s-hint" wx:if="{{kw && groups.length === 0}}">
-      <dv-icon class="s-hint__icon" name="empty" size="36" color="rgba(255,255,255,0.40)"></dv-icon>
-      <text class="s-hint__text">没有找到“{{kw}}”相关账单</text>
-    </view>
+    <empty-state
+      wx:if="{{!kw}}"
+      class="s-search-empty"
+      icon="search"
+      title="搜索账单"
+      desc="输入关键词，可搜索商户、备注或分类"
+    />
+    <empty-state
+      wx:if="{{kw && groups.length === 0}}"
+      class="s-search-empty"
+      icon="empty"
+      title="没有找到“{{kw}}”相关账单"
+      desc="换个关键词试试"
+    />
 
     <block wx:for="{{groups}}" wx:key="label">
       <view class="day-head">

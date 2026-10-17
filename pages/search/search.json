@@ -4,6 +4,7 @@
   "usingComponents": {
     "page-header": "../../components/page-header/page-header",
     "dv-icon": "../../components/icon/icon",
+    "empty-state": "../../components/empty-state/empty-state",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
     "bill-form": "../../components/bill-form/bill-form"
   }

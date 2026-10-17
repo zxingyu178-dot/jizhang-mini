@@ -11,11 +11,13 @@
   <!-- 日价列表：透明 + 细分割，按当前日价降序 -->
   <scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
     <view class="dv-list" style="padding-bottom:{{listPadBottom}}px;">
-      <view class="dv-empty" wx:if="{{isEmpty}}">
-        <dv-icon class="dv-empty__icon" name="chart" size="36" color="rgba(255,255,255,0.40)"></dv-icon>
-        <text class="dv-empty__tip">还没有日价物品</text>
-        <text class="dv-empty__sub">点右下角「+」添加，看看它每天值多少钱</text>
-      </view>
+      <empty-state
+        wx:if="{{isEmpty}}"
+        class="dv-list-empty"
+        icon="chart"
+        title="还没有日价物品"
+        desc="点右下角「+」添加，看看它每天值多少钱"
+      />
 
       <view
         wx:for="{{items}}"

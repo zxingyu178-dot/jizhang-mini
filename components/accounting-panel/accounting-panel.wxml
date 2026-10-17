@@ -51,11 +51,15 @@
       <!-- ============ 预算模式（今日 / 本周 / 本月，无月份箭头） ============ -->
       <block wx:if="{{heroMode==='budget'}}">
         <!-- 全局空态：从未设置过预算规则，引导设置 -->
-        <view class="hb-empty" wx:if="{{!hasAnyRule}}">
-          <text class="hb-empty__title">还没有设置每日预算</text>
-          <text class="hb-empty__desc">设置一个每天可以花多少钱的目标</text>
-          <view class="hb-empty__btn" bindtap="onGoBudgetSettings">设置预算</view>
-        </view>
+        <empty-state
+          wx:if="{{!hasAnyRule}}"
+          compact
+          primary
+          title="还没有设置每日预算"
+          desc="设置一个每天可以花多少钱的目标"
+          action-text="设置预算"
+          bind:action="onGoBudgetSettings"
+        />
 
         <block wx:else>
           <view class="hb-seg">
@@ -65,11 +69,14 @@
           </view>
 
           <!-- 周期无预算：有规则历史，但当前时段未启用（不显示 ¥0 / 超支） -->
-          <view class="hb-nobudget" wx:if="{{periodNoBudget}}">
-            <text class="hb-nobudget__title">{{periodNoBudgetText}}</text>
-            <text class="hb-nobudget__desc">该时段未启用预算，支出不参与预算比较</text>
-            <view class="hb-nobudget__btn" bindtap="onGoBudgetSettings">调整预算</view>
-          </view>
+          <empty-state
+            wx:if="{{periodNoBudget}}"
+            compact
+            title="{{periodNoBudgetText}}"
+            desc="该时段未启用预算，支出不参与预算比较"
+            action-text="调整预算"
+            bind:action="onGoBudgetSettings"
+          />
 
           <block wx:else>
             <view class="hb-label">{{bdTotalLabel}}</view>

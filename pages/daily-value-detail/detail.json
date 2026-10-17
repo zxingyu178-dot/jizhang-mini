@@ -6,6 +6,7 @@
     "daily-value-curve": "../../components/daily-value-curve/daily-value-curve",
     "daily-value-form": "../../components/daily-value-form/daily-value-form",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
+    "empty-state": "../../components/empty-state/empty-state",
     "dv-icon": "../../components/icon/icon"
   }
 }
