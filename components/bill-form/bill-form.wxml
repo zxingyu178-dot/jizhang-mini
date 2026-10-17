@@ -53,7 +53,7 @@
       <text class="bf-cat__name">{{item.name}}</text>
     </view>
     <view wx:if="{{!showAllCats}}" class="bf-cat bf-cat--more" bindtap="onShowAllCats">
-      <text class="bf-cat__more-icon">⋯</text>
+      <dv-icon class="bf-cat__more-icon" name="more" size="20" color="rgba(255,255,255,0.55)"></dv-icon>
       <text class="bf-cat__name">更多</text>
     </view>
   </view>

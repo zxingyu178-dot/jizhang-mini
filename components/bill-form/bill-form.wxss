@@ -82,6 +82,7 @@
   align-items: center;
   padding: 14rpx 0;
   border-radius: 16rpx;
+  overflow: hidden;
   transition: all 0.18s ease;
 }
 .bf-cat--active {
@@ -92,14 +93,17 @@
   margin-bottom: 6rpx;
 }
 .bf-cat__more-icon {
-  font-size: 40rpx;
-  line-height: 1.1;
   margin-bottom: 6rpx;
-  color: var(--text-secondary);
 }
 .bf-cat__name {
   font-size: 22rpx;
   color: var(--text-secondary);
+  max-width: 100%;
+  padding: 0 6rpx;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bf-cat--active .bf-cat__name {
   color: var(--text-primary);
