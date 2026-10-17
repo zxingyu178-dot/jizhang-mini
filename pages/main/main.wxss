@@ -151,63 +151,9 @@
   line-height: 1;
 }
 
-/* ---- 分类明细弹层（页面级 fixed，相对视口） ---- */
-.cat-mask {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 100;
-  background: rgba(0, 0, 0, 0);
-  pointer-events: none;
-}
-.cat-mask--show {
-  background: rgba(0, 0, 0, 0.55);
-  pointer-events: auto;
-}
-.cat-sheet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  max-height: 70vh;
-  border-radius: 36rpx 36rpx 0 0;
-  background: linear-gradient(180deg, rgba(26, 30, 48, 0.98), rgba(12, 14, 24, 0.98));
-  transform: translateY(100%);
-  transition: transform 0.22s ease-out;
-  display: flex;
-  flex-direction: column;
-}
-.cat-mask--show .cat-sheet {
-  transform: translateY(0);
-}
-.cat-sheet__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 28rpx 32rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
-}
-.cat-sheet__title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.cat-sheet__close {
-  width: 56rpx;
-  height: 56rpx;
-  line-height: 52rpx;
-  text-align: center;
-  font-size: 44rpx;
-  color: var(--text-secondary);
-}
-.cat-sheet__scroll {
-  /* scroll-view 需要明确高度才能渲染/滚动；高度约为屏幕下半部 */
-  height: 48vh;
+/* ---- 分类明细弹层（统一公共 bottom-sheet，遮罩/面板/标题由组件提供） ---- */
+.cat-list {
   padding: 0 32rpx;
-  box-sizing: border-box;
 }
 .cat-item {
   display: flex;
