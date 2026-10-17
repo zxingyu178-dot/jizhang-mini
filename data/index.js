@@ -19,6 +19,7 @@ const importHistory = require('./import-history');
 const dailyValue = require('./daily-value/index');
 const budget = require('./budget/index');
 const recurring = require('./recurring/index');
+const health = require('./health');
 
 let initialized = false;
 
@@ -114,6 +115,11 @@ module.exports = {
   // 备份 / 恢复
   buildBackup: backup.buildBackup,
   restoreBackup: backup.restoreBackup,
+  // 数据健康体检（只读，G10）
+  runHealthScan: health.runHealthScan,
+  analyzeHealth: health.analyzeHealth,
+  collectHealthData: health.collectHealthData,
+  formatHealthReport: health.formatHealthReport,
   // 导入历史
   getImportHistory: importHistory.getHistory,
   addImportHistory: importHistory.addImport,
@@ -132,4 +138,5 @@ module.exports = {
   dailyValue,
   budget,
   recurring,
+  health,
 };
