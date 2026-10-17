@@ -12,10 +12,12 @@
       <text class="rc-hint__sub">例如房租、会员、话费、工资，打开小程序时会自动补齐。</text>
     </view>
 
-    <!-- 规则卡片 -->
-    <view class="rc-card" wx:for="{{rules}}" wx:key="id" data-id="{{item.id}}" bindtap="onEdit">
-      <view class="rc-card__top">
-        <text class="rc-card__freq">{{item.freqText}}</text>
+    <!-- 规则卡片：金额为主，分类·频率次之，下次执行弱化；开关右上 -->
+    <view class="rc-card {{item.enabled?'':'rc-card--off'}}" wx:for="{{rules}}" wx:key="id" data-id="{{item.id}}" bindtap="onEdit">
+      <view class="rc-card__head">
+        <view class="rc-card__amount {{item.type==='income'?'rc-card__amount--in':''}}">
+          {{item.type==='income'?'+':''}}¥{{item.amountText}}
+        </view>
         <switch
           class="rc-switch"
           checked="{{item.enabled}}"
@@ -25,12 +27,11 @@
           color="#7c86ff"
         />
       </view>
-      <view class="rc-card__amount {{item.type==='income'?'rc-card__amount--in':''}}">
-        {{item.type==='income'?'+':''}}¥{{item.amountText}}
-      </view>
-      <view class="rc-card__meta">
+      <view class="rc-card__sub">
         <text class="rc-card__emoji">{{item.emoji}}</text>
         <text class="rc-card__cat">{{item.categoryName}}</text>
+        <text class="rc-card__sep">·</text>
+        <text class="rc-card__freq">{{item.freqText}}</text>
         <text class="rc-card__note" wx:if="{{item.note}}">· {{item.note}}</text>
       </view>
       <view class="rc-card__next" wx:if="{{item.enabled && item.nextText}}">下次 {{item.nextText}}</view>

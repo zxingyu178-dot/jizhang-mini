@@ -51,51 +51,68 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1rpx solid rgba(255, 255, 255, 0.07);
 }
-.rc-card__top {
+.rc-card--off {
+  opacity: 0.5;
+}
+.rc-card__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.rc-card__freq {
-  font-size: 24rpx;
-  color: var(--text-secondary);
-}
-.rc-switch {
-  transform: scale(0.78);
-}
 .rc-card__amount {
-  font-size: 44rpx;
+  font-size: 48rpx;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 12rpx 0 10rpx;
+  line-height: 1.1;
 }
 .rc-card__amount--in {
   color: #38c896;
 }
-.rc-card__meta {
+.rc-switch {
+  transform: scale(0.78);
+  flex-shrink: 0;
+}
+.rc-card__sub {
   display: flex;
   align-items: center;
+  margin-top: 12rpx;
+  overflow: hidden;
+  white-space: nowrap;
 }
 .rc-card__emoji {
   font-size: 26rpx;
-  margin-right: 10rpx;
+  margin-right: 8rpx;
+  flex-shrink: 0;
 }
 .rc-card__cat {
-  font-size: 25rpx;
+  font-size: 26rpx;
   color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.rc-card__sep {
+  font-size: 26rpx;
+  color: var(--text-faint);
+  margin: 0 8rpx;
+  flex-shrink: 0;
+}
+.rc-card__freq {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  flex-shrink: 0;
 }
 .rc-card__note {
   font-size: 24rpx;
   color: var(--text-faint);
-  margin-left: 6rpx;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .rc-card__next {
-  margin-top: 12rpx;
+  margin-top: 10rpx;
   font-size: 23rpx;
   color: var(--text-faint);
 }
 .rc-card__next--off {
-  opacity: 0.6;
   letter-spacing: 1rpx;
 }
 
