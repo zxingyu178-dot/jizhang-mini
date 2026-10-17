@@ -18,41 +18,7 @@
   background: radial-gradient(circle, rgba(124, 134, 255, 0.18), transparent 68%);
 }
 
-/* Header */
-.dpage-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  box-sizing: border-box;
-}
-.dpage-header__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24rpx;
-}
-.dpage-header__back {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-}
-.dpage-header__back-icon {
-  font-size: 44rpx;
-  color: #fff;
-  line-height: 1;
-  margin-top: -4rpx;
-}
-.dpage-header__title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #fff;
-}
+/* Header 框架由全局 <page-header> 提供；右侧编辑按钮样式保留 */
 .dpage-header__edit {
   padding: 10rpx 24rpx;
   border-radius: 999rpx;
@@ -62,9 +28,6 @@
 .dpage-header__edit text {
   font-size: 24rpx;
   color: var(--primary);
-}
-.dpage-header__placeholder {
-  width: 64rpx;
 }
 
 .dpage-scroll {

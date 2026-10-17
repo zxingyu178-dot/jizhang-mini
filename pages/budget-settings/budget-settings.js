@@ -34,9 +34,6 @@ Page({
     });
     this.recheck();
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
   onToggleEnabled() {
     this.setData({ enabled: !this.data.enabled });
     this.recheck();

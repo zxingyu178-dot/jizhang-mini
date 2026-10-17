@@ -102,9 +102,6 @@ Page({
     if (len <= 13) return 'detail-hero__value--md';
     return 'detail-hero__value--sm';
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
   /** 编辑：打开日价表单（daily-value-only / normal 复用，不改变 ledgerImpact） */
   onEdit() {
     const form = this.selectComponent('#dvEditForm');

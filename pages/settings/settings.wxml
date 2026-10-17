@@ -3,13 +3,8 @@
     <view class="settings-bg__glow"></view>
   </view>
 
-  <!-- 自定义 Header：返回 + 标题 -->
-  <view class="set-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
-    <view class="set-back" bindtap="onBack">
-      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
-    </view>
-    <text class="set-title">设置</text>
-  </view>
+  <!-- 统一二级页 Header -->
+  <page-header title="设置"></page-header>
 
   <scroll-view scroll-y class="set-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
     <!-- 记账 -->

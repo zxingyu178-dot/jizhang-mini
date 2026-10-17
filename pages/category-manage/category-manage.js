@@ -42,9 +42,6 @@ Page({
       archived: all.filter((c) => c.archived),
     });
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
 
   /** 打开编辑器（新增） */
   onAdd() {

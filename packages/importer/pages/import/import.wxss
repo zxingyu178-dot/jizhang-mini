@@ -21,34 +21,7 @@
   background: radial-gradient(circle, rgba(124, 134, 255, 0.16) 0%, transparent 70%);
 }
 
-/* Header */
-.imp-header {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  padding-left: 20rpx;
-  z-index: 10;
-  /* headerHeight 已含 statusBar，border-box 保证 padding-top 不额外撑高 */
-  box-sizing: border-box;
-}
-.imp-back {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 52rpx;
-  color: var(--text-primary);
-}
-.imp-title {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-left: 8rpx;
-}
+/* Header 由全局 <page-header> 组件统一提供 */
 
 .imp-scroll {
   position: absolute;
@@ -134,8 +107,8 @@
   margin-right: 16rpx;
 }
 .btn--primary {
-  color: #fff;
-  background: linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
+  color: var(--button-primary-text);
+  background: var(--button-primary);
 }
 
 /* 最近导入 */

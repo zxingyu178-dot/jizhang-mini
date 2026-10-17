@@ -1,0 +1,21 @@
+<view class="ph" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+  <view
+    wx:if="{{showBack}}"
+    class="ph__back"
+    hover-class="ph__back--hover"
+    hover-stay-time="60"
+    bindtap="onBack"
+  >
+    <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.82)"></dv-icon>
+  </view>
+  <view wx:else class="ph__back ph__back--placeholder"></view>
+
+  <view class="ph__center">
+    <text wx:if="{{title}}" class="ph__title">{{title}}</text>
+    <slot></slot>
+  </view>
+
+  <view class="ph__right">
+    <slot name="right"></slot>
+  </view>
+</view>

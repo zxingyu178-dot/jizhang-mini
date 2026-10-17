@@ -20,31 +20,10 @@
   background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
 }
 
-/* Header */
-.s-header {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  padding-left: 20rpx;
-  padding-right: 28rpx;
-  z-index: 10;
-  /* headerHeight 已含 statusBar，border-box 保证 padding-top 不额外撑高 */
-  box-sizing: border-box;
-}
-.s-back {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 52rpx;
-  color: var(--text-primary);
-}
+/* Header 由全局 <page-header> 提供，搜索框置于其默认 slot */
 .s-input {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   height: 72rpx;
@@ -52,10 +31,10 @@
   border: 1rpx solid rgba(255, 255, 255, 0.12);
   border-radius: 36rpx;
   padding: 0 24rpx;
-  margin-left: 8rpx;
 }
 .s-input__icon {
-  font-size: 26rpx;
+  display: flex;
+  align-items: center;
   margin-right: 12rpx;
 }
 .s-input__field {
@@ -68,8 +47,8 @@
   color: rgba(255, 255, 255, 0.3);
 }
 .s-input__clear {
-  font-size: 24rpx;
-  color: var(--text-faint);
+  display: flex;
+  align-items: center;
   padding-left: 12rpx;
 }
 

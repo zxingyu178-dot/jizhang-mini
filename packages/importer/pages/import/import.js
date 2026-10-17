@@ -84,9 +84,6 @@ Page({
     }));
     this.setData({ history });
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
   onToggleGuide(e) {
     const key = e.currentTarget.dataset.key;
     const sources = this.data.sources.map((s) =>

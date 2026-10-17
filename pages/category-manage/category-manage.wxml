@@ -3,13 +3,8 @@
     <view class="cm-bg__glow"></view>
   </view>
 
-  <!-- Header -->
-  <view class="cm-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
-    <view class="cm-back" bindtap="onBack">
-      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
-    </view>
-    <text class="cm-title">分类管理</text>
-  </view>
+  <!-- 统一二级页 Header -->
+  <page-header title="分类管理"></page-header>
 
   <scroll-view scroll-y class="cm-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
     <!-- 系统分类（只读） -->

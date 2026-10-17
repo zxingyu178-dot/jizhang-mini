@@ -1,0 +1,58 @@
+/* 统一二级页 Header：盒模型与各页旧实现一致（border-box，height 已含状态栏），
+   三栏布局：[返回] [中间标题 / 自定义 slot] [右侧操作 slot]。 */
+.ph {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  padding-left: 20rpx;
+  padding-right: 20rpx;
+  box-sizing: border-box;
+}
+
+.ph__back {
+  width: 64rpx;
+  height: 64rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.ph__back--hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.ph__back--placeholder {
+  pointer-events: none;
+}
+
+/* 中间栏：标题左对齐紧跟返回；放自定义内容（如搜索框）时铺满 */
+.ph__center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 8rpx;
+}
+.ph__title {
+  font-size: 34rpx;
+  font-weight: 600;
+  letter-spacing: 0.5rpx;
+  color: var(--text-title);
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 右侧操作栏（如编辑按钮），不与胶囊重叠由 max-width 控制 */
+.ph__right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 38%;
+}

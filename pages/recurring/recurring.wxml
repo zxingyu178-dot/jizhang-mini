@@ -3,13 +3,8 @@
     <view class="rc-bg__glow"></view>
   </view>
 
-  <!-- Header -->
-  <view class="rc-header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
-    <view class="rc-back" bindtap="onBack">
-      <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.78)"></dv-icon>
-    </view>
-    <text class="rc-title">周期记账</text>
-  </view>
+  <!-- 统一二级页 Header -->
+  <page-header title="周期记账"></page-header>
 
   <scroll-view scroll-y class="rc-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
     <view class="rc-hint" wx:if="{{empty}}">

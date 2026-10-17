@@ -36,9 +36,6 @@ Page({
     if (r && r.enabled && r.dailyCents > 0) hint = '¥' + money.formatCents(r.dailyCents) + '/天';
     this.setData({ budgetHint: hint });
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
 
   /** 分类管理（二级页） */
   onCategoryManage() {

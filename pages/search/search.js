@@ -34,9 +34,6 @@ Page({
   onClear() {
     this.setData({ kw: '', groups: [] });
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
   doSearch(kw) {
     if (!kw) {
       this.setData({ groups: [] });

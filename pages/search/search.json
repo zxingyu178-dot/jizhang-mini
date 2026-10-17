@@ -2,6 +2,8 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "page-header": "../../components/page-header/page-header",
+    "dv-icon": "../../components/icon/icon",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
     "bill-form": "../../components/bill-form/bill-form"
   }

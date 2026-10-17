@@ -128,10 +128,6 @@ Page({
 
   noop() {},
 
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
-
   /** 新建：重置编辑器 */
   onAdd() {
     const now = new Date();

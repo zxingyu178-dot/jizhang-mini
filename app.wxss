@@ -75,12 +75,45 @@ page {
   --overlay-bg: rgba(13, 13, 16, 0.88);
   --overlay-border: rgba(255, 255, 255, 0.08);
 
+  /* ============================================================
+     v0.7.0 统一语义 Token：让「相同元素看起来必须相同」。
+     各页面 / 组件不再各自写 rgba、渐变、圆角、按钮，统一引用此处。
+     ============================================================ */
+
+  /* 玻璃层级：页面底 / 卡片 / 底部弹层 / 输入框 */
+  --glass-page: var(--bg);
+  --glass-card: var(--card-bg);
+  --glass-sheet: linear-gradient(180deg, rgba(124, 134, 255, 0.16) 0%, rgba(124, 134, 255, 0) 240rpx), linear-gradient(180deg, rgba(26, 30, 54, 0.90) 0%, rgba(14, 18, 36, 0.92) 100%);
+  --glass-input: rgba(255, 255, 255, 0.06);
+  --glass-input-border: rgba(255, 255, 255, 0.12);
+
+  /* 文字层级：标题 / 正文 / 说明（与既有 primary/secondary/faint 并存，新代码用层级语义） */
+  --text-title: #f2f4fb;
+  --text-body: rgba(255, 255, 255, 0.78);
+  --text-caption: rgba(255, 255, 255, 0.50);
+
+  /* 分隔线 */
+  --divider: rgba(255, 255, 255, 0.08);
+
+  /* 按钮：主操作 / 危险 / 禁用（背景值 + 文字色）。主按钮统一为饱满实色紫渐变。 */
+  --button-primary: linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
+  --button-primary-text: #ffffff;
+  --button-primary-shadow: 0 6rpx 18rpx rgba(91, 103, 240, 0.22);
+  --button-danger: linear-gradient(135deg, #ef606b 0%, #d94a55 100%);
+  --button-danger-text: #ffffff;
+  --button-disabled: rgba(255, 255, 255, 0.08);
+  --button-disabled-text: rgba(255, 255, 255, 0.34);
+
   /* ---- 圆角 / 间距 ---- */
   --r-sm: 16rpx;
   --r-md: 24rpx;
   --r-lg: 32rpx;
   --r-xl: 40rpx;
   --r-pill: 999rpx;
+
+  /* 布局间距：页面外边距 / 卡片内边距 */
+  --space-page: 32rpx;
+  --space-card: 28rpx;
 
   background-color: var(--bg);
   color: var(--text-primary);

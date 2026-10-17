@@ -16,7 +16,4 @@ Page({
       headerHeight: info.headerHeight,
     });
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
 });

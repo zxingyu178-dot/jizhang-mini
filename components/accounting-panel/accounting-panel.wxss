@@ -292,8 +292,8 @@
   margin-top: 26rpx;
   padding: 18rpx 60rpx;
   border-radius: 999rpx;
-  background: rgba(124, 134, 255, 0.85);
-  color: #fff;
+  background: var(--button-primary);
+  color: var(--button-primary-text);
   font-size: 27rpx;
   font-weight: 600;
 }

@@ -4,19 +4,12 @@
     <view class="dpage-bg__glow"></view>
   </view>
 
-  <!-- 自定义 Header：返回 + 编辑 -->
-  <view class="dpage-header" style="padding-top:{{statusBarHeight}}px;height:{{navBarHeight + statusBarHeight}}px;">
-    <view class="dpage-header__bar" style="height:{{navBarHeight}}px;">
-      <view class="dpage-header__back" bindtap="onBack">
-        <text class="dpage-header__back-icon">‹</text>
-      </view>
-      <text class="dpage-header__title">日价详情</text>
-      <view class="dpage-header__edit" bindtap="onEdit" wx:if="{{ok}}">
-        <text>编辑</text>
-      </view>
-      <view class="dpage-header__placeholder" wx:else></view>
+  <!-- 统一二级页 Header：返回 + 标题 + 右侧编辑 -->
+  <page-header title="日价详情">
+    <view slot="right" class="dpage-header__edit" bindtap="onEdit" wx:if="{{ok}}">
+      <text>编辑</text>
     </view>
-  </view>
+  </page-header>
 
   <!-- 不存在 -->
   <scroll-view scroll-y class="dpage-scroll" wx:if="{{!ok}}">

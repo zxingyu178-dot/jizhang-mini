@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "page-header": "../../components/page-header/page-header",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
     "dv-icon": "../../components/icon/icon"
   }

@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "page-header": "../../components/page-header/page-header",
     "dv-icon": "../../components/icon/icon"
   }
 }

@@ -1,5 +1,7 @@
 {
   "navigationStyle": "custom",
   "renderer": "skyline",
-  "usingComponents": {}
+  "usingComponents": {
+    "page-header": "/components/page-header/page-header"
+  }
 }

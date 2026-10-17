@@ -22,9 +22,6 @@ Page({
       headerHeight: info.headerHeight,
     });
   },
-  onBack() {
-    wx.navigateBack({ delta: 1 });
-  },
 
   /** 创建备份：生成 .dvmini.json 并分享到微信（文件传输助手） */
   onExport() {

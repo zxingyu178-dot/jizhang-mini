@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "page-header": "../../components/page-header/page-header",
     "daily-value-curve": "../../components/daily-value-curve/daily-value-curve",
     "daily-value-form": "../../components/daily-value-form/daily-value-form",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet"

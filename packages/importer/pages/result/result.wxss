@@ -56,6 +56,7 @@
   border-radius: 999rpx;
   font-size: 32rpx;
   font-weight: 600;
-  color: #fff;
-  background: linear-gradient(135deg, #7c86ff, #5b67f0);
+  color: var(--button-primary-text);
+  background: var(--button-primary);
+  box-shadow: var(--button-primary-shadow);
 }

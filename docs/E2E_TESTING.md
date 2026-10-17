@@ -90,10 +90,10 @@ tests/e2e/
 
 ---
 
-## 4. 核心经验：四条必守的坑（automator 0.12.1 + Skyline 实测）
+## 4. 核心经验：六条必守的坑（automator 0.12.1 + Skyline 实测）
 
 > 以下每一条都曾导致「T01 过、T02 起全部 `timeout waiting for automator response`」，
-> 用二分法逐一定位，**务必照搬，不要重新踩**。
+> 或「逻辑 data 正确但渲染层整块不绘制」，用二分法逐一定位，**务必照搬，不要重新踩**。
 
 ### 坑 1：冷启动首页就绪前，绝对不能发路由命令（会永久黑屏）
 
@@ -141,6 +141,55 @@ spawn(q(config.CLI_PATH), args.map(q), { shell: true, windowsHide: true, ... });
 > 都是 IDE 自身的无害告警；以 `IDE server started successfully` + `√ auto` 为准。自动化走的是 9420 WebSocket，
 > 日志里的 HTTP 端口（如 11421）是动态的，忽略即可。
 
+### 坑 5：Skyline 组件引用「多行声明的 CSS 自定义属性」会整块不渲染（v0.7.0 实测）
+
+在 `app.wxss` 里新增 Design Token 时，把变量值写成多行（冒号后换行、值另起一行）：
+
+```css
+/* ❌ 错误：值换行 */
+--button-primary:
+  linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
+--glass-sheet:
+  linear-gradient(...),
+  linear-gradient(...);
+```
+
+现象非常迷惑：**逻辑层完全正确**（`page.data()` / 组件 `data` 里 `visible=true`、`closed=false`、`canSubmit=true`），
+但 **Skyline 渲染层整块不绘制**——Hero 卡片白屏、Bottom Sheet 逻辑 `visible=true` 却连遮罩都不弹、表单按钮区消失。
+关键不对称：**页面级 wxss（如 `budget-settings`、分包 `import`）引用同一变量能正常显示，只有组件（isolated / apply-shared）不渲染**。
+曾因此误判为「isolated 组件不能用新增变量」，实际是「组件编译单元不接受多行变量值」。
+
+**正确做法**：所有自定义属性值**单行声明**，多背景 gradient 用逗号连在同一行：
+
+```css
+/* ✅ 正确：值与冒号同一行 */
+--button-primary: linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
+--glass-sheet: linear-gradient(...), linear-gradient(...);
+```
+
+排查口诀：**「逻辑 data 正确、截图不显示」先怀疑组件 wxss 引用的变量**；用 `git stash` 回纯 HEAD 基线对照
+（基线正常即确认是改动引入），再逐文件二分。
+
+### 坑 6：改 app.wxss 新增变量后，先清 WeappCompileCache 全量编译，否则误判代码 bug
+
+即使代码正确，Skyline **增量编译缓存**有时不会把「新增的 page CSS 变量」同步进组件编译单元，
+表现与坑 5 相同（组件白屏）。这时反复改代码、回退都没用，必须强制全量编译：
+
+1. 关闭 IDE（`Get-Process -Name '微信开发者工具' | Stop-Process -Force`；注意 `Get-Process wechatdevtools` 永远返回 0，是假象）；
+2. 删除编译缓存目录下的 hash 子目录（**只删 `WeappCompileCache` 下的子目录**）：
+   `C:\Users\30566\AppData\Local\微信开发者工具\User Data\<hash>\WeappCache\WeappCompileCache\`；
+3. 重新 `cli auto` 冷启动（约 90–100s 后再连接）。
+
+**绝对不要删 `WeappLocalData`**——会丢掉 `wx.storage` 里的测试账单。
+
+### 补充：几个交互/诊断事实
+
+- **切 main 顶部自定义 Tab 必须用真实元素 tap**：`page.$$('.tabs__item')[i].tap()` 有效；
+  `page.callMethod('onTab', {currentTarget:{dataset:{i:2}}})` 因构造的 event 不完整而不生效。
+- **Bottom Sheet 状态诊断**：main 有 3 个 `bottom-sheet`，`page.$$('bottom-sheet')[i].data()` 读 `show/visible/closed`；
+  逻辑状态对但不画 = 样式问题（坑 5/6），逻辑状态不对 = 绑定/事件问题。
+- **关闭 Sheet 调页面方法**：`page.callMethod('onSheetClose')` / `onDvSheetClose()`。
+
 ---
 
 ## 5. automator 0.12.1 API 事实（实测，避免重踩）
@@ -176,6 +225,9 @@ spawn(q(config.CLI_PATH), args.map(q), { shell: true, windowsHide: true, ... });
 | 端口一直不监听 | 未开服务端口 / CLI 路径错 / 未信任项目 | 开安全设置服务端口；`WECHAT_CLI` 指定 cli；确认项目可正常打开 |
 | 首页就绪后第一页正常，之后全部超时 | 多用了 reLaunch，或截图写进了项目 | 见坑 2、坑 3；用 navigateBack；截图写项目外 |
 | 冷启动永久黑屏、`pageStack=[]` | 就绪前发了路由 | 见坑 1；用 `waitForReady` |
+| 组件 data 正确但白屏 / Sheet 不弹 | 组件引用了多行声明的 CSS 变量 | 见坑 5；token 值全部改单行 |
+| 改了 app.wxss 新变量仍不生效 | 增量编译缓存未同步到组件 | 见坑 6；删 `WeappCompileCache` 子目录全量重编 |
+| `callMethod('onTab')` 切不了 Tab | 构造的 event 不完整 | 用 `page.$$('.tabs__item')[i].tap()` |
 | `'C:\Program' is not recognized` | CLI 路径含空格未加引号 | 见坑 4 |
 | 某用例偶发超时 | 页面动画/加载比固定 sleep 慢 | 用 `waitFor(selector)` 轮询代替固定 sleep；必要时调大 |
 | 残留「E2E回归」测试规则 | 上次中途异常退出 | 下次运行 T04 开头 `cleanupTestRules` 会自动清理 |

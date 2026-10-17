@@ -20,32 +20,7 @@
   background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
 }
 
-/* Header */
-.br-header {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  display: flex;
-  align-items: center;
-  padding-left: 20rpx;
-  z-index: 10;
-  /* headerHeight 已含 statusBar，border-box 保证 padding-top 不额外撑高 */
-  box-sizing: border-box;
-}
-.br-back {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.br-title {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-left: 8rpx;
-}
+/* Header 由全局 <page-header> 组件统一提供 */
 
 /* 滚动区 */
 .br-scroll {
