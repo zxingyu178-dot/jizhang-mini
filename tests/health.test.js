@@ -381,6 +381,109 @@ console.log('I. 脱敏报告');
   assert(report.indexOf('bill-amount-invalid') >= 0, '报告应包含错误 code');
 }
 
+/* ================= J. 恢复健康门（G11） ================= */
+console.log('J. 恢复健康门');
+function makeBackup(over) {
+  return {
+    format: 'daily-value-mini-backup',
+    schemaVersion: 3,
+    appVersion: '0.7.0',
+    exportedAt: '2026-10-17T00:00:00.000Z',
+    data: Object.assign(
+      {
+        bills: [],
+        categories: store.getCategories(),
+        settings: { currency: '¥', theme: 'dark' },
+        recurringRules: [],
+      },
+      over || {}
+    ),
+  };
+}
+function mkBill(over) {
+  return store.ledger.createBill(
+    Object.assign(
+      { type: 'expense', amountCents: 100, categoryId: 'c-food', occurredAt: new Date(2026, 9, 5, 9, 0).getTime() },
+      over || {}
+    )
+  );
+}
+
+/* 正常备份恢复成功，无 warning */
+{
+  global.wx = buildWx();
+  store.init();
+  const backup = makeBackup({ bills: [mkBill({ note: '正常' }), mkBill({ id: 'b-x2', amountCents: 200, occurredAt: new Date(2026, 9, 6).getTime() })] });
+  const r = store.restoreBackup(backup);
+  eq(r.restored, 2, '正常备份恢复 2 笔');
+  eq(r.warningCount, 0, '正常备份无 warning');
+  eq(store.rangeBills().length, 2, '落盘 2 笔');
+}
+
+/* 重复 id：恢复抛错并回滚，旧数据保留 */
+{
+  global.wx = buildWx();
+  store.init();
+  store.addBill({ type: 'expense', amountCents: 50, categoryId: 'c-food', occurredAt: new Date(2026, 9, 1).getTime(), note: '回滚保留' });
+  const before = store.rangeBills().length;
+  const dup = makeBackup({
+    bills: [mkBill({ id: 'dup-id', note: '新数据1' }), mkBill({ id: 'dup-id', amountCents: 200, occurredAt: new Date(2026, 9, 6).getTime(), note: '新数据2' })],
+  });
+  let threw = false;
+  try {
+    store.restoreBackup(dup);
+  } catch (e) {
+    threw = true;
+    assert(String(e.message).indexOf('健康校验') >= 0, '报错应来自健康校验：' + e.message);
+  }
+  eq(threw, true, '重复 id 备份应恢复失败');
+  eq(store.rangeBills().length, before, '回滚后账单数恢复为旧数据');
+  assert(store.rangeBills().some((b) => b.note === '回滚保留'), '旧数据应保留');
+  eq(store.rangeBills().some((b) => b.note === '新数据1'), false, '坏备份数据不应落盘');
+}
+
+/* 孤儿周期规则引用：恢复成功，warning 放行 */
+{
+  global.wx = buildWx();
+  store.init();
+  const backup = makeBackup({
+    bills: [mkBill({ source: 'recurring', recurringRuleId: 'r-deleted', note: '历史周期账' })],
+    recurringRules: [],
+  });
+  let r;
+  let threw = false;
+  try {
+    r = store.restoreBackup(backup);
+  } catch (e) {
+    threw = true;
+  }
+  eq(threw, false, '孤儿规则引用不应阻断恢复');
+  assert(r && r.warningCount >= 1, '应至少 1 个 warning');
+  const codes = r.warnings.map((x) => x.code);
+  assert(codes.indexOf('bill-recurring-rule-orphan') >= 0, '应含 bill-recurring-rule-orphan');
+}
+
+/* 非法预算规则：恢复抛错并回滚 */
+{
+  global.wx = buildWx();
+  store.init();
+  store.addBill({ type: 'expense', amountCents: 77, categoryId: 'c-food', occurredAt: new Date(2026, 9, 2).getTime(), note: '旧预算账' });
+  const before = store.rangeBills().length;
+  const bad = makeBackup({
+    bills: [mkBill()],
+    settings: { currency: '¥', theme: 'dark', budget: { version: 1, weekStartsOn: 1, rules: [{ id: 'bx', enabled: true, dailyCents: 3000, effectiveFrom: 'not-a-date' }] } },
+  });
+  let threw = false;
+  try {
+    store.restoreBackup(bad);
+  } catch (e) {
+    threw = true;
+    assert(String(e.message).indexOf('budget-rule-date-invalid') >= 0, '应报预算日期非法：' + e.message);
+  }
+  eq(threw, true, '坏预算规则应恢复失败');
+  eq(store.rangeBills().length, before, '坏预算回滚后旧数据保留');
+}
+
 /* ================= 汇总 ================= */
 console.log('\n==================== health.test.js 汇总 ====================');
 console.log('PASS=' + pass + ' FAIL=' + fail);

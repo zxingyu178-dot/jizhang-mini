@@ -160,9 +160,9 @@ function commitImport(session, opts) {
 
     return { imported: toImport.length, merged: toMerge.length, batchId, months };
   } catch (e) {
-    // 回滚到快照
+    // 回滚到快照（救命回滚：跳过健康门，避免健康校验阻断回滚本身）
     const saved = fs.readJSON(safety, null);
-    if (saved) backup.restoreBackup(saved);
+    if (saved) backup.restoreBackup(saved, { skipHealth: true });
     throw e;
   }
 }
@@ -172,7 +172,12 @@ function commitRestore(session) {
   const result = backup.restoreBackup(session.restoreObj);
   // 恢复后立即重算周期 nextOccurrence / 补齐到期账单（不强制用户切后台再回来）
   scheduleRecurringCatchup();
-  return { imported: result.restored, months: result.months };
+  return {
+    imported: result.restored,
+    months: result.months,
+    warningCount: result.warningCount || 0,
+    warnings: result.warnings || [],
+  };
 }
 
 module.exports = {

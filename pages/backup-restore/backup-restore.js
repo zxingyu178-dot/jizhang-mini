@@ -77,7 +77,18 @@ Page({
                   console.error('恢复后周期补齐失败', e);
                 });
               }
-              wx.showToast({ title: '已恢复 ' + result.restored + ' 笔', icon: 'none' });
+              if (result.warningCount > 0) {
+                wx.showModal({
+                  title: '恢复完成',
+                  content:
+                    '已恢复 ' + result.restored + ' 笔账单。检测到 ' + result.warningCount +
+                    ' 项历史引用提示（如已删除的分类或周期规则），不影响正常使用。',
+                  showCancel: false,
+                  confirmText: '知道了',
+                });
+              } else {
+                wx.showToast({ title: '已恢复 ' + result.restored + ' 笔', icon: 'none' });
+              }
             } catch (e) {
               wx.showToast({ title: '恢复失败，已回滚', icon: 'none' });
             }

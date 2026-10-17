@@ -17,6 +17,7 @@ const ledger = require('./ledger');
 const categories = require('./categories');
 const settings = require('./settings');
 const recurringStore = require('./recurring/store');
+const health = require('./health');
 const { APP_VERSION } = require('../utils/version');
 
 const FORMAT = 'daily-value-mini-backup';
@@ -53,10 +54,12 @@ function validateBackup(backup) {
 
 /**
  * 从备份完整恢复。
- * 步骤：校验 → 写安全点 → 清旧账单 → 写新账单/分类/设置 → 校验
- * 任何失败尝试回滚到安全点。
+ * 步骤：校验 → 写安全点 → 清旧账单 → 写新账单/分类/设置/周期规则 → 条数校验
+ *       → 数据健康终检（error 回滚，warning 放行）。
+ * 任何失败尝试回滚到安全点。返回 { restored, months, warningCount, warnings }。
  */
-function restoreBackup(backup) {
+function restoreBackup(backup, options) {
+  options = options || {};
   const err = validateBackup(backup);
   if (err) throw new Error('备份格式不正确：' + err);
 
@@ -84,7 +87,28 @@ function restoreBackup(backup) {
       throw new Error('恢复条数不一致');
     }
 
-    return { restored: result.total, months: result.months };
+    // 6. 数据健康终检（G11）：以最终落盘数据为准。
+    //    - error（结构损坏，如重复 Bill id、非法预算规则）→ 抛错回滚到安全点；
+    //    - warning（引用已归档分类 / 已删除周期规则等历史软引用）→ 放行，随结果返回。
+    //    skipHealth 仅供「导入失败后用安全点救命回滚」使用，回滚不能被健康门阻断。
+    let warnings = [];
+    let warningCount = 0;
+    if (!options.skipHealth) {
+      const report = health.runHealthScan();
+      if (!report.ok) {
+        const codes = report.errors.map((x) => x.code).join('、');
+        throw new Error('恢复数据健康校验未通过：' + codes);
+      }
+      warnings = report.warnings;
+      warningCount = report.warnings.length;
+    }
+
+    return {
+      restored: result.total,
+      months: result.months,
+      warningCount,
+      warnings,
+    };
   } catch (e) {
     // 回滚
     rollback(safety);
