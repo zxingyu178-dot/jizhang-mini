@@ -95,19 +95,43 @@ function getActiveCategories() {
   return getCategories().filter((c) => !c.archived);
 }
 
+/** 找不到分类时的兜底「其他」（与历史账单解析保持一致） */
+const FALLBACK_OTHER = {
+  id: 'c-other',
+  name: '其他',
+  emoji: '📦',
+  builtin: false,
+  sort: 12,
+  archived: false,
+};
+
 /** 按 id 查分类（含已归档；找不到返回「其他」） */
 function getCategory(id) {
+  return getCategoryMap()[id] || FALLBACK_OTHER;
+}
+
+/**
+ * 一次读盘，构建 id → 分类 的内存映射（含已归档）。
+ * 用于单次渲染/计算批次的批量解析，避免每条账单都读一次 categories.json。
+ * 注意：这是「单次快照」，不做全局永久缓存——分类改名/归档后下一次 refresh 重新读取即生效。
+ */
+function getCategoryMap() {
   const all = getCategories();
-  return (
-    all.find((c) => c.id === id) || {
-      id: 'c-other',
-      name: '其他',
-      emoji: '📦',
-      builtin: false,
-      sort: 12,
-      archived: false,
-    }
-  );
+  const map = {};
+  for (let i = 0; i < all.length; i++) map[all[i].id] = all[i];
+  return map;
+}
+
+/**
+ * 一次读盘，返回基于内存快照的分类解析函数 (id → 分类)。
+ * 找不到（含已归档以外的悬空 id）统一回退「其他」。
+ * 一次页面 refresh / 聚合计算内只取一次 resolver，再复用于整批账单。
+ */
+function getCategoryResolver() {
+  const map = getCategoryMap();
+  return function resolveCategory(id) {
+    return map[id] || FALLBACK_OTHER;
+  };
 }
 
 /** 旧分类 value 映射到新 id */
@@ -242,6 +266,8 @@ module.exports = {
   getCategories,
   getActiveCategories,
   getCategory,
+  getCategoryMap,
+  getCategoryResolver,
   mapLegacyCategory,
   findDuplicateName,
   addCategory,

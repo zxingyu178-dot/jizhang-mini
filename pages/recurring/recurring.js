@@ -108,8 +108,9 @@ Page({
   },
 
   load() {
+    const resolveCategory = store.getCategoryResolver(); // 单次列表快照
     const rules = store.recurring.getRules().map((r) => {
-      const cat = store.getCategory(r.categoryId);
+      const cat = resolveCategory(r.categoryId);
       return {
         id: r.id,
         enabled: r.enabled,

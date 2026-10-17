@@ -243,6 +243,39 @@ console.log('E. 归档 fail-closed（周期引用检查异常）');
   eq(s.categories.archiveCategory('c-drink').ok, true, '检查恢复后可正常归档');
 }
 
+/* ================= F. 批量分类解析快照 getCategoryMap / getCategoryResolver（v0.7.0 G7） ================= */
+console.log('F. 分类解析单次快照');
+{
+  const s = freshStore();
+  const C = s.categories;
+
+  const map = C.getCategoryMap();
+  assert(map['c-food'] && map['c-food'].name === '餐饮', 'map 含核心分类 c-food');
+  eq(Object.keys(map).length, 12, 'map 覆盖默认 12 分类');
+
+  // 快照在新增分类之前取得：不应包含之后新增的分类
+  const resolverBefore = C.getCategoryResolver();
+  const added = C.addCategory({ name: '咖啡测试', emoji: '☕' });
+  const newId = added.category.id;
+  eq(resolverBefore(newId).id, 'c-other', '旧快照不含之后新增分类（单次快照，非全局缓存）');
+
+  // 新 resolver 反映新增分类
+  const resolver2 = C.getCategoryResolver();
+  eq(resolver2(newId).name, '咖啡测试', '新 resolver 解析新增分类');
+  eq(resolver2('c-food').name, '餐饮', 'resolver 解析正常分类');
+
+  // 归档后：旧 resolver 仍为归档前快照；新 resolver 仍能解析归档分类（历史账单语义）
+  eq(C.archiveCategory(newId).ok, true, '归档自定义分类');
+  eq(resolver2(newId).archived, false, 'resolver2 为归档前快照，archived 仍 false');
+  const resolver3 = C.getCategoryResolver();
+  eq(resolver3(newId).archived, true, '新 resolver 反映归档状态');
+  eq(resolver3(newId).name, '咖啡测试', '新 resolver 仍能解析归档分类（历史账单不丢）');
+
+  // 悬空 id 与空 id 回退「其他」
+  eq(resolver3('no-such-id').id, 'c-other', '悬空 id 回退其他');
+  eq(resolver3(undefined).id, 'c-other', '空 id 回退其他');
+}
+
 /* ================= 汇总 ================= */
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

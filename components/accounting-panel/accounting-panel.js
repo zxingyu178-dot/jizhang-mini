@@ -87,12 +87,14 @@ Component({
 
       const summary = store.monthSummary(active);
       const grouped = store.monthGrouped(active);
+      // 单次渲染快照：整月 Timeline 共用一个分类 resolver（只读一次 categories.json）
+      const resolveCategory = store.getCategoryResolver();
       const timeline = acc.buildTimeline(
         active,
         grouped,
         acc.todayKey(),
         undefined,
-        (id) => store.getCategory(id)
+        resolveCategory
       );
 
       const expenseText = '¥' + money.formatCents(summary.expense);

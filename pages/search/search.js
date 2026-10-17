@@ -40,10 +40,11 @@ Page({
       return;
     }
     const key = kw.toLowerCase();
+    const resolveCategory = store.getCategoryResolver(); // 单次搜索快照
     const matched = store.rangeBills().filter((b) => {
       // 普通「搜索账单」只搜普通账单；日价专属物品只在日价模块展示。
       if (b.ledgerImpact === 'daily-value-only') return false;
-      const cat = store.getCategory(b.categoryId);
+      const cat = resolveCategory(b.categoryId);
       // 日价物品名（title）也纳入普通账单搜索范围
       const fields = [b.merchant || '', b.note || '', b.title || '', cat ? cat.name : '', cat ? cat.id : ''];
       return fields.some((f) => f.toLowerCase().indexOf(key) >= 0);
@@ -55,7 +56,7 @@ Page({
       .sort((a, b) => b.occurredAt - a.occurredAt)
       .forEach((b) => {
         const label = fmtDayLabel(b.occurredAt);
-        const cat = store.getCategory(b.categoryId);
+        const cat = resolveCategory(b.categoryId);
         const isExp = b.type === 'expense';
         const item = {
           id: b.id,

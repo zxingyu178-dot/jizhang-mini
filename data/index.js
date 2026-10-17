@@ -69,19 +69,21 @@ module.exports = {
   rangeBills: ledger.rangeBills,
   // 日价派生（Bill 派生，不另建数据库）
   listDailyValueItems: function (today) {
-    return dailyValue.computeDailyValueList(ledger.rangeBills(), today, (id) => categories.getCategory(id));
+    return dailyValue.computeDailyValueList(ledger.rangeBills(), today, categories.getCategoryResolver());
   },
   getDailyValueDetail: function (id, today) {
     return dailyValue.computeDailyValueDetail(
       ledger.getBill(id),
       today,
-      (cid) => categories.getCategory(cid)
+      categories.getCategoryResolver()
     );
   },
   // 分类
   getCategories: categories.getCategories,
   getActiveCategories: categories.getActiveCategories,
   getCategory: categories.getCategory,
+  getCategoryMap: categories.getCategoryMap,
+  getCategoryResolver: categories.getCategoryResolver,
   // 预算（Bill + Budget Rules 动态派生，不给 Bill 加预算字段）
   getBudgetState: budget.getBudgetState,
   saveBudgetRule: budget.saveBudgetRule,
@@ -96,7 +98,7 @@ module.exports = {
       ledger.rangeBills(),
       budget.getBudgetState(),
       dateStr,
-      (id) => categories.getCategory(id)
+      categories.getCategoryResolver()
     );
   },
   buildBudgetPaceSummary: function (today) {

@@ -56,10 +56,11 @@ Component({
     loadData() {
       const today = dv.localDateKey();
       const all = store.rangeBills();
+      // 单次渲染快照：整个日价列表共用一个分类 resolver
       const list = dv.computeDailyValueList(
         all,
         today,
-        (id) => store.getCategory(id)
+        store.getCategoryResolver()
       );
       const totalCents = dv.totalDailyValueCents(all, today);
 

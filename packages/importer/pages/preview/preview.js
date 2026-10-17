@@ -50,12 +50,13 @@ Page({
     const currentCount = store.rangeBills().length;
 
     // 样例：取 ready/suspect 前 20 条，按时间倒序
+    const resolveCategory = store.getCategoryResolver(); // 单次预览快照
     const samples = session.bills
       .filter((b) => b.status === 'ready' || b.status === 'suspect')
       .sort((a, b) => b.occurredAt - a.occurredAt)
       .slice(0, 20)
       .map((b) => {
-        const cat = store.getCategory(b.categoryId);
+        const cat = resolveCategory(b.categoryId);
         return {
           day: fmtDate(b.occurredAt),
           merchant: b.merchant || b.note || (cat ? cat.name : '其他'),

@@ -105,10 +105,11 @@ Component({
     /* ---------- 月度取数 ---------- */
     loadMonth(ym) {
       const bills = store.rangeBills(ym, ym);
+      const resolveCategory = store.getCategoryResolver(); // 单次渲染快照
       const [y, m] = ym.split('-').map(Number);
       const ov = M.computeMonthOverview(bills);
       const daily = withBarHeight(M.computeDailyExpenseTrend(bills, y, m).points, BAR_ZONE_DAILY_RPX);
-      const rank = M.computeCategoryRanking(bills, store.getCategory.bind(store)).top.map((x) => ({
+      const rank = M.computeCategoryRanking(bills, resolveCategory).top.map((x) => ({
         ...x,
         centsText: money.formatCents(x.cents),
       }));
@@ -164,10 +165,11 @@ Component({
     /* ---------- 年度取数 ---------- */
     loadYear(year) {
       const bills = store.rangeBills(year + '-01', year + '-12');
+      const resolveCategory = store.getCategoryResolver(); // 单次渲染快照
       const ov = Y.computeYearOverview(bills, year);
       const monthly = withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX);
       const ext = Y.computeExpenseExtremes(bills, year);
-      const yearRank = Y.computeYearCategoryRanking(bills, store.getCategory.bind(store)).top.map((x) => ({
+      const yearRank = Y.computeYearCategoryRanking(bills, resolveCategory).top.map((x) => ({
         ...x,
         centsText: money.formatCents(x.cents),
       }));
@@ -204,6 +206,7 @@ Component({
       // 未来日不打开详情（只读，无预算盈亏）
       if (dateStr > today) return;
       const d = store.buildBudgetDayDetail(dateStr);
+      const resolveDayCategory = store.getCategoryResolver(); // 单次详情快照
       const dp = dateStr.split('-').map(Number);
       const title = dp[1] + '月' + dp[2] + '日';
       const payload = {
@@ -222,7 +225,7 @@ Component({
           centsText: '¥' + money.formatCents(c.cents),
         })),
         bills: d.bills.map((b) => {
-          const cat = store.getCategory(b.categoryId);
+          const cat = resolveDayCategory(b.categoryId);
           return {
             id: b.id,
             name: b.title || b.merchant || cat.name || '支出',
