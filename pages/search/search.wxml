@@ -25,11 +25,11 @@
   <!-- 结果区 -->
   <scroll-view scroll-y class="s-results" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
     <view class="s-hint" wx:if="{{!kw}}">
-      <text class="s-hint__emoji">🔍</text>
+      <dv-icon class="s-hint__icon" name="search" size="36" color="rgba(255,255,255,0.40)"></dv-icon>
       <text class="s-hint__text">输入关键词，搜索商户、备注或分类</text>
     </view>
     <view class="s-hint" wx:if="{{kw && groups.length === 0}}">
-      <text class="s-hint__emoji">🗂️</text>
+      <dv-icon class="s-hint__icon" name="empty" size="36" color="rgba(255,255,255,0.40)"></dv-icon>
       <text class="s-hint__text">没有找到“{{kw}}”相关账单</text>
     </view>
 

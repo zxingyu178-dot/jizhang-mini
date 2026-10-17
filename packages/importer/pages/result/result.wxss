@@ -12,9 +12,6 @@
   height: 140rpx;
   border-radius: 50%;
   background: linear-gradient(135deg, #3ddc8f, #2bb874);
-  color: #06100b;
-  font-size: 80rpx;
-  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;

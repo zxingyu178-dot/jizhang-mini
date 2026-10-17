@@ -72,9 +72,7 @@
   padding: 100rpx 48rpx 0;
   text-align: center;
 }
-.dv-empty__emoji {
-  font-size: 72rpx;
-  opacity: 0.7;
+.dv-empty__icon {
   margin-bottom: 20rpx;
 }
 .dv-empty__tip {

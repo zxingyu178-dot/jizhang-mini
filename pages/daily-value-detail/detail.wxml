@@ -51,9 +51,9 @@
       <text class="detail-section__title">使用时间</text>
       <view class="ms-list">
         <view class="ms-item" wx:for="{{usageItems}}" wx:key="target">
-          <text class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
-            <text wx:if="{{item.achieved}}">✓</text>
-          </text>
+          <view class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
+            <dv-icon wx:if="{{item.achieved}}" name="check" size="12" color="#ffffff"></dv-icon>
+          </view>
           <text class="ms-item__label">{{item.target}} 天</text>
           <text class="ms-item__status {{item.achieved ? 'ms-item__status--on' : ''}}">{{item.statusText}}</text>
         </view>
@@ -65,9 +65,9 @@
       <text class="detail-section__title">日价目标</text>
       <view class="ms-list">
         <view class="ms-item" wx:for="{{priceItems}}" wx:key="targetYuan">
-          <text class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
-            <text wx:if="{{item.achieved}}">✓</text>
-          </text>
+          <view class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
+            <dv-icon wx:if="{{item.achieved}}" name="check" size="12" color="#ffffff"></dv-icon>
+          </view>
           <text class="ms-item__label">¥{{item.targetYuan}}/天</text>
           <text class="ms-item__status {{item.achieved ? 'ms-item__status--on' : ''}}">{{item.statusText}}</text>
         </view>

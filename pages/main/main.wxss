@@ -144,12 +144,6 @@
   box-shadow: var(--fab-shadow);
   backdrop-filter: blur(8rpx);
 }
-.fab-icon {
-  font-size: 60rpx;
-  color: #ffffff;
-  font-weight: 300;
-  line-height: 1;
-}
 
 /* ---- 分类明细弹层（统一公共 bottom-sheet，遮罩/面板/标题由组件提供） ---- */
 .cat-list {

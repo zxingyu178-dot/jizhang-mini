@@ -50,7 +50,7 @@
 
   <!-- 玻璃 FAB（记账 Tab：记一笔；日价 Tab：添加日价物品；统计 Tab 无 FAB） -->
   <view class="fab-wrap" wx:if="{{current===1||current===2}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
-    <text class="fab-icon">+</text>
+    <dv-icon class="fab-icon" name="plus" size="30" color="#ffffff"></dv-icon>
   </view>
 
   <!-- 记账表单 Bottom Sheet（新增 / 编辑） -->
