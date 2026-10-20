@@ -14,7 +14,15 @@
       </view>
       <view class="dp-item">
         <text class="dp-item__head">是否上传服务器</text>
-        <text class="dp-item__body">不会上传任何数据到服务器，本应用没有服务器端。</text>
+        <text class="dp-item__body">本应用不会将账单数据上传至开发者服务器，也没有自建服务器。</text>
+      </view>
+      <view class="dp-item">
+        <text class="dp-item__head">文件选择与分享</text>
+        <text class="dp-item__body">选择账单文件、分享或导出备份等操作，由微信客户端提供的系统能力完成，不会经过开发者服务器。</text>
+      </view>
+      <view class="dp-item">
+        <text class="dp-item__head">剪贴板</text>
+        <text class="dp-item__body">导入失败时可一键复制脱敏诊断信息，便于排查；应用不会主动读取你的剪贴板。</text>
       </view>
       <view class="dp-item">
         <text class="dp-item__head">是否需要账号</text>
