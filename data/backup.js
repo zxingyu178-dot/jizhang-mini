@@ -18,6 +18,7 @@ const categories = require('./categories');
 const settings = require('./settings');
 const recurringStore = require('./recurring/store');
 const backupValidator = require('./backup-validator');
+const backupMigration = require('./backup-migration');
 const health = require('./health');
 const { APP_VERSION } = require('../utils/version');
 
@@ -59,19 +60,18 @@ function validateBackup(backup) {
  *       → 数据健康终检（error 回滚，warning 放行）。
  * 任何失败尝试回滚到安全点。返回 { restored, months, warningCount, warnings }。
  */
-function restoreBackup(backup, options) {
+function restoreBackup(input, options) {
   options = options || {};
-  const err = validateBackup(backup);
+  const err = validateBackup(input);
   if (err) throw new Error('备份格式不正确：' + err);
 
-  // G2：落盘前对原始备份做语义校验（不经过 createBill 先修）。
-  //   V3 备份立即校验：非法值一律拒绝恢复（不写安全点、不动现有数据）。
-  //   V1/V2 备份由 G3 显式迁移到 V3 后再统一校验。
-  if (backup.schemaVersion === 3) {
-    const vr = backupValidator.validateBackupRaw(backup);
-    if (!vr.ok) {
-      throw new Error('备份数据校验未通过：' + vr.errors.map((e) => e.code).join('、'));
-    }
+  // G3：显式迁移到 canonical V3（V1/V2 只补缺省字段，不碰关键值；V3 原样）。
+  const backup = backupMigration.migrateBackupToV3(input);
+  // G2：落盘前对原始（迁移后）数据做完整语义校验，不经过 createBill 先修。
+  //   非法值一律拒绝恢复（不写安全点、不动现有数据）。
+  const vr = backupValidator.validateBackupRaw(backup);
+  if (!vr.ok) {
+    throw new Error('备份数据校验未通过：' + vr.errors.map((e) => e.code).join('、'));
   }
 
   const safety = paths.legacyRestoreSafety();
