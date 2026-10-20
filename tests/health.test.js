@@ -434,7 +434,9 @@ function mkBill(over) {
     store.restoreBackup(dup);
   } catch (e) {
     threw = true;
-    assert(String(e.message).indexOf('健康校验') >= 0, '报错应来自健康校验：' + e.message);
+    // v0.8.0/G2：重复 id 在落盘前的原始数据校验阶段即被拦截（不写安全点、旧数据未被触碰），
+    // 报错信息含 code bill-duplicate-id。
+    assert(String(e.message).indexOf('bill-duplicate-id') >= 0, '报错应来自恢复前数据校验：' + e.message);
   }
   eq(threw, true, '重复 id 备份应恢复失败');
   eq(store.rangeBills().length, before, '回滚后账单数恢复为旧数据');

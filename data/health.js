@@ -141,8 +141,8 @@ function analyzeHealth(d) {
           pushW('bill-amount-nonpositive', 'bill', label);
         }
 
-        // occurredAt
-        if (!Number.isFinite(b.occurredAt)) {
+        // occurredAt：非有限 / 0 / 负数均为非法时间戳（0 会被 new Date 解释成 1970 年）
+        if (!(Number.isFinite(b.occurredAt) && b.occurredAt > 0)) {
           pushE('bill-occurred-at-invalid', 'bill', label);
         }
 
