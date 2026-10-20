@@ -139,7 +139,7 @@ module.exports = async function goldenPath(ctx) {
     const page = await ctx.home();
     await ctx.waitFor(page, '.header__title');
     const title = await (await page.$('.header__title')).text();
-    ctx.eq(title.trim(), '每日的价值', '主页标题');
+    ctx.eq(title.trim(), '随时随地大小记', '主页标题');
 
     const tabs = await page.$$('.tabs__item');
     ctx.eq(tabs.length, 3, '顶部 Tab 数量');

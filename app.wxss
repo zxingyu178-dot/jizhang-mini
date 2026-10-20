@@ -1,5 +1,5 @@
 /* ============================================================
-   每日的价值 · 全局设计 token（紫黑毛玻璃 / Dark Glass）
+   随时随地大小记 · 全局设计 token（紫黑毛玻璃 / Dark Glass）
    视觉基线对齐 Android DailyValue（data-theme=dark + glass）
    玻璃卡以「半透明 + 渐变 + 边缘高光 + 轻阴影 + 背景透出」实现，
    不依赖实时 backdrop-filter，WebView / Skyline 双端视觉稳定。

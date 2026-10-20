@@ -27,7 +27,7 @@
   <!-- 自定义 Header -->
   <view class="header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
     <view class="header__bar" style="height:{{navBarHeight}}px;padding-right:{{menuPad}}px;">
-      <text class="header__title">每日的价值</text>
+      <text class="header__title">随时随地大小记</text>
       <view class="header__actions">
         <view class="glass-pill header__search" bindtap="onSearch">
           <dv-icon name="search" size="14" color="rgba(255,255,255,0.62)" class="header__search-icon" />

@@ -6,7 +6,7 @@ const { APP_VERSION } = require('./utils/version');
 
 App({
   globalData: {
-    appName: '每日的价值',
+    appName: '随时随地大小记',
     version: APP_VERSION
   },
 

@@ -7,6 +7,36 @@ function pad(n) {
   return n < 10 ? '0' + n : '' + n;
 }
 
+/** 备份导出目录与本地缓存保留份数（v0.8.0/G10：不无限堆积临时导出） */
+const EXPORT_DIR = wx.env.USER_DATA_PATH + '/exports';
+const EXPORT_KEEP = 3;
+
+/**
+ * 清理 exports/ 目录：只保留最近 EXPORT_KEEP 个 .dvmini.json（文件名含日期戳，按名倒序）。
+ * 同一天导出覆盖同一文件，故约等于保留最近 3 天的本地备份缓存。
+ */
+function pruneExports() {
+  const fsm = wx.getFileSystemManager();
+  try {
+    fsm.mkdirSync(EXPORT_DIR, true);
+  } catch (e) {}
+  let names = [];
+  try {
+    names = fsm.readdirSync(EXPORT_DIR);
+  } catch (e) {
+    names = [];
+  }
+  const files = names
+    .filter((n) => /\.dvmini\.json$/.test(n))
+    .map((n) => EXPORT_DIR + '/' + n)
+    .sort((a, b) => (a < b ? 1 : -1)); // 文件名含日期戳，新的在前
+  files.slice(EXPORT_KEEP).forEach((full) => {
+    try {
+      fsm.unlinkSync(full);
+    } catch (e) {}
+  });
+}
+
 Page({
   data: {
     windowHeight: 0,
@@ -30,8 +60,11 @@ Page({
       const json = JSON.stringify(backup, null, 2);
       const d = new Date();
       const stamp = '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
-      const filePath = wx.env.USER_DATA_PATH + '/daily-value-mini-backup-' + stamp + '.dvmini.json';
+      const filePath = EXPORT_DIR + '/daily-value-mini-backup-' + stamp + '.dvmini.json';
+      wx.getFileSystemManager().mkdirSync(EXPORT_DIR, true);
       wx.getFileSystemManager().writeFileSync(filePath, json, 'utf8');
+      // 清理旧的本地导出缓存（只保留最近 3 个），不影响已分享到微信的副本
+      pruneExports();
       this.setData({
         lastBackup: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()),
       });

@@ -95,7 +95,7 @@ function toText(diag, fatalMessage) {
   if (!diag) diag = newDiagnostic();
   const c = diag.counts || {};
   const out = [];
-  out.push('=== 每日的价值 导入诊断（脱敏，无个人账单内容）===');
+  out.push('=== 随时随地大小记 导入诊断（脱敏，无个人账单内容）===');
   out.push(line('来源识别', SOURCE_LABEL[diag.source] || diag.source || '未识别'));
   out.push(line('文件类型', TYPE_LABEL[diag.fileType] || diag.fileType || '未知'));
   if (diag.encoding && diag.encoding !== 'unknown') {
