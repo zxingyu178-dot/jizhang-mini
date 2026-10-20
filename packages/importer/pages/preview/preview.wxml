@@ -1,4 +1,4 @@
-<view class="pv-page">
+<view class="pv-page {{themeClass}}">
   <view class="pv-header">
     <text class="pv-title">{{sourceLabel}}</text>
     <text wx:if="{{rangeText}}" class="pv-range">{{rangeText}}</text>

@@ -1,6 +1,8 @@
 // pages/main/main.js
 // Main Shell：自定义 Header + 顶部 Tabs（统计/记账/日价）+ Swiper 三 Panel + 玻璃 FAB。
 const device = require('../../utils/device.js');
+const theme = require('../../utils/theme.js');
+const viewport = require('../../utils/viewport.js');
 
 // 顶部 Tabs 导航高度（px）
 const TABS_HEIGHT = 44;
@@ -41,6 +43,8 @@ Page({
     // G6 数据保护模式
     protection: false,
     protectionItems: [],
+    // 主题
+    themeClass: 'theme-dark',
   },
   onLoad() {
     const info = device.measure();
@@ -59,7 +63,36 @@ Page({
       swiperTop: info.headerHeight + TABS_HEIGHT,
       swiperHeight: info.windowHeight - info.headerHeight - TABS_HEIGHT,
     });
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
+    // viewport 恢复：键盘关闭/窗口 resize 后重算全屏布局（Android 白条保险）。
+    this._offRecover = viewport.onRecover((nfo) => this.applyLayout(nfo));
     this.checkProtection();
+  },
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
+    if (this._offRecover) { this._offRecover(); this._offRecover = null; }
+  },
+  /** 重算全屏布局（viewport 恢复时调用；info 由 viewport 重测后传入） */
+  applyLayout(nfo) {
+    try {
+      const info = nfo || device.get();
+      const menuPad = info.menu
+        ? Math.round(info.windowWidth - info.menu.left + info.gap)
+        : 16;
+      this.setData({
+        windowHeight: info.windowHeight,
+        statusBarHeight: info.statusBarHeight,
+        navBarHeight: info.navBarHeight,
+        headerHeight: info.headerHeight,
+        safeBottom: info.safeBottom,
+        menuPad,
+        swiperTop: info.headerHeight + TABS_HEIGHT,
+        swiperHeight: info.windowHeight - info.headerHeight - TABS_HEIGHT,
+      });
+    } catch (e) {
+      /* 忽略 */
+    }
   },
   onReady() {
     if (!this.data.protection) {

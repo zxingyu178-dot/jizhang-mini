@@ -1,4 +1,4 @@
-<view class="search-page" style="height:{{windowHeight}}px;">
+<view class="search-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="search-bg">
     <view class="search-bg__glow"></view>
   </view>
@@ -6,7 +6,7 @@
   <!-- 统一二级页 Header：返回 + 搜索框（中间 slot） -->
   <page-header>
     <view class="s-input">
-      <dv-icon class="s-input__icon" name="search" size="16" color="rgba(255,255,255,0.45)"></dv-icon>
+      <dv-icon class="s-input__icon" name="search" size="16" tone="faint"></dv-icon>
       <input
         class="s-input__field"
         placeholder="搜索商户、备注、分类"
@@ -17,7 +17,7 @@
         confirm-type="search"
       />
       <view class="s-input__clear" wx:if="{{kw}}" bindtap="onClear">
-        <dv-icon name="close" size="14" color="rgba(255,255,255,0.55)"></dv-icon>
+        <dv-icon name="close" size="14" tone="secondary"></dv-icon>
       </view>
     </view>
   </page-header>

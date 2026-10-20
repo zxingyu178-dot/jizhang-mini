@@ -1,4 +1,4 @@
-<view class="bs2-page" style="height:{{windowHeight}}px;">
+<view class="bs2-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="bs2-bg">
     <view class="bs2-bg__glow"></view>
   </view>

@@ -23,10 +23,10 @@
           <text class="hero__month">{{monthLabel}}</text>
           <view class="hero__arrows">
             <view class="hero__arrow {{canPrev ? '' : 'hero__arrow--disabled'}}" bindtap="onPrevMonth">
-              <dv-icon name="chevronLeft" size="17" color="rgba(255,255,255,0.92)" />
+              <dv-icon name="chevronLeft" size="17" tone="primary" />
             </view>
             <view class="hero__arrow {{canNext ? '' : 'hero__arrow--disabled'}}" bindtap="onNextMonth">
-              <dv-icon name="chevronRight" size="17" color="rgba(255,255,255,0.92)" />
+              <dv-icon name="chevronRight" size="17" tone="primary" />
             </view>
           </view>
         </view>

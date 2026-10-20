@@ -3,6 +3,7 @@
 const store = require('../../data/index');
 const money = require('../../data/money');
 const device = require('../../utils/device');
+const theme = require('../../utils/theme');
 
 function fmtDayLabel(ts) {
   const d = new Date(ts);
@@ -14,6 +15,7 @@ Page({
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
+    themeClass: 'theme-dark',
     kw: '',
     groups: [],
     sheetShow: false,
@@ -25,6 +27,11 @@ Page({
       statusBarHeight: info.statusBarHeight,
       headerHeight: info.headerHeight,
     });
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
+  },
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
   },
   onInput(e) {
     const kw = e.detail.value.trim();

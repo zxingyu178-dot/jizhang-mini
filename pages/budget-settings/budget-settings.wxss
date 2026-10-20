@@ -9,7 +9,7 @@
   right: 0;
   top: 0;
   bottom: 0;
-  background: linear-gradient(180deg, #0a0f1e 0%, #05060a 100%);
+  background: var(--bg-gradient);
 }
 .bs2-bg__glow {
   position: absolute;
@@ -18,7 +18,7 @@
   width: 500rpx;
   height: 500rpx;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--hero-glow) 0%, transparent 70%);
 }
 
 /* Header 由全局 <page-header> 组件统一提供 */
@@ -64,7 +64,7 @@
 .bs2-amount__cur {
   font-size: 40rpx;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   margin-right: 10rpx;
 }
 .bs2-amount__input {
@@ -74,7 +74,7 @@
   line-height: 80rpx;
   font-size: 52rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 .bs2-amount__unit {
@@ -82,7 +82,7 @@
   color: var(--text-secondary);
 }
 .bs2-ph {
-  color: rgba(255, 255, 255, 0.32);
+  color: var(--text-faint);
   font-weight: 600;
 }
 

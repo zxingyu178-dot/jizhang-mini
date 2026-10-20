@@ -7,8 +7,8 @@
 /* 收支切换（轻玻璃分段，选中仅轻 tint） */
 .bf-seg {
   display: flex;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  background: var(--surface);
+  border: 1rpx solid var(--divider);
   border-radius: 14rpx;
   padding: 4rpx;
   margin-bottom: 20rpx;
@@ -23,13 +23,13 @@
   transition: all 0.2s ease;
 }
 .bf-seg__item--exp {
-  background: rgba(61, 220, 143, 0.12);
-  color: #46d998;
+  background: var(--expense-soft);
+  color: var(--expense);
   font-weight: 600;
 }
 .bf-seg__item--inc {
-  background: rgba(255, 107, 107, 0.12);
-  color: #ff7a7a;
+  background: var(--income-soft);
+  color: var(--income);
   font-weight: 600;
 }
 
@@ -40,7 +40,7 @@
   height: 132rpx;
   box-sizing: border-box;
   padding-bottom: 20rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1rpx solid var(--divider);
   margin-bottom: 24rpx;
 }
 .bf-amount__sym {
@@ -59,7 +59,7 @@
   min-width: 0;
 }
 .bf-amount__ph {
-  color: rgba(255, 255, 255, 0.22);
+  color: var(--text-faint);
   font-weight: 700;
 }
 
@@ -86,7 +86,7 @@
   transition: all 0.18s ease;
 }
 .bf-cat--active {
-  background: rgba(124, 134, 255, 0.16);
+  background: var(--primary-tint);
 }
 .bf-cat__emoji {
   font-size: 40rpx;
@@ -114,7 +114,7 @@
   display: flex;
   align-items: center;
   padding: 24rpx 8rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1rpx solid var(--divider);
 }
 .bf-row__label {
   width: 120rpx;
@@ -133,7 +133,7 @@
   min-width: 0;
 }
 .bf-row__ph {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-faint);
 }
 
 /* 计算日价开关 */
@@ -144,7 +144,7 @@
   margin-top: 24rpx;
   padding: 20rpx 20rpx;
   border-radius: 18rpx;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-soft);
 }
 .bf-daily__text {
   display: flex;
@@ -167,7 +167,7 @@
   width: 84rpx;
   height: 48rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--switch-off-bg);
   transition: background 0.2s ease;
 }
 .bf-switch--on {
@@ -194,9 +194,9 @@
   padding: 22rpx 0;
   text-align: center;
   font-size: 28rpx;
-  color: #ff6b6b;
+  color: var(--danger);
   border-radius: 16rpx;
-  background: rgba(255, 107, 107, 0.1);
+  background: var(--danger-soft);
 }
 
 /* 确认按钮（减重：半透明紫、轻高光、固定高度） */

@@ -1,4 +1,4 @@
-<view class="dpage">
+<view class="dpage {{themeClass}}">
   <!-- 背景层 -->
   <view class="dpage-bg">
     <view class="dpage-bg__glow"></view>
@@ -57,7 +57,7 @@
       <view class="ms-list">
         <view class="ms-item" wx:for="{{usageItems}}" wx:key="target">
           <view class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
-            <dv-icon wx:if="{{item.achieved}}" name="check" size="12" color="#ffffff"></dv-icon>
+            <dv-icon wx:if="{{item.achieved}}" name="check" size="12" tone="inverse"></dv-icon>
           </view>
           <text class="ms-item__label">{{item.target}} 天</text>
           <text class="ms-item__status {{item.achieved ? 'ms-item__status--on' : ''}}">{{item.statusText}}</text>
@@ -71,7 +71,7 @@
       <view class="ms-list">
         <view class="ms-item" wx:for="{{priceItems}}" wx:key="targetYuan">
           <view class="ms-item__dot {{item.achieved ? 'ms-item__dot--on' : ''}}">
-            <dv-icon wx:if="{{item.achieved}}" name="check" size="12" color="#ffffff"></dv-icon>
+            <dv-icon wx:if="{{item.achieved}}" name="check" size="12" tone="inverse"></dv-icon>
           </view>
           <text class="ms-item__label">¥{{item.targetYuan}}/天</text>
           <text class="ms-item__status {{item.achieved ? 'ms-item__status--on' : ''}}">{{item.statusText}}</text>

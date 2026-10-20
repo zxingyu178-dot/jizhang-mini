@@ -5,6 +5,37 @@
 const store = require('../../data/index');
 const dv = require('../../data/daily-value/index');
 const money = require('../../data/money');
+const theme = require('../../utils/theme');
+
+/**
+ * Canvas 配色（Canvas 无法读取 CSS 变量，需按主题显式传入）：
+ * 紫色主线两主题保持一致；网格 / 标签 / 面积 / 高亮点随主题。
+ */
+const PALETTES = {
+  dark: {
+    grid: 'rgba(255,255,255,0.06)',
+    gridLabel: 'rgba(255,255,255,0.4)',
+    areaTop: 'rgba(124,134,255,0.32)',
+    areaBottom: 'rgba(124,134,255,0)',
+    line: '#7c86ff',
+    xLabel: 'rgba(255,255,255,0.45)',
+    hlDot: '#ffffff',
+    hlRing: 'rgba(124,134,255,0.5)',
+  },
+  light: {
+    grid: 'rgba(80,90,130,0.12)',
+    gridLabel: 'rgba(32,35,52,0.5)',
+    areaTop: 'rgba(110,120,245,0.22)',
+    areaBottom: 'rgba(110,120,245,0)',
+    line: '#6e78f5',
+    xLabel: 'rgba(32,35,52,0.5)',
+    hlDot: '#6e78f5',
+    hlRing: 'rgba(110,120,245,0.35)',
+  },
+};
+function palette() {
+  return PALETTES[theme.getEffectiveTheme()] || PALETTES.dark;
+}
 
 function fullDateText(s) {
   const p = String(s || '').split('-').map(Number);
@@ -31,10 +62,16 @@ Component({
   },
   lifetimes: {
     attached() {
+      // 确保主题已初始化；系统主题变化（跟随系统模式）时重画。
+      theme.init();
+      this._offTheme = theme.subscribe(() => {
+        if (this._ctx && this._size) this.draw();
+      });
       // 等待详情页布局完成再取 canvas node
       wx.nextTick(() => this.initCanvas());
     },
     detached() {
+      if (this._offTheme) { this._offTheme(); this._offTheme = null; }
       this._canvas = null;
     },
   },
@@ -98,6 +135,7 @@ Component({
     draw(highlightIdx) {
       const ctx = this._ctx;
       const { w, h } = this._size;
+      const pal = palette();
       const { points, L, xAt, yAt, maxV } = this.coords();
       if (!points.length) return;
 
@@ -108,22 +146,22 @@ Component({
       ctx.textBaseline = 'middle';
       [1, 0.5, 0].forEach((ratio) => {
         const y = L.padT + L.ch - ratio * L.ch;
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.strokeStyle = pal.grid;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(L.padL, y);
         ctx.lineTo(L.padL + L.cw, y);
         ctx.stroke();
         const v = (maxV * ratio) / 100;
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillStyle = pal.gridLabel;
         ctx.textAlign = 'left';
         ctx.fillText('¥' + (v >= 100 ? Math.round(v) : v.toFixed(1)), L.padL + 2, y - 7);
       });
 
       // 面积渐变
       const grad = ctx.createLinearGradient(0, L.padT, 0, L.padT + L.ch);
-      grad.addColorStop(0, 'rgba(124,134,255,0.32)');
-      grad.addColorStop(1, 'rgba(124,134,255,0.0)');
+      grad.addColorStop(0, pal.areaTop);
+      grad.addColorStop(1, pal.areaBottom);
       ctx.beginPath();
       points.forEach((p, i) => {
         const x = xAt(i);
@@ -145,14 +183,14 @@ Component({
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
-      ctx.strokeStyle = '#7c86ff';
+      ctx.strokeStyle = pal.line;
       ctx.lineWidth = 2;
       ctx.lineJoin = 'round';
       ctx.stroke();
 
       // X 轴标签（最多 5 个）
       const labelCount = Math.min(5, points.length);
-      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.fillStyle = pal.xLabel;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       for (let k = 0; k < labelCount; k++) {
@@ -167,11 +205,11 @@ Component({
         const y = yAt(p.valueCents);
         ctx.beginPath();
         ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = pal.hlDot;
         ctx.fill();
         ctx.beginPath();
         ctx.arc(x, y, 8, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(124,134,255,0.5)';
+        ctx.strokeStyle = pal.hlRing;
         ctx.lineWidth = 2;
         ctx.stroke();
       }

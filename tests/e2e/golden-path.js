@@ -543,4 +543,86 @@ module.exports = async function goldenPath(ctx) {
     const left = await panel.data();
     ctx.ok(!(left.items || []).some((it) => it.name === DV_TITLE), '测试日价物品已删除，数据恢复');
   });
+
+  // ---------------- T13 打开外观（设置入口） ----------------
+  await ctx.test('T13 打开外观：设置入口 → appearance 三选一', async () => {
+    const page = await ctx.goto('/pages/settings/settings', '.row');
+    await page.callMethod('onAppearance');
+    await sleep(900);
+    const ap = await mp.currentPage();
+    ctx.ok(ap.path.indexOf('pages/appearance') >= 0, '进入外观页，实际：' + ap.path);
+    const d = await ap.data();
+    ctx.eq(d.options.length, 3, '主题选项 3 项');
+    // 幂等开头：先确保深色，不依赖上一轮残留的 theme 状态（用例需可重复）
+    if (d.themeMode !== 'dark') {
+      await ctx.tap(ap, '.row[data-value="dark"]');
+      await sleep(600);
+    }
+    ctx.eq((await ap.data()).themeMode, 'dark', '当前选中深色');
+    await ctx.shot('e2e_appearance_dark');
+  });
+
+  // ---------------- T14 深色 → 浅色 ----------------
+  await ctx.test('T14 深色 → 浅色：即时生效', async () => {
+    const ap = await ctx.goto('/pages/appearance/appearance', '.ap-page');
+    await ctx.tap(ap, '.row[data-value="light"]');
+    await sleep(700);
+    const d = await ap.data();
+    ctx.eq(d.themeMode, 'light', 'themeMode=light');
+    ctx.eq(d.effectiveTheme, 'light', 'effectiveTheme=light');
+    ctx.eq(d.themeClass, 'theme-light', 'themeClass=theme-light');
+    const checks = await ap.$$('.row[data-value="light"] dv-icon');
+    ctx.eq(checks.length, 1, '浅色行显示选中对勾');
+    await ctx.shot('e2e_appearance_light');
+  });
+
+  // ---------------- T15 浅色主页 ----------------
+  await ctx.test('T15 浅色主页：根 class 切换', async () => {
+    const page = await ctx.home();
+    await sleep(500);
+    const d = await page.data();
+    ctx.eq(d.themeClass, 'theme-light', '主页 themeClass=theme-light');
+    await ctx.shot('e2e_main_light');
+  });
+
+  // ---------------- T16 浅色设置页 ----------------
+  await ctx.test('T16 浅色设置页：外观提示更新', async () => {
+    const page = await ctx.goto('/pages/settings/settings', '.row');
+    const d = await page.data();
+    ctx.eq(d.themeClass, 'theme-light', '设置页 themeClass=theme-light');
+    ctx.eq(d.themeHint, '浅色', '主题提示显示浅色');
+    await ctx.shot('e2e_settings_light');
+  });
+
+  // ---------------- T17 浅色记一笔 Sheet ----------------
+  await ctx.test('T17 浅色记一笔 Sheet：不穿字，随后关闭', async () => {
+    const page = await ctx.home();
+    await ensureTab(page, 1);
+    await sleep(300);
+    await ctx.tap(page, '.fab-wrap');
+    await sleep(700);
+    ctx.eq((await page.data()).sheetShow, true, '记账 Sheet 打开');
+    await ctx.shot('e2e_quick_entry_light');
+    await page.callMethod('onSheetClose');
+    await sleep(500);
+    ctx.eq((await page.data()).sheetShow, false, 'Sheet 已关闭');
+  });
+
+  // ---------------- T18 跟随系统：持久化，结尾恢复深色 ----------------
+  await ctx.test('T18 跟随系统：选择并持久化，结尾恢复深色', async () => {
+    let ap = await ctx.goto('/pages/appearance/appearance', '.ap-page');
+    await ctx.tap(ap, '.row[data-value="system"]');
+    await sleep(600);
+    ctx.eq((await ap.data()).themeMode, 'system', 'themeMode=system');
+    // 持久化验证：返回后重新进入外观页，仍为 system
+    await ctx.back();
+    await sleep(800);
+    ap = await ctx.goto('/pages/appearance/appearance', '.ap-page');
+    ctx.eq((await ap.data()).themeMode, 'system', '重新进入仍为 system（已持久化）');
+    // 收尾恢复深色（避免污染用户数据 / Golden Reference）
+    await ctx.tap(ap, '.row[data-value="dark"]');
+    await sleep(600);
+    ctx.eq((await ap.data()).themeMode, 'dark', '结尾恢复深色');
+    ctx.eq((await ap.data()).effectiveTheme, 'dark', '结尾生效深色');
+  });
 };

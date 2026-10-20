@@ -9,7 +9,7 @@
   right: 0;
   top: 0;
   bottom: 0;
-  background: linear-gradient(180deg, #0a0f1e 0%, #05060a 100%);
+  background: var(--bg-gradient);
 }
 .settings-bg__glow {
   position: absolute;
@@ -18,7 +18,7 @@
   width: 500rpx;
   height: 500rpx;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(124, 134, 255, 0.18) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--hero-glow) 0%, transparent 70%);
 }
 
 /* Header 由全局 <page-header> 组件统一提供 */
@@ -60,7 +60,7 @@
   display: flex;
   align-items: center;
   padding: 28rpx 0;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1rpx solid var(--divider);
 }
 .row--last {
   border-bottom: none;

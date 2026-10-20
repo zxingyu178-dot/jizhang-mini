@@ -1,6 +1,7 @@
 // packages/importer/pages/preview/preview.js
 const store = require('../../../../data/index');
 const money = require('../../../../data/money');
+const theme = require('../../../../utils/theme');
 const commit = require('../../core/commit');
 const diagnosis = require('../../core/diagnosis');
 
@@ -32,9 +33,12 @@ Page({
     currentCount: 0,
     submitting: false,
     recurringStats: null, // { recognized, imported, skipped } | null（仅 Android .dvbackup 有）
+    themeClass: 'theme-dark',
   },
 
   onLoad() {
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
     const session = getApp().globalData.__importSession;
     if (!session) {
       wx.showModal({
@@ -93,6 +97,10 @@ Page({
       currentCount,
       recurringStats,
     });
+  },
+
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
   },
 
   onToggleSuspect() {

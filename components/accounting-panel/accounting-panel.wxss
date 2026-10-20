@@ -38,7 +38,7 @@
   width: 280rpx;
   height: 280rpx;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(124, 134, 255, 0.22), transparent 70%);
+  background: radial-gradient(circle, var(--hero-glow), transparent 70%);
   pointer-events: none;
 }
 .hero__body {
@@ -61,7 +61,7 @@
 .hero__month {
   font-size: 28rpx;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-primary);
 }
 .hero__arrows {
   display: flex;
@@ -89,13 +89,13 @@
   margin-top: 22rpx;
   text-align: center;
   font-size: 25rpx;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 .hero__expense {
   margin-top: 6rpx;
   text-align: center;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-title);
   letter-spacing: 1rpx;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -112,7 +112,7 @@
   align-items: flex-start;
   margin-top: 22rpx;
   padding-top: 20rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-top: 1rpx solid var(--divider);
 }
 .hero__sub-item {
   flex: 1;
@@ -126,13 +126,13 @@
 }
 .hero__sub-label {
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-faint);
 }
 .hero__sub-val {
   margin-top: 6rpx;
   font-size: 30rpx;
   font-weight: 600;
-  color: #eef1f8;
+  color: var(--text-primary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -141,7 +141,7 @@
   margin-top: 16rpx;
   text-align: center;
   font-size: 21rpx;
-  color: rgba(255, 255, 255, 0.48);
+  color: var(--text-faint);
 }
 
 /* ================= 空态 ================= */
@@ -149,7 +149,7 @@
   padding: 80rpx 0 40rpx;
   text-align: center;
   font-size: 25rpx;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-faint);
 }
 
 /* ================= 连续时间线 ================= */
@@ -161,7 +161,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 6rpx 14rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1rpx solid var(--divider);
 }
 .tl-day__date {
   display: flex;
@@ -204,7 +204,7 @@
   display: flex;
   align-items: center;
   padding: 16rpx 8rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.045);
+  border-bottom: 1rpx solid var(--divider);
 }
 .tl-item:last-child {
   border-bottom: none;
@@ -217,7 +217,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--glass-input);
   font-size: 40rpx;
 }
 .tl-item__main {
@@ -262,13 +262,13 @@
 .hmode__item {
   padding: 8rpx 30rpx;
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-faint);
   border-radius: 999rpx;
   transition: color 0.18s ease, background 0.18s ease;
 }
 .hmode__item--active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  background: var(--surface-strong);
 }
 
 /* 空态组件宿主：占满 Hero 卡片宽度（自定义组件宿主默认 shrink-to-fit，
@@ -282,7 +282,7 @@ empty-state {
 /* 今日 / 本周 / 本月 分段 */
 .hb-seg {
   display: flex;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface);
   border-radius: 16rpx;
   padding: 4rpx;
 }
@@ -291,13 +291,13 @@ empty-state {
   text-align: center;
   padding: 12rpx 0;
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-faint);
   border-radius: 12rpx;
   transition: color 0.18s ease, background 0.18s ease;
 }
 .hb-seg__item--active {
-  color: #fff;
-  background: rgba(124, 134, 255, 0.28);
+  color: var(--text-primary);
+  background: var(--selected-bg);
 }
 
 /* 预算总额（视觉最高优先级） */
@@ -305,14 +305,14 @@ empty-state {
   margin-top: 20rpx;
   text-align: center;
   font-size: 25rpx;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 .hb-total {
   margin-top: 6rpx;
   text-align: center;
   font-size: 60rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-title);
   line-height: 1.15;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -339,7 +339,7 @@ empty-state {
 .hb-rows {
   margin-top: 18rpx;
   padding-top: 16rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-top: 1rpx solid var(--divider);
 }
 .hb-row {
   display: flex;
@@ -349,10 +349,10 @@ empty-state {
 }
 .hb-row__label {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-faint);
 }
 .hb-row__val {
   font-size: 25rpx;
-  color: #e8ecf5;
+  color: var(--text-body);
   font-variant-numeric: tabular-nums;
 }

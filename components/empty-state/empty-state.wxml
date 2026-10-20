@@ -1,6 +1,6 @@
 <view class="es {{compact ? 'es--compact' : ''}}">
   <view class="es__icon" wx:if="{{icon && !compact}}">
-    <dv-icon name="{{icon}}" size="{{iconSize}}" color="{{iconColor}}"></dv-icon>
+    <dv-icon name="{{icon}}" size="{{iconSize}}" tone="faint"></dv-icon>
   </view>
   <text class="es__title" wx:if="{{title}}">{{title}}</text>
   <text class="es__desc" wx:if="{{desc}}">{{desc}}</text>

@@ -1,4 +1,4 @@
-<view class="settings-page" style="height:{{windowHeight}}px;">
+<view class="settings-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="settings-bg">
     <view class="settings-bg__glow"></view>
   </view>
@@ -12,11 +12,11 @@
     <view class="glass-card sec">
       <view class="row" bindtap="onCategoryManage">
         <text class="row__label">分类管理</text>
-        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+        <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
       </view>
       <view class="row row--last" bindtap="onRecurring">
         <text class="row__label">周期记账</text>
-        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+        <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
       </view>
     </view>
 
@@ -27,7 +27,19 @@
         <text class="row__label">每日预算</text>
         <view class="row__right">
           <text class="row__hint">{{budgetHint}}</text>
-          <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+          <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
+        </view>
+      </view>
+    </view>
+
+    <!-- 外观 -->
+    <view class="sec-label">外观</view>
+    <view class="glass-card sec">
+      <view class="row row--last" bindtap="onAppearance">
+        <text class="row__label">主题</text>
+        <view class="row__right">
+          <text class="row__hint">{{themeHint}}</text>
+          <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
         </view>
       </view>
     </view>
@@ -37,11 +49,11 @@
     <view class="glass-card sec">
       <view class="row" bindtap="onImport">
         <text class="row__label">数据导入</text>
-        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+        <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
       </view>
       <view class="row row--last" bindtap="onBackupRestore">
         <text class="row__label">备份与恢复</text>
-        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+        <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
       </view>
     </view>
 
@@ -54,7 +66,7 @@
       </view>
       <view class="row row--last" bindtap="onPrivacy">
         <text class="row__label">数据与隐私</text>
-        <dv-icon name="chevronRight" size="20" color="rgba(255,255,255,0.38)"></dv-icon>
+        <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
       </view>
     </view>
   </scroll-view>

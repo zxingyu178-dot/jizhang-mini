@@ -5,12 +5,14 @@ const device = require('../../utils/device');
 const store = require('../../data/index');
 const money = require('../../data/money');
 const util = require('../../utils/util');
+const theme = require('../../utils/theme');
 
 Page({
   data: {
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
+    themeClass: 'theme-dark',
     enabled: true,
     amountText: '',
     effectiveDate: '',
@@ -20,6 +22,8 @@ Page({
   onLoad() {
     const info = device.get();
     const today = util.formatDate(new Date());
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
     // 回显今天适用的规则（如有）
     const state = store.getBudgetState();
     const cur = store.budget.resolveRuleForDate(state, today);
@@ -33,6 +37,9 @@ Page({
       amountText: cur && cur.dailyCents ? money.formatCents(cur.dailyCents) : '',
     });
     this.recheck();
+  },
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
   },
   onToggleEnabled() {
     this.setData({ enabled: !this.data.enabled });

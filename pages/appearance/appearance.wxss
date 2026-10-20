@@ -1,0 +1,64 @@
+/* pages/appearance/appearance.wxss —— 外观页（深色/浅色 token 自动适配） */
+.ap-page {
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+}
+.ap-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--page-bg);
+}
+.ap-bg__glow {
+  position: absolute;
+  top: -120rpx;
+  left: -100rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-1) 0%, transparent 70%);
+}
+
+/* 滚动区 */
+.ap-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.sec-label {
+  font-size: 24rpx;
+  color: var(--text-faint);
+  padding: 28rpx 32rpx 12rpx;
+}
+.sec {
+  margin: 0 28rpx 8rpx;
+  padding: 0 24rpx;
+}
+.row {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--divider);
+}
+.row--last {
+  border-bottom: none;
+}
+.row__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.row__label {
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+.row__sub {
+  font-size: 22rpx;
+  color: var(--text-faint);
+  margin-top: 6rpx;
+}

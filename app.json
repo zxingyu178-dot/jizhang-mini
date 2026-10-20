@@ -3,6 +3,7 @@
     "pages/main/main",
     "pages/search/search",
     "pages/settings/settings",
+    "pages/appearance/appearance",
     "pages/backup-restore/backup-restore",
     "pages/data-privacy/data-privacy",
     "pages/budget-settings/budget-settings",
@@ -10,6 +11,8 @@
     "pages/recurring/recurring",
     "pages/daily-value-detail/detail"
   ],
+  "darkmode": true,
+  "themeLocation": "theme.json",
   "window": {
     "navigationStyle": "custom",
     "navigationBarTitleText": "随时随地大小记",

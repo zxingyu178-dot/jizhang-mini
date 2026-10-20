@@ -1,0 +1,28 @@
+<view class="ap-page {{themeClass}}" style="height:{{windowHeight}}px;">
+  <view class="ap-bg">
+    <view class="ap-bg__glow"></view>
+  </view>
+
+  <!-- 统一二级页 Header -->
+  <page-header title="外观"></page-header>
+
+  <scroll-view scroll-y class="ap-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <!-- 主题 -->
+    <view class="sec-label">主题</view>
+    <view class="glass-card sec">
+      <view
+        wx:for="{{options}}"
+        wx:key="value"
+        class="row {{index === options.length - 1 ? 'row--last' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onSelect"
+      >
+        <view class="row__main">
+          <text class="row__label">{{item.label}}</text>
+          <text class="row__sub">{{item.desc}}</text>
+        </view>
+        <dv-icon wx:if="{{themeMode === item.value}}" name="check" size="20" tone="brand"></dv-icon>
+      </view>
+    </view>
+  </scroll-view>
+</view>

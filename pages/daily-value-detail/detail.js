@@ -9,6 +9,8 @@ const store = require('../../data/index');
 const dv = require('../../data/daily-value/index');
 const money = require('../../data/money');
 const device = require('../../utils/device');
+const theme = require('../../utils/theme');
+const viewport = require('../../utils/viewport');
 
 function fullDateText(s) {
   const p = String(s || '').split('-').map(Number);
@@ -42,6 +44,8 @@ Page({
     // 编辑 sheet
     sheetShow: false,
     sheetTitle: '编辑日价物品',
+    // 主题
+    themeClass: 'theme-dark',
   },
   onLoad(options) {
     this.id = options.id || '';
@@ -52,6 +56,20 @@ Page({
       navBarHeight: info.navBarHeight,
       safeBottom: info.safeBottom,
     });
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
+    // viewport 恢复：键盘关闭/窗口 resize 后重算安全区（编辑 Sheet 有输入）。
+    this._offRecover = viewport.onRecover((nfo) => {
+      this.setData({
+        statusBarHeight: nfo.statusBarHeight,
+        navBarHeight: nfo.navBarHeight,
+        safeBottom: nfo.safeBottom,
+      });
+    });
+  },
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
+    if (this._offRecover) { this._offRecover(); this._offRecover = null; }
   },
   onShow() {
     this.loadDetail();

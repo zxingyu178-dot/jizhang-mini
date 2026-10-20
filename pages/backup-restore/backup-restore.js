@@ -2,6 +2,7 @@
 // 备份与恢复：创建备份（.dvmini.json）+ 从微信文件恢复。
 const device = require('../../utils/device');
 const store = require('../../data/index');
+const theme = require('../../utils/theme');
 
 function pad(n) {
   return n < 10 ? '0' + n : '' + n;
@@ -42,6 +43,7 @@ Page({
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
+    themeClass: 'theme-dark',
     lastBackup: '',
   },
   onLoad() {
@@ -51,6 +53,11 @@ Page({
       statusBarHeight: info.statusBarHeight,
       headerHeight: info.headerHeight,
     });
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
+  },
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
   },
 
   /** 创建备份：生成 .dvmini.json 并分享到微信（文件传输助手） */

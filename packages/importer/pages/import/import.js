@@ -2,6 +2,7 @@
 // 导入入口：三个来源 + 导出方法说明 + 从微信文件选择。
 const device = require('../../../../utils/device');
 const store = require('../../../../data/index');
+const theme = require('../../../../utils/theme');
 const detector = require('../../core/detector');
 const diagnosis = require('../../core/diagnosis');
 
@@ -61,6 +62,7 @@ Page({
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
+    themeClass: 'theme-dark',
     sources: SOURCES,
     history: [],
   },
@@ -71,6 +73,11 @@ Page({
       statusBarHeight: info.statusBarHeight,
       headerHeight: info.headerHeight,
     });
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
+  },
+  onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
   },
   onShow() {
     this.loadHistory();

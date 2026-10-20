@@ -1,4 +1,4 @@
-<view class="cm-page" style="height:{{windowHeight}}px;">
+<view class="cm-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="cm-bg">
     <view class="cm-bg__glow"></view>
   </view>

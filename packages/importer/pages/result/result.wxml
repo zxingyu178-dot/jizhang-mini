@@ -1,4 +1,4 @@
-<view class="rs-page">
+<view class="rs-page {{themeClass}}">
   <view class="rs-icon"><dv-icon name="check" size="44" color="#06100b"></dv-icon></view>
   <text class="rs-title">{{isRestore ? '恢复完成' : '导入完成'}}</text>
   <text class="rs-desc">

@@ -3,6 +3,7 @@
 // 小程序无后台常驻：每次打开小程序时自动补齐已到期的周期账单（见 app.js）。
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
+const theme = require('../../utils/theme');
 const store = require('../../data/index');
 const money = require('../../data/money');
 const core = store.recurring.core;
@@ -64,6 +65,7 @@ Page({
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
+    themeClass: 'theme-dark',
     rules: [],
     empty: false,
     // 编辑器
@@ -103,6 +105,8 @@ Page({
       startDate: core.localDateKey(now),
     });
     this.load();
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
     // 键盘收起/窗口恢复后重新设置布局高度（v0.8.1 防白条/上移）
     this._offRecover = viewport.onRecover((vinfo) => {
       this.setData({
@@ -113,6 +117,7 @@ Page({
     });
   },
   onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
     if (this._offRecover) this._offRecover();
   },
   onShow() {

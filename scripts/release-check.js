@@ -207,6 +207,18 @@ mainBig.sort((a, b) => b.size - a.size).slice(0, 5).forEach((f) => {
   console.log('    · ' + f.rel + ' ' + fmt(f.size));
 });
 
+/* ---------- 6.5 主题硬编码审计 ---------- */
+section('6.5 主题硬编码审计（theme:audit）');
+const auditR = spawnSync(process.execPath, [nodePath.join(ROOT, 'scripts', 'theme-audit.js')], { encoding: 'utf8' });
+if (auditR.status === 0) {
+  pass('主题审计通过：无非白名单硬编码颜色');
+} else {
+  fail('主题审计发现硬编码颜色：');
+  (auditR.stdout || '').split('\n').forEach((l) => {
+    if (l.indexOf('[FAIL]') >= 0) console.log('    ' + l.trim());
+  });
+}
+
 /* ---------- 7. 单元测试 ---------- */
 const runTests = process.argv.indexOf('--no-tests') < 0;
 if (runTests) {

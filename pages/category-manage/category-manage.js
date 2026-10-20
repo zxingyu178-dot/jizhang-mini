@@ -3,6 +3,7 @@
 // 新增、编辑只需图标（Emoji）+ 名称（1-8 字、不可重名）。
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
+const theme = require('../../utils/theme');
 const store = require('../../data/index');
 
 const NAME_MAX = 8;
@@ -12,6 +13,7 @@ Page({
     windowHeight: 0,
     statusBarHeight: 0,
     headerHeight: 0,
+    themeClass: 'theme-dark',
     system: [],
     custom: [],
     archived: [],
@@ -31,6 +33,8 @@ Page({
       headerHeight: info.headerHeight,
     });
     this.load();
+    // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
+    this._offTheme = theme.bindPage(this);
     // 键盘收起/窗口恢复后，重新设置布局高度（v0.8.1 防白条/上移）
     this._offRecover = viewport.onRecover((vinfo) => {
       this.setData({
@@ -41,6 +45,7 @@ Page({
     });
   },
   onUnload() {
+    if (this._offTheme) { this._offTheme(); this._offTheme = null; }
     if (this._offRecover) this._offRecover();
   },
   onShow() {

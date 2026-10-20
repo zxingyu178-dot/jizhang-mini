@@ -1,4 +1,4 @@
-<view class="dp-page" style="height:{{windowHeight}}px;">
+<view class="dp-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="dp-bg">
     <view class="dp-bg__glow"></view>
   </view>

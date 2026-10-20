@@ -2,7 +2,29 @@
 // 单色线性图标（本地 SVG，无 Emoji）。颜色 / 尺寸由属性控制，便于与文字色统一。
 // 用 base64 data-URI 渲染，WebView / Skyline 双端稳定，不依赖网络与字体文件。
 
+const theme = require('../../utils/theme');
+
 const B64CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+// tone → 实际颜色（与 app.wxss 的 --icon-* 保持一致，base64 SVG 需具体字符串）
+const TONE_COLORS = {
+  dark: {
+    primary: 'rgba(255,255,255,0.86)',
+    secondary: 'rgba(255,255,255,0.62)',
+    faint: 'rgba(255,255,255,0.40)',
+    inverse: '#ffffff',
+    brand: '#7c86ff',
+    danger: '#ef606b',
+  },
+  light: {
+    primary: 'rgba(25,28,40,0.88)',
+    secondary: 'rgba(25,28,40,0.58)',
+    faint: 'rgba(25,28,40,0.38)',
+    inverse: '#ffffff',
+    brand: '#6e78f5',
+    danger: '#dc4a55',
+  },
+};
 
 function b64encodeAscii(str) {
   let out = '';
@@ -62,7 +84,8 @@ Component({
   properties: {
     name: { type: String, value: 'search' },
     size: { type: Number, value: 22 }, // px
-    color: { type: String, value: 'rgba(255,255,255,0.62)' },
+    tone: { type: String, value: 'secondary' }, // primary/secondary/faint/inverse/brand/danger
+    color: { type: String, value: '' }, // 显式颜色优先；空则按 tone + 主题
   },
   data: {
     uri: '',
@@ -71,18 +94,34 @@ Component({
   },
   lifetimes: {
     attached() {
-      this.update(this.data.name, this.data.size, this.data.color);
+      try { theme.init(); } catch (e) { /* 忽略 */ }
+      // 主题变化时重算颜色（system 模式跟随系统）
+      this._offTheme = theme.subscribe(() => this.refresh());
+      this.refresh();
+    },
+    detached() {
+      if (this._offTheme) { this._offTheme(); this._offTheme = null; }
     },
   },
   observers: {
-    'name, size, color': function (name, size, color) {
-      this.update(name, size, color);
+    'name, size, tone, color': function () {
+      this.refresh();
     },
   },
   methods: {
-    update(name, size, color) {
+    resolveColor() {
+      if (this.data.color) return this.data.color;
+      let t = 'dark';
+      try { t = theme.getEffectiveTheme(); } catch (e) { t = 'dark'; }
+      const map = TONE_COLORS[t] || TONE_COLORS.dark;
+      return map[this.data.tone] || map.secondary;
+    },
+    refresh() {
+      const name = this.data.name;
+      const size = this.data.size;
+      const color = this.resolveColor();
       const raw = ICONS[name] || ICONS.search;
-      const svg = raw.replace(/__COLOR__/g, color || 'rgba(255,255,255,0.62)');
+      const svg = raw.replace(/__COLOR__/g, color || TONE_COLORS.dark.secondary);
       const uri = 'data:image/svg+xml;base64,' + b64encodeAscii(svg);
       this.setData({ uri, w: size, h: size });
     },

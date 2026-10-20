@@ -3,14 +3,19 @@
 // 动态加载。否则 appLaunch 关键路径会同步加载/编译整个数据层，在冷启动时触发
 // appLaunch timeout（模拟器白屏、页面栈为空）。版本号模块极轻，可在顶层引入。
 const { APP_VERSION } = require('./utils/version');
+const theme = require('./utils/theme');
 
 App({
   globalData: {
     appName: '随时随地大小记',
-    version: APP_VERSION
+    version: APP_VERSION,
+    themeMode: 'dark',
+    effectiveTheme: 'dark'
   },
 
   onLaunch() {
+    // 主题尽早初始化（数据层之前），避免浅色用户冷启动「先黑后白」。
+    this.initTheme();
     // 纯本地账本：建目录、默认分类/设置、无损迁移旧 jm_records / Bill V1→V2。
     // 无登录、无网络、无 OpenID，账单仅保存在设备本地。
     // 全局启动键盘/窗口恢复监听（v0.8.1 Android 键盘白条保险）。
@@ -51,6 +56,53 @@ App({
       // 初始化抛错也进入数据保护模式
       this.protection = { ok: false, initError: String(e && e.message) };
       this.globalData.protection = this.protection;
+    }
+  },
+
+  /**
+   * 初始化主题：读取/解析 effectiveTheme、写 globalData、同步原生窗口色、订阅变化。
+   * 只改主题 class 与窗口色，不重置数据、不 reLaunch。
+   */
+  initTheme() {
+    try {
+      const s = theme.init();
+      this.globalData.themeMode = s.themeMode;
+      this.globalData.effectiveTheme = s.effectiveTheme;
+      this.syncChrome(s.effectiveTheme);
+      theme.subscribe((s2) => {
+        this.globalData.themeMode = s2.themeMode;
+        this.globalData.effectiveTheme = s2.effectiveTheme;
+        this.syncChrome(s2.effectiveTheme);
+      });
+    } catch (e) {
+      console.warn('主题初始化失败，使用深色', e);
+    }
+  },
+
+  /**
+   * 同步原生窗口外观（feature detect + 容错）：
+   *   dark → 状态/窗口前景白、背景深；light → 前景黑、背景浅。
+   * 微信右上角胶囊为平台控件，不自行绘制、不改其内部样式。
+   */
+  syncChrome(effective) {
+    try {
+      if (effective === 'light') {
+        if (wx.setNavigationBarColor) {
+          wx.setNavigationBarColor({ frontColor: '#000000', backgroundColor: '#f3f4fa' });
+        }
+        if (wx.setBackgroundColor) {
+          wx.setBackgroundColor({ backgroundColor: '#f3f4fa', backgroundColorTop: '#f3f4fa', backgroundColorBottom: '#e9ecf6' });
+        }
+      } else {
+        if (wx.setNavigationBarColor) {
+          wx.setNavigationBarColor({ frontColor: '#ffffff', backgroundColor: '#05060a' });
+        }
+        if (wx.setBackgroundColor) {
+          wx.setBackgroundColor({ backgroundColor: '#05060a', backgroundColorTop: '#05060a', backgroundColorBottom: '#0b0d16' });
+        }
+      }
+    } catch (e) {
+      /* 忽略，不影响启动 */
     }
   },
 

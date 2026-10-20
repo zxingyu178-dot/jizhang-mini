@@ -6,7 +6,7 @@
     hover-stay-time="60"
     bindtap="onBack"
   >
-    <dv-icon name="chevronLeft" size="24" color="rgba(255,255,255,0.82)"></dv-icon>
+    <dv-icon name="chevronLeft" size="24" tone="primary"></dv-icon>
   </view>
   <view wx:else class="ph__back ph__back--placeholder"></view>
 

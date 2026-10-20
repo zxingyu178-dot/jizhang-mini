@@ -9,7 +9,7 @@
 .seg {
   display: flex;
   flex-direction: row;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface);
   border-radius: 999rpx;
   padding: 6rpx;
   margin: 8rpx 0 20rpx;
@@ -24,7 +24,7 @@
   transition: all 0.18s;
 }
 .seg__item--active {
-  color: #fff;
+  color: var(--button-primary-text);
   font-weight: 600;
   background: linear-gradient(135deg, var(--primary), var(--primary-deep));
   box-shadow: 0 6rpx 18rpx var(--primary-glow);
@@ -51,7 +51,7 @@
   font-size: 44rpx;
   color: var(--text-secondary);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface);
 }
 .month-arrow--disabled {
   opacity: 0.3;
@@ -77,7 +77,7 @@
   display: flex;
   flex-direction: row;
   padding-top: 22rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.07);
+  border-top: 1rpx solid var(--divider);
 }
 .hero__half {
   flex: 1;
@@ -138,7 +138,7 @@
 .bar {
   width: 60%;
   border-radius: 8rpx 8rpx 0 0;
-  background: rgba(255, 255, 0.12);
+  background: var(--surface);
 }
 .bar--exp {
   background: linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
@@ -191,7 +191,7 @@
 .rank-bar {
   height: 10rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface);
   overflow: hidden;
 }
 .rank-bar__fill {
@@ -222,7 +222,7 @@
   flex: 1;
   height: 20rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface);
   overflow: hidden;
   margin: 0 16rpx;
 }
@@ -288,7 +288,7 @@
   flex: 1;
   text-align: center;
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-faint);
 }
 .bcal__weeks {
   margin-top: 6rpx;
@@ -309,30 +309,30 @@
 }
 .bcal__num {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-body);
   font-variant-numeric: tabular-nums;
 }
 
 /* 非本月 / 未来 / 无预算：灰 */
-.bcal__cell--outm .bcal__num { color: rgba(255, 255, 255, 0.2); }
+.bcal__cell--outm .bcal__num { color: var(--text-faint); opacity: 0.55; }
 .bcal__cell--future .bcal__num,
-.bcal__cell--no-budget .bcal__num { color: rgba(255, 255, 255, 0.38); }
+.bcal__cell--no-budget .bcal__num { color: var(--text-faint); }
 
-/* 盈余：两档深浅绿 */
-.bcal__cell--surplus.bcal__lv1 { background: rgba(56, 200, 150, 0.16); }
-.bcal__cell--surplus.bcal__lv1 .bcal__num { color: #5fd6ab; }
-.bcal__cell--surplus.bcal__lv2 { background: rgba(56, 200, 150, 0.3); }
-.bcal__cell--surplus.bcal__lv2 .bcal__num { color: #8fe7c6; }
+/* 盈余：两档深浅绿（状态色走 token） */
+.bcal__cell--surplus.bcal__lv1 { background: var(--cal-surplus-lv1-bg); }
+.bcal__cell--surplus.bcal__lv1 .bcal__num { color: var(--cal-surplus-lv1-num); }
+.bcal__cell--surplus.bcal__lv2 { background: var(--cal-surplus-lv2-bg); }
+.bcal__cell--surplus.bcal__lv2 .bcal__num { color: var(--cal-surplus-lv2-num); }
 
-/* 超支：两档深浅红 */
-.bcal__cell--over.bcal__lv1 { background: rgba(239, 96, 107, 0.16); }
-.bcal__cell--over.bcal__lv1 .bcal__num { color: #f5838b; }
-.bcal__cell--over.bcal__lv2 { background: rgba(239, 96, 107, 0.32); }
-.bcal__cell--over.bcal__lv2 .bcal__num { color: #f89aa0; }
+/* 超支：两档深浅红（状态色走 token） */
+.bcal__cell--over.bcal__lv1 { background: var(--cal-over-lv1-bg); }
+.bcal__cell--over.bcal__lv1 .bcal__num { color: var(--cal-over-lv1-num); }
+.bcal__cell--over.bcal__lv2 { background: var(--cal-over-lv2-bg); }
+.bcal__cell--over.bcal__lv2 .bcal__num { color: var(--cal-over-lv2-num); }
 
 /* 今天：紫色描边（与背景共存） */
 .bcal__cell--today {
-  border: 2rpx solid #7c86ff;
+  border: 2rpx solid var(--primary);
 }
 
 /* ================= 预算图例（一行） ================= */
@@ -348,7 +348,7 @@
   align-items: center;
   gap: 8rpx;
   font-size: 20rpx;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-faint);
 }
 .blegend__dot {
   width: 15rpx;
@@ -358,8 +358,8 @@
 }
 .blegend__dot--surplus { background: var(--budget-surplus); }
 .blegend__dot--over { background: var(--budget-over); }
-.blegend__dot--none { background: transparent; border: 1rpx solid rgba(255, 255, 255, 0.4); }
-.blegend__dot--today { background: transparent; border: 2rpx solid #7c86ff; border-radius: 4rpx; }
+.blegend__dot--none { background: transparent; border: 1rpx solid var(--text-faint); }
+.blegend__dot--today { background: transparent; border: 2rpx solid var(--primary); border-radius: 4rpx; }
 
 /* ================= 预算节奏摘要 ================= */
 .pace {
@@ -367,7 +367,7 @@
   flex-wrap: wrap;
   margin-top: 20rpx;
   padding-top: 16rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-top: 1rpx solid var(--divider);
 }
 .pace__item {
   width: 50%;
@@ -378,7 +378,7 @@
 }
 .pace__label {
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-faint);
 }
 .pace__val {
   margin-top: 6rpx;
@@ -387,5 +387,5 @@
   font-variant-numeric: tabular-nums;
 }
 .pace__val--none {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-faint);
 }

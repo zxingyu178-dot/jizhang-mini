@@ -117,6 +117,13 @@ function validateSettingsStructure(data, pushE, pushW) {
     pushE('backup-settings-invalid', 'settings');
     return;
   }
+  // 主题（v0.9.0）：缺失允许（旧 V1/V2 备份默认 dark，属显式迁移）；
+  // dark/light/system 合法；其它值 fail-closed，拒绝恢复。
+  if (s.theme !== undefined) {
+    if (s.theme !== 'dark' && s.theme !== 'light' && s.theme !== 'system') {
+      pushE('backup-settings-theme-invalid', 'settings', '', 'theme=' + s.theme);
+    }
+  }
   const budget = s.budget;
   if (budget === undefined || budget === null) return;
   if (typeof budget !== 'object' || Array.isArray(budget)) {

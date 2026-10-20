@@ -1,4 +1,4 @@
-<view class="br-page" style="height:{{windowHeight}}px;">
+<view class="br-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="br-bg">
     <view class="br-bg__glow"></view>
   </view>

@@ -1,4 +1,4 @@
-<view class="shell" style="height:{{windowHeight}}px;">
+<view class="shell {{themeClass}}" style="height:{{windowHeight}}px;">
   <!-- 背景层：紫黑渐变 + 紫色柔光 -->
   <view class="shell-bg">
     <view class="shell-bg__glow shell-bg__glow--1"></view>
@@ -33,11 +33,11 @@
       <text class="header__title">随时随地大小记</text>
       <view class="header__actions">
         <view class="glass-pill header__search" bindtap="onSearch">
-          <dv-icon name="search" size="14" color="rgba(255,255,255,0.62)" class="header__search-icon" />
+          <dv-icon name="search" size="14" tone="secondary" class="header__search-icon" />
           <text class="header__search-text">搜索账单</text>
         </view>
         <view class="header__setting" bindtap="onSettings">
-          <dv-icon name="settings" size="22" color="rgba(255,255,255,0.72)" />
+          <dv-icon name="settings" size="22" tone="primary" />
         </view>
       </view>
     </view>
@@ -72,7 +72,7 @@
 
   <!-- 玻璃 FAB（记账 Tab：记一笔；日价 Tab：添加日价物品；统计 Tab 无 FAB） -->
   <view class="fab-wrap" wx:if="{{current===1||current===2}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
-    <dv-icon class="fab-icon" name="plus" size="30" color="#ffffff"></dv-icon>
+    <dv-icon class="fab-icon" name="plus" size="30" tone="inverse"></dv-icon>
   </view>
   </block>
 

@@ -1,4 +1,4 @@
-<view class="rc-page" style="height:{{windowHeight}}px;">
+<view class="rc-page {{themeClass}}" style="height:{{windowHeight}}px;">
   <view class="rc-bg">
     <view class="rc-bg__glow"></view>
   </view>

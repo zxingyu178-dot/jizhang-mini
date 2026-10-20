@@ -1,7 +1,7 @@
 .dpage {
   position: relative;
   min-height: 100vh;
-  background: #07081a;
+  background: var(--bg);
 }
 .dpage-bg {
   position: fixed;
@@ -15,15 +15,15 @@
   transform: translateX(-50%);
   width: 720rpx;
   height: 560rpx;
-  background: radial-gradient(circle, rgba(124, 134, 255, 0.18), transparent 68%);
+  background: radial-gradient(circle, var(--hero-glow), transparent 68%);
 }
 
 /* Header 框架由全局 <page-header> 提供；右侧编辑按钮样式保留 */
 .dpage-header__edit {
   padding: 10rpx 24rpx;
   border-radius: 999rpx;
-  background: rgba(124, 134, 255, 0.2);
-  border: 1rpx solid rgba(124, 134, 255, 0.5);
+  background: var(--primary-tint);
+  border: 1rpx solid var(--primary);
 }
 .dpage-header__edit text {
   font-size: 24rpx;
@@ -82,12 +82,12 @@
 }
 .detail-hero__label {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--text-secondary);
 }
 .detail-hero__value {
   margin-top: 10rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-title);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -103,7 +103,7 @@
 .detail-hero__sub {
   margin-top: 20rpx;
   padding-top: 18rpx;
-  border-top: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-top: 1rpx solid var(--divider);
   width: 100%;
   display: flex;
   flex-direction: row;
@@ -125,8 +125,8 @@
   margin: 28rpx 28rpx 0;
   padding: 24rpx 26rpx;
   border-radius: 28rpx;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  background: var(--surface-soft);
+  border: 1rpx solid var(--card-border);
 }
 .detail-section__title {
   display: block;
@@ -141,15 +141,15 @@
   margin: 28rpx 28rpx 0;
   padding: 22rpx 26rpx;
   border-radius: 24rpx;
-  background: rgba(124, 134, 255, 0.1);
-  border: 1rpx solid rgba(124, 134, 255, 0.3);
+  background: var(--primary-tint);
+  border: 1rpx solid var(--primary);
   display: flex;
   flex-direction: column;
 }
 .detail-summary__achieved {
   font-size: 25rpx;
   font-weight: 600;
-  color: #e9ebff;
+  color: var(--text-primary);
 }
 .detail-summary__next {
   margin-top: 8rpx;
@@ -172,7 +172,7 @@
   width: 36rpx;
   height: 36rpx;
   border-radius: 50%;
-  border: 2rpx solid rgba(255, 255, 255, 0.25);
+  border: 2rpx solid var(--card-border-hi);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -209,14 +209,14 @@
   font-size: 28rpx;
   color: var(--primary);
   border-radius: 18rpx;
-  background: rgba(124, 134, 255, 0.12);
-  border: 1rpx solid rgba(124, 134, 255, 0.4);
+  background: var(--primary-tint);
+  border: 1rpx solid var(--primary);
 }
 .detail-actions__delete {
   padding: 26rpx 0;
   text-align: center;
   font-size: 28rpx;
-  color: #ff6b6b;
+  color: var(--danger);
   border-radius: 18rpx;
-  background: rgba(255, 107, 107, 0.1);
+  background: var(--danger-soft);
 }
