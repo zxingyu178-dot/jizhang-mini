@@ -38,6 +38,9 @@ Page({
       bills: [],
       billCount: 0,
     },
+    // G6 数据保护模式
+    protection: false,
+    protectionItems: [],
   },
   onLoad() {
     const info = device.measure();
@@ -56,14 +59,89 @@ Page({
       swiperTop: info.headerHeight + TABS_HEIGHT,
       swiperHeight: info.windowHeight - info.headerHeight - TABS_HEIGHT,
     });
+    this.checkProtection();
   },
   onReady() {
-    this.activatePanel(this.data.current);
-    this._ready = true;
+    if (!this.data.protection) {
+      this.activatePanel(this.data.current);
+      this._ready = true;
+    }
   },
   onShow() {
+    this.checkProtection();
+    // 保护模式下不刷新正常面板（组件未渲染）
+    if (this.data.protection) return;
     // 从预算设置 / 其他二级页返回：页面已 ready 则安全刷新全部面板（无需重启小程序）。
     if (this._ready) this.refreshPanels();
+  },
+  /** G6：检测 App 是否进入数据保护模式（启动完整性扫描发现损坏） */
+  checkProtection() {
+    const app = getApp();
+    const p = app && app.protection;
+    if (p && p.ok === false) {
+      let items = [];
+      if (Array.isArray(p.all)) {
+        items = p.all
+          .filter((e) => e.status !== 'VALID' && e.status !== 'MISSING')
+          .map((e) => ({
+            kind: e.kind,
+            status: e.status,
+            detail: e.detail || '',
+            label: this.protectionLabel(e),
+          }));
+      } else if (p.initError) {
+        items = [{ kind: 'init', status: 'ERROR', label: '初始化失败', detail: p.initError }];
+      } else if (p.scanError) {
+        items = [{ kind: 'scan', status: 'ERROR', label: '扫描失败', detail: p.scanError }];
+      }
+      this.setData({ protection: true, protectionItems: items });
+    } else {
+      this.setData({ protection: false });
+    }
+  },
+  protectionLabel(e) {
+    if (e.kind === 'month') {
+      const m = (e.file || '').match(/(\d{4}-\d{2})/);
+      return m ? m[1] : '月份';
+    }
+    const names = { manifest: '清单', categories: '分类', settings: '设置', recurring: '周期' };
+    return names[e.kind] || e.kind;
+  },
+  /** 创建脱敏诊断并分享 */
+  onSafeDiagnose() {
+    try {
+      const protection = require('../../data/protection');
+      const obj = protection.buildDiagnostic();
+      const filePath = wx.env.USER_DATA_PATH + '/daily-value-diagnostic.json';
+      wx.getFileSystemManager().writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf8');
+      wx.shareFileMessage({
+        filePath,
+        success: () => wx.showToast({ title: '可发送到文件传输助手', icon: 'none' }),
+        fail: () => wx.showToast({ title: '已生成诊断文件', icon: 'none' }),
+      });
+    } catch (e) {
+      wx.showToast({ title: '生成诊断失败', icon: 'none' });
+    }
+  },
+  /** 导出全部原始文件文本（含损坏文本，供抢救） */
+  onSafeExport() {
+    try {
+      const protection = require('../../data/protection');
+      const obj = protection.buildRawExport();
+      const filePath = wx.env.USER_DATA_PATH + '/daily-value-raw-export.json';
+      wx.getFileSystemManager().writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf8');
+      wx.shareFileMessage({
+        filePath,
+        success: () => wx.showToast({ title: '可发送到文件传输助手', icon: 'none' }),
+        fail: () => wx.showToast({ title: '已生成原始数据文件', icon: 'none' }),
+      });
+    } catch (e) {
+      wx.showToast({ title: '导出原始数据失败', icon: 'none' });
+    }
+  },
+  /** 从已有备份恢复（跳到备份与恢复页） */
+  onSafeRestore() {
+    wx.navigateTo({ url: '/pages/backup-restore/backup-restore' });
   },
   onTab(e) {
     const i = Number(e.currentTarget.dataset.i);

@@ -18,6 +18,21 @@ App({
     this.$store = store;
     this.$dv = dv;
     try {
+      // G6：先做只读完整性扫描。发现损坏则进入数据保护模式，不执行正常初始化
+      // （避免 ensureManifest 重建清单、损坏月被新账覆盖等），等用户在保护模式处理。
+      const si = require('./data/storage-integrity');
+      let scan = null;
+      try {
+        scan = si.scanStorage();
+      } catch (e) {
+        scan = { ok: false, scanError: String(e && e.message) };
+      }
+      if (!scan.ok) {
+        this.protection = scan;
+        this.globalData.protection = scan;
+        console.warn('检测到本地存储异常，进入数据保护模式');
+        return;
+      }
       this.dataStatus = store.init();
       // 冷启动补齐「已到期但未生成」的周期账单（含长期未打开后的 catch-up）。
       // 附加能力，失败不阻断启动（生成器内部已隔离，这里再兜底防止 unhandled rejection）。
@@ -27,10 +42,15 @@ App({
     } catch (e) {
       console.error('数据层初始化失败', e);
       this.dataStatus = { error: String(e && e.message) };
+      // 初始化抛错也进入数据保护模式
+      this.protection = { ok: false, initError: String(e && e.message) };
+      this.globalData.protection = this.protection;
     }
   },
 
   onShow() {
+    // G6 保护模式：不补账、不刷新正常视图（恢复需重启小程序）
+    if (this.protection) return;
     // 回前台：先补齐后台期间到期的周期账单，再刷新时间敏感视图（日价 / 预算 / 周期），排午夜。
     // 周期是附加能力：无论补生成成功与否（含 rejected），刷新都必须执行，且不产生 unhandled rejection。
     this.runRecurringCatchup()

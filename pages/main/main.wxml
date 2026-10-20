@@ -5,6 +5,25 @@
     <view class="shell-bg__glow shell-bg__glow--2"></view>
   </view>
 
+  <!-- G6 数据保护模式：本地存储异常时替代正常界面 -->
+  <scroll-view scroll-y class="safe-mode" wx:if="{{protection}}" style="height:{{windowHeight}}px;">
+    <view class="safe-mode__inner">
+      <view class="safe-mode__icon"><text class="safe-mode__icon-text">!</text></view>
+      <text class="safe-mode__title">本地账本文件异常</text>
+      <text class="safe-mode__desc">为避免覆盖原始数据，当前暂停新增和修改。你可以导出原始数据、创建诊断，或从已有备份恢复。</text>
+      <view class="safe-mode__items" wx:if="{{protectionItems.length}}">
+        <view class="safe-mode__item" wx:for="{{protectionItems}}" wx:key="label">
+          <text class="safe-mode__item-label">{{item.label}}</text>
+          <text class="safe-mode__item-status">{{item.status}}</text>
+        </view>
+      </view>
+      <view class="safe-mode__btn safe-mode__btn--primary" bindtap="onSafeExport">导出原始数据</view>
+      <view class="safe-mode__btn" bindtap="onSafeDiagnose">创建诊断</view>
+      <view class="safe-mode__btn" bindtap="onSafeRestore">从备份恢复</view>
+    </view>
+  </scroll-view>
+
+  <block wx:if="{{!protection}}">
   <!-- 自定义 Header -->
   <view class="header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
     <view class="header__bar" style="height:{{navBarHeight}}px;padding-right:{{menuPad}}px;">
@@ -52,6 +71,7 @@
   <view class="fab-wrap" wx:if="{{current===1||current===2}}" style="bottom:{{safeBottom + 20}}px;" bindtap="onAdd">
     <dv-icon class="fab-icon" name="plus" size="30" color="#ffffff"></dv-icon>
   </view>
+  </block>
 
   <!-- 记账表单 Bottom Sheet（新增 / 编辑） -->
   <bottom-sheet show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
