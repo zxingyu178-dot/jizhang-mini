@@ -14,6 +14,7 @@ const ledger = require('./ledger');
 const migration = require('./migration');
 const migrationSchema = require('./migration-schema');
 const migrationSchemaV3 = require('./migration-schema-v3');
+const idRepair = require('./id-repair');
 const backup = require('./backup');
 const importHistory = require('./import-history');
 const dailyValue = require('./daily-value/index');
@@ -30,6 +31,8 @@ function init() {
   manifest.ensureManifest();
   categories.ensureCategories();
   settings.ensureSettings();
+  // 先为历史缺 id 账单补确定性 id（补缺损省，不改语义），避免后续迁移校验失败。
+  idRepair.repairMissingIds();
   // 先迁旧 jm_records（产出的账单已是 V2 形态），再统一把月份分片升到 V2。
   migration.runMigration();
   migrationSchema.runSchemaMigration();
@@ -135,6 +138,7 @@ module.exports = {
   migration,
   migrationSchema,
   migrationSchemaV3,
+  idRepair,
   dailyValue,
   budget,
   recurring,
