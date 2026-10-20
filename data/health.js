@@ -68,16 +68,26 @@ function analyzeHealth(d) {
   const pushE = (code, scope, ref, detail) => errors.push(issue('error', code, scope, ref, detail));
   const pushW = (code, scope, ref, detail) => warnings.push(issue('warning', code, scope, ref, detail));
 
-  // 分类 id 集合（全量，含已归档：历史账单引用归档分类是合法的）
+  // 分类 id 集合（全量，含已归档：历史账单引用归档分类是合法的）；重复 id 为 error
   const catIds = new Set();
-  (d.categories || []).forEach((c) => {
-    if (c && c.id) catIds.add(c.id);
+  (d.categories || []).forEach((c, i) => {
+    if (c && c.id) {
+      if (catIds.has(c.id)) {
+        pushE('category-duplicate-id', 'categories', 'cat#' + i, shortId(c.id));
+      }
+      catIds.add(c.id);
+    }
   });
 
-  // 周期规则 id 集合（用于孤儿引用检测）
+  // 周期规则 id 集合（用于孤儿引用检测）；重复 id 为 error
   const ruleIds = new Set();
-  (d.recurringRulesRaw || []).forEach((r) => {
-    if (r && r.id) ruleIds.add(r.id);
+  (d.recurringRulesRaw || []).forEach((r, i) => {
+    if (r && r.id) {
+      if (ruleIds.has(r.id)) {
+        pushE('recurring-rule-duplicate-id', 'recurring', 'rule#' + i, shortId(r.id));
+      }
+      ruleIds.add(r.id);
+    }
   });
 
   let monthCount = 0;
@@ -183,12 +193,20 @@ function analyzeHealth(d) {
     if (!v.ok) pushE('recurring-rule-' + v.reason, 'recurring', ref);
   });
 
-  // 预算规则
+  // 预算规则（含重复 id 检测）
+  const budgetRuleIds = new Set();
   (d.budgetRulesRaw || []).forEach((r, i) => {
     const ref = 'budget#' + i;
     if (!r || typeof r !== 'object' || Array.isArray(r)) {
       pushE('budget-rule-shape', 'budget', ref);
       return;
+    }
+    if (typeof r.id === 'string' && r.id) {
+      if (budgetRuleIds.has(r.id)) {
+        pushE('budget-rule-duplicate-id', 'budget', ref, shortId(r.id));
+      } else {
+        budgetRuleIds.add(r.id);
+      }
     }
     if (!recurringCore.isValidDateStr(r.effectiveFrom)) {
       pushE('budget-rule-date-invalid', 'budget', ref, 'from=' + r.effectiveFrom);
