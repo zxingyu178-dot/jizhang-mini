@@ -13,8 +13,11 @@
       <text class="safe-mode__desc">为避免覆盖原始数据，当前暂停新增和修改。你可以导出原始数据、创建诊断，或从已有备份恢复。</text>
       <view class="safe-mode__items" wx:if="{{protectionItems.length}}">
         <view class="safe-mode__item" wx:for="{{protectionItems}}" wx:key="label">
-          <text class="safe-mode__item-label">{{item.label}}</text>
-          <text class="safe-mode__item-status">{{item.status}}</text>
+          <view class="safe-mode__item-head">
+            <text class="safe-mode__item-label">{{item.label}}</text>
+            <text class="safe-mode__item-status">{{item.status}}</text>
+          </view>
+          <text class="safe-mode__item-detail" wx:if="{{item.detail}}">{{item.detail}}</text>
         </view>
       </view>
       <view class="safe-mode__btn safe-mode__btn--primary" bindtap="onSafeExport">导出原始数据</view>

@@ -112,6 +112,10 @@ Page({
     try {
       const protection = require('../../data/protection');
       const obj = protection.buildDiagnostic();
+      const _app = getApp();
+      if (_app && _app.protection && _app.protection.initError) {
+        obj.initError = _app.protection.initError;
+      }
       const filePath = wx.env.USER_DATA_PATH + '/daily-value-diagnostic.json';
       wx.getFileSystemManager().writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf8');
       wx.shareFileMessage({
