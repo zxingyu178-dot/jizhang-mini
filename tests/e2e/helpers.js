@@ -18,6 +18,8 @@ class Ctx {
     this.results = [];
     this.consoleLogs = [];
     this.exceptions = [];
+    // 测试中的截图以 base64 存内存（不在过程中落盘），run.js 在 disconnect 后统一写项目归档。
+    this.shots = [];
   }
 
   sleep(ms) { return sleep(ms); }
@@ -109,19 +111,18 @@ class Ctx {
   }
 
   /**
-   * 标准截图：测试中先写入「项目外」暂存目录 SHOT_STAGE_DIR/<name>_simulator.png，
-   * 由 run.js 在结束、disconnect 后再复制到项目内 docs/screenshots/e2e 归档。
+   * 标准截图：测试中**不落盘**，只取 base64 存内存（this.shots）。
+   * 原因有二：
+   *   1. 测试中写进项目目录会触发 IDE 自动重编译、打断 automator 会话（见 config.js）；
+   *   2. 后台运行的 node 处于文件沙箱，无法写系统 Temp / 项目外目录（EPERM）。
+   * 由 run.js 在 disconnect 之后把内存中的 base64 统一写入项目内归档目录。
    * 强制 _simulator 后缀：这些是开发者工具模拟器图，绝不冒充真机图。
-   * 切勿直接写进项目目录——会触发 IDE 自动重编译、打断 automator 会话（见 config.js）。
    */
   async shot(name) {
-    const dir = this.config.SHOT_STAGE_DIR;
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const file = path.join(dir, `${name}_simulator.png`);
-    await this.mp.screenshot({ path: file });
-    return file;
+    const data = await this.mp.screenshot();
+    const page = await this.mp.currentPage().catch(() => null);
+    this.shots.push({ name: name + '_simulator', data, path: page ? page.path : null });
+    return data;
   }
 
   /* ---------------- 断言（直接抛错，由 test 捕获） ---------------- */

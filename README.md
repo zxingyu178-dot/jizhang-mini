@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.7.0（Experience & Reliability：1.0 前整体体验 / 性能 / 稳定性收口，**不新增业务模块，冻结 Bill V3 / Recurring Store V1 / Budget V1 数据合同**）。统一 Design Token、抽 `page-header` 组件并迁移全部二级页、Bottom Sheet 全量收敛到公共组件、系统操作图标去 Emoji 改用 `dv-icon`（分类图标仍用 Emoji）；快速记账 Sheet 真机健壮性（大金额不裁切）、周期卡信息层级降工具感；分类解析改单次渲染快照（`getCategoryMap`，消除逐条读盘）并新增 1k/5k/10k 大账本性能 Gate；统一 `empty-state` 空态组件、新增 `data/health.js` 只读数据健康体检、备份恢复接入健康校验（error 回滚 / warning 放行）；E2E 黄金路径扩到 T01–T12，并修复 E2E 周日时间陷阱与 Android 周期迁移 fail-closed（损坏规则跳过而非偷偷改成 daily）。单测 743→833（11 套件），另含 E2E 12 用例与性能 Gate。沿用 0.6.x 的分类管理、周期记账、Bill V3、Backup V3、Android 自定义分类 / 周期迁移与预算能力）
+- 当前版本：0.8.0（Release Hardening & RC：发布前最后一个大阶段，**不新增业务功能，继续冻结 Bill V3 / Recurring Store V1 / Budget V1 数据合同**）。新增 G1 严格月份读取（损坏 / shape 错 / 版本不支持的月份分片 fail-closed，禁止被空文件覆盖）、G2 恢复前 Raw Backup Validator（不再让 createBill 先偷偷修非法值）、G3 显式 Backup V1→V2→V3 迁移管线、G4 存储完整性扫描（manifest/categories/settings/recurring/months 区分 missing/corrupt）、G5 重复 ID 检测（Bill/Recurring/Category/BudgetRule）、G6 数据损坏安全模式（启动检测到异常进入保护模式，可导出原始数据 / 创建诊断 / 从备份恢复，绝不自动清空或覆盖）、G7 灾难演练 + 升级矩阵、G8 `npm run release:check` 一次性发布检查、G9 隐私文案精确化与平台隐私指引配置清单（MessageFile/Clipboard）、G10 临时备份导出到 exports/ 自动清理（保留 3 个）+ 品牌统一为「随时随地大小记」。单测 833→1023（18 套件），另含 E2E 12 用例与性能 Gate）
 
 ## 测试
 
@@ -16,7 +16,7 @@ npm run e2e  # miniprogram-automator 跑微信开发者工具 GUI 端到端回�
 npm run perf # 1k/5k/10k 大账本性能 Gate
 ```
 
-- `npm test` 在独立子进程依次运行 `device`、`data`、`accounting`、`statistics`、`daily-value`、`budget`、`categories`、`recurring`、`settings`、`health`、`importer` **11 个套件、833 项**，任一失败即以非零退出码结束（跨平台，不依赖 shell）。
+- `npm test` 在独立子进程依次运行 `device`、`data`、`accounting`、`statistics`、`daily-value`、`budget`、`categories`、`recurring`、`settings`、`health`、`storage-integrity`、`duplicate-id`、`protection`、`strict-read`、`backup-validator`、`backup-migration`、`disaster-recovery`、`importer` **18 个套件、1023 项**，任一失败即以非零退出码结束（跨平台，不依赖 shell）。
 - `npm run e2e`（`tests/e2e/`，T01–T12 共 12 用例）自动拉起 / 复用微信开发者工具，验证页面渲染、data 绑定与增改停用删交互闭环；数学口径仍归 Node 单测。运行前需开启开发者工具「服务端口」，详见 `docs/E2E_TESTING.md`。
 - `npm run perf`（`tests/perf/large-ledger.perf.js`）用虚构账单验证冷启动、当月 Timeline、统计、搜索、预算日历在 1k/5k/10k 规模下无崩溃、近线性、分类快照只读一次盘。
 
