@@ -413,6 +413,7 @@ function rangeBills(ymStart, ymEnd) {
 
 module.exports = {
   SCHEMA_VERSION,
+  SUPPORTED_MONTH_VERSIONS,
   ymOf,
   isDateStr,
   normalizeDailyValue,
