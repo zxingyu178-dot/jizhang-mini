@@ -303,8 +303,10 @@ async function testDailyValueCustom() {
   eq(rent.amountCents, 200000, '房租金额 200000');
   eq(rent.frequency, 'monthly', '房租频率 monthly');
   eq(rent.categoryId, 'c-housing', '房租分类 c-housing');
-  eq(rent.lastGeneratedDate, '2026-10-01', '保留 lastGeneratedDate（不从头补）');
-  eq(rent.nextOccurrence, '2026-11-01', '保留 nextOccurrence');
+  // 游标锚定到 2099（fixture 已改为未来日期，避免随时间到期导致测试时间相关失败）；
+  // 仍验证导入后游标原样保留、不从头补。
+  eq(rent.lastGeneratedDate, '2099-01-01', '保留 lastGeneratedDate（不从头补）');
+  eq(rent.nextOccurrence, '2099-02-01', '保留 nextOccurrence');
   // 引用自定义分类的规则
   const coffeeRule = store.recurring.getRule('dvrule-rule-coffee');
   eq(coffeeRule.categoryId, 'dvcat-cat-coffee', '周期规则分类跟随自定义分类');

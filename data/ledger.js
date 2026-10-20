@@ -22,6 +22,8 @@ const paths = require('./paths');
 const { genId } = require('../utils/util');
 
 const SCHEMA_VERSION = 3;
+/** 可读的分片版本（旧版本 1/2 合法，由显式迁移升级；写回统一当前版本） */
+const SUPPORTED_MONTH_VERSIONS = [1, 2, 3];
 
 /** 时间戳 -> 'YYYY-MM'（本地业务日期） */
 function ymOf(ts) {
@@ -83,9 +85,61 @@ function createBill(data) {
   return bill;
 }
 
-/** 读月份分片（不存在返回空结构） */
+/** 读月份分片（不存在返回空结构；仅用于只读 / 展示，损坏会回落空结构） */
 function readMonthFile(ym) {
   return fs.readJSON(paths.billFile(ym), { ym, version: SCHEMA_VERSION, bills: [] });
+}
+
+/** 月份分片错误（带 code/ym，便于安全模式与上层分类） */
+function monthError(code, ym, detail) {
+  const err = new Error(code + ': ' + ym + (detail ? ' (' + detail + ')' : ''));
+  err.code = code;
+  err.ym = ym;
+  if (detail) err.detail = detail;
+  return err;
+}
+
+/**
+ * 校验月份分片 shape（不做业务语义，语义在 backup-validator）。
+ * 旧版本（version 1/2）合法；version 非法、bills 非数组、元素非对象均抛错。
+ */
+function validateMonthShape(ym, data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw monthError('MONTH_INVALID_SHAPE', ym, '分片不是对象');
+  }
+  if (!Array.isArray(data.bills)) {
+    throw monthError('MONTH_INVALID_SHAPE', ym, 'bills 不是数组');
+  }
+  if (SUPPORTED_MONTH_VERSIONS.indexOf(data.version) < 0) {
+    throw monthError('MONTH_UNSUPPORTED_VERSION', ym, 'version=' + data.version);
+  }
+  for (let i = 0; i < data.bills.length; i++) {
+    const b = data.bills[i];
+    if (!b || typeof b !== 'object' || Array.isArray(b)) {
+      throw monthError('MONTH_INVALID_SHAPE', ym, 'bills[' + i + '] 不是对象');
+    }
+  }
+}
+
+/**
+ * 严格读月份分片（所有写路径必须使用）：
+ *   文件不存在 → 可建空月份（当前 schema）；
+ *   JSON 损坏 → MONTH_CORRUPT；
+ *   shape 错 → MONTH_INVALID_SHAPE；
+ *   version 非法 → MONTH_UNSUPPORTED_VERSION。
+ * 发现已有文件异常即抛出，绝不以空账本继续，从源头堵住「损坏月被新账覆盖」。
+ */
+function readMonthFileStrict(ym) {
+  let data;
+  try {
+    data = fs.readJSONStrict(paths.billFile(ym));
+  } catch (e) {
+    if (e.code === 'FILE_MISSING') return { ym, version: SCHEMA_VERSION, bills: [] };
+    if (e.code === 'FILE_CORRUPT') throw monthError('MONTH_CORRUPT', ym, e.detail);
+    throw e;
+  }
+  validateMonthShape(ym, data);
+  return data;
 }
 
 /** 写月份分片（默认写当前 schema；迁移可在 data.version 显式指定目标版本） */
@@ -122,18 +176,18 @@ function sortBills(arr) {
   arr.sort((a, b) => b.occurredAt - a.occurredAt);
 }
 
-/** 新增一条账单 */
+/** 新增一条账单（严格读：目标月损坏即抛错，不覆盖） */
 function addBill(data) {
   const bill = createBill(data);
   const ym = ymOf(bill.occurredAt);
-  const mf = readMonthFile(ym);
+  const mf = readMonthFileStrict(ym);
   mf.bills.push(bill);
   sortBills(mf.bills);
   writeMonthFile(ym, mf);
   return bill;
 }
 
-/** 批量写入（导入用；同批 bill 已在外部完成去重） */
+/** 批量写入（导入用；同批 bill 已在外部完成去重；严格读，损坏月不写入） */
 function addBills(bills) {
   const groups = {};
   bills.forEach((b) => {
@@ -142,8 +196,10 @@ function addBills(bills) {
     if (!groups[ym]) groups[ym] = [];
     groups[ym].push(bill);
   });
+  // 先对全部目标月做一次严格预检：任一损坏则整批不写（避免部分写入）
+  Object.keys(groups).forEach((ym) => readMonthFileStrict(ym));
   Object.keys(groups).forEach((ym) => {
-    const mf = readMonthFile(ym);
+    const mf = readMonthFileStrict(ym);
     mf.bills = mf.bills.concat(groups[ym]);
     sortBills(mf.bills);
     writeMonthFile(ym, mf);
@@ -196,12 +252,12 @@ function getBill(id) {
   return null;
 }
 
-/** 按 id 删除；成功返回 true */
+/** 按 id 删除；成功返回 true。严格读：存在损坏月即抛错（fail-closed），不覆盖 */
 function deleteBill(id) {
   const months = listMonths();
   for (let i = 0; i < months.length; i++) {
     const ym = months[i];
-    const mf = readMonthFile(ym);
+    const mf = readMonthFileStrict(ym);
     const idx = mf.bills.findIndex((b) => b.id === id);
     if (idx >= 0) {
       mf.bills.splice(idx, 1);
@@ -284,7 +340,7 @@ function updateBill(id, patch) {
   let oldBill = null;
   for (let i = 0; i < months.length; i++) {
     const ym = months[i];
-    const found = readMonthFile(ym).bills.find((b) => b.id === id);
+    const found = readMonthFileStrict(ym).bills.find((b) => b.id === id);
     if (found) {
       oldYm = ym;
       oldBill = found;
@@ -305,7 +361,7 @@ function updateBill(id, patch) {
     // 同月原位更新
     const snap = snapshotMonths([oldYm]);
     try {
-      const mf = readMonthFile(oldYm);
+      const mf = readMonthFileStrict(oldYm);
       const idx = mf.bills.findIndex((b) => b.id === id);
       if (idx < 0) throw new Error('更新前账单已不存在');
       mf.bills[idx] = updated;
@@ -322,13 +378,13 @@ function updateBill(id, patch) {
   // 跨月：旧分片删除 → 新分片写入
   const snap = snapshotMonths([oldYm, newYm]);
   try {
-    const oldMf = readMonthFile(oldYm);
+    const oldMf = readMonthFileStrict(oldYm);
     const oi = oldMf.bills.findIndex((b) => b.id === id);
     if (oi < 0) throw new Error('更新前账单已不存在');
     oldMf.bills.splice(oi, 1);
     writeMonthFile(oldYm, oldMf);
 
-    const newMf = readMonthFile(newYm);
+    const newMf = readMonthFileStrict(newYm);
     if (newMf.bills.some((b) => b.id === id)) {
       throw new Error('目标月份已存在同 id 账单');
     }
@@ -363,6 +419,8 @@ module.exports = {
   normalizeLedgerImpact,
   createBill,
   readMonthFile,
+  readMonthFileStrict,
+  validateMonthShape,
   writeMonthFile,
   listMonths,
   listAccountingMonths,

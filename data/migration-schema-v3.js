@@ -54,11 +54,14 @@ function runSchemaMigration() {
     return { status: 'done', recordCount: 0, months: [] };
   }
 
+  // 0. 严格预检：任一分片损坏 / shape 错即中止迁移（不进入快照与写入），fail-closed
+  months.forEach((ym) => ledger.readMonthFileStrict(ym));
+
   // 1. 迁移前快照 + 不可变字段留档
   const snap = ledger.snapshotMonths(months);
   const before = {};
   months.forEach((ym) => {
-    ledger.readMonthFile(ym).bills.forEach((b) => {
+    ledger.readMonthFileStrict(ym).bills.forEach((b) => {
       before[b.id] = {
         type: b.type,
         amountCents: b.amountCents,
@@ -74,7 +77,7 @@ function runSchemaMigration() {
     // 2. 逐月份升级（幂等；writeMonthFile 写 version=3）
     let billCount = 0;
     months.forEach((ym) => {
-      const mf = ledger.readMonthFile(ym);
+      const mf = ledger.readMonthFileStrict(ym);
       mf.bills = mf.bills.map(upgradeBillV3);
       mf.version = TARGET_VERSION;
       ledger.writeMonthFile(ym, mf);
@@ -84,7 +87,7 @@ function runSchemaMigration() {
     // 3. 校验：版本号、不可变字段一致、条数不增不减
     let afterCount = 0;
     months.forEach((ym) => {
-      const mf = ledger.readMonthFile(ym);
+      const mf = ledger.readMonthFileStrict(ym);
       if (mf.version !== TARGET_VERSION) {
         throw new Error('分片 ' + ym + ' 版本未升级到 ' + TARGET_VERSION);
       }

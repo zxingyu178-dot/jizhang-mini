@@ -19,6 +19,35 @@ function parentDir(p) {
   return i >= 0 ? p.slice(0, i) : '';
 }
 
+/** 构造带 code 的文件错误（供 strict 读取 / 上层分类处理） */
+function fileError(code, path, detail) {
+  const err = new Error(code + ': ' + path + (detail ? ' (' + detail + ')' : ''));
+  err.code = code;
+  err.filePath = path;
+  if (detail) err.detail = detail;
+  return err;
+}
+
+/**
+ * 严格读 JSON（写路径 / 完整性扫描用）：
+ *   文件不存在 / 读失败 → 抛 FILE_MISSING / FILE_READ_FAILED；
+ *   JSON 解析失败 → 抛 FILE_CORRUPT（绝不静默返回 fallback，避免「损坏被当空数据覆盖」）。
+ */
+function readJSONStrict(path) {
+  let txt;
+  try {
+    txt = getFS().readFileSync(path, 'utf8');
+  } catch (e) {
+    if (!exists(path)) throw fileError('FILE_MISSING', path);
+    throw fileError('FILE_READ_FAILED', path, e.message || String(e));
+  }
+  try {
+    return JSON.parse(txt);
+  } catch (e) {
+    throw fileError('FILE_CORRUPT', path, e.message || String(e));
+  }
+}
+
 /** 文件或目录是否存在 */
 function exists(path) {
   try {
@@ -105,6 +134,8 @@ module.exports = {
   exists,
   ensureDir,
   readJSON,
+  readJSONStrict,
+  fileError,
   writeJSON,
   readText,
   writeText,

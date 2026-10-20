@@ -139,10 +139,11 @@ function commitImport(session, opts) {
       groups[ym].push(b);
     });
 
-    // 3. 逐月份写（先读后并）
+    // 3. 逐月份写（严格读：先对全部目标月预检，损坏月整批中止并回滚，绝不覆盖）
     const months = Object.keys(groups).sort();
+    months.forEach((ym) => ledger.readMonthFileStrict(ym));
     months.forEach((ym) => {
-      const mf = ledger.readMonthFile(ym);
+      const mf = ledger.readMonthFileStrict(ym);
       // 必须经 createBill 补全 id / createdAt / updatedAt 等必需字段；
       // 直接写 toLedgerBill 结果会让所有导入账单缺少 id，导致无法编辑 / 跨月 / 迁移。
       mf.bills = mf.bills.concat(groups[ym].map((b) => ledger.createBill(toLedgerBill(b, batchId))));
