@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * scripts/release-check.js — v0.8.0 / G8 发布前一次性检查（Release Check）
  *

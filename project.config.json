@@ -7,8 +7,10 @@
       { "value": "README.md", "type": "file" },
       { "value": "package.json", "type": "file" },
       { "value": "package-lock.json", "type": "file" },
+      { "value": "debug.log", "type": "file" },
       { "value": "docs", "type": "folder" },
-      { "value": "tests", "type": "folder" }
+      { "value": "tests", "type": "folder" },
+      { "value": "scripts", "type": "folder" }
     ],
     "include": []
   },
