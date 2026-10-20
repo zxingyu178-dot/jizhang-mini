@@ -2,6 +2,7 @@
 // 分类管理：系统分类（只读）/ 我的分类（可编辑、归档）/ 添加分类 / 已归档（可恢复）。
 // 新增、编辑只需图标（Emoji）+ 名称（1-8 字、不可重名）。
 const device = require('../../utils/device');
+const viewport = require('../../utils/viewport');
 const store = require('../../data/index');
 
 const NAME_MAX = 8;
@@ -30,6 +31,17 @@ Page({
       headerHeight: info.headerHeight,
     });
     this.load();
+    // 键盘收起/窗口恢复后，重新设置布局高度（v0.8.1 防白条/上移）
+    this._offRecover = viewport.onRecover((vinfo) => {
+      this.setData({
+        windowHeight: vinfo.windowHeight,
+        statusBarHeight: vinfo.statusBarHeight,
+        headerHeight: vinfo.headerHeight,
+      });
+    });
+  },
+  onUnload() {
+    if (this._offRecover) this._offRecover();
   },
   onShow() {
     this.load();

@@ -1,6 +1,7 @@
 .dp-page {
   position: relative;
   width: 100%;
+  background: var(--bg);
 }
 .dp-bg {
   position: absolute;

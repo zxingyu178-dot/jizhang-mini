@@ -17,12 +17,12 @@ const WS_ENDPOINT = `ws://127.0.0.1:${AUTO_PORT}`;
 const HOME_ROUTE = '/pages/main/main';
 
 // 等待 IDE 自动化端口就绪的最长时间（首次启动 IDE 较慢）。
-const LAUNCH_TIMEOUT_MS = Number(process.env.E2E_LAUNCH_TIMEOUT || 120000);
+const LAUNCH_TIMEOUT_MS = Number(process.env.E2E_LAUNCH_TIMEOUT || 180000);
 
 // 端口连通后，等待小程序「首页编译完成、页面栈非空」的最长时间。
 // 关键：9420 端口监听 ≠ 小程序就绪。首次冷启动时 IDE 先开端口，再编译项目；
 // 若在首页就绪前发 reLaunch/navigateTo，会打断首屏加载，导致页面栈永久为空、模拟器黑屏。
-const READY_TIMEOUT_MS = Number(process.env.E2E_READY_TIMEOUT || 90000);
+const READY_TIMEOUT_MS = Number(process.env.E2E_READY_TIMEOUT || 120000);
 
 // 截图最终归档目录（项目内，用于提交 git / HANDOFF 引用）。统一带 _simulator 后缀，
 // 与真机截图区分。

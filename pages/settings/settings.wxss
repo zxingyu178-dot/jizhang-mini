@@ -1,6 +1,7 @@
 .settings-page {
   position: relative;
   width: 100%;
+  background: var(--bg);
 }
 .settings-bg {
   position: absolute;

@@ -13,6 +13,12 @@ App({
   onLaunch() {
     // 纯本地账本：建目录、默认分类/设置、无损迁移旧 jm_records / Bill V1→V2。
     // 无登录、无网络、无 OpenID，账单仅保存在设备本地。
+    // 全局启动键盘/窗口恢复监听（v0.8.1 Android 键盘白条保险）。
+    try {
+      require('./utils/viewport').start();
+    } catch (e) {
+      /* 忽略，不影响启动 */
+    }
     const store = require('./data/index');
     const dv = require('./data/daily-value/index');
     this.$store = store;

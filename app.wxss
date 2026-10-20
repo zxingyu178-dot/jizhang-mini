@@ -83,7 +83,7 @@ page {
   /* 玻璃层级：页面底 / 卡片 / 底部弹层 / 输入框 */
   --glass-page: var(--bg);
   --glass-card: var(--card-bg);
-  --glass-sheet: linear-gradient(180deg, rgba(124, 134, 255, 0.16) 0%, rgba(124, 134, 255, 0) 240rpx), linear-gradient(180deg, rgba(26, 30, 54, 0.90) 0%, rgba(14, 18, 36, 0.92) 100%);
+  --glass-sheet: linear-gradient(180deg, rgba(124, 134, 255, 0.16) 0%, rgba(124, 134, 255, 0) 240rpx), linear-gradient(180deg, rgba(26, 30, 54, 0.97) 0%, rgba(14, 18, 36, 0.98) 100%);
   --glass-input: rgba(255, 255, 255, 0.06);
   --glass-input-border: rgba(255, 255, 255, 0.12);
 

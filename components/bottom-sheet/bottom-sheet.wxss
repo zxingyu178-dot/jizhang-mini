@@ -11,14 +11,14 @@
   pointer-events: none;
 }
 
-/* 遮罩：降低不透明度，让背景主页仍隐约可见 */
+/* 遮罩：后景保留紫黑氛围，但遮到正文不可辨认（v0.8.1 真机收口） */
 .bs-mask {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.34);
+  background: rgba(0, 0, 0, 0.42);
   opacity: 0;
   transition: opacity 0.28s ease;
 }

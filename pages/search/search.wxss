@@ -1,6 +1,7 @@
 .search-page {
   position: relative;
   width: 100%;
+  background: var(--bg);
 }
 .search-bg {
   position: absolute;

@@ -6,7 +6,8 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.8.0（Release Hardening & RC：发布前最后一个大阶段，**不新增业务功能，继续冻结 Bill V3 / Recurring Store V1 / Budget V1 数据合同**）。新增 G1 严格月份读取（损坏 / shape 错 / 版本不支持的月份分片 fail-closed，禁止被空文件覆盖）、G2 恢复前 Raw Backup Validator（不再让 createBill 先偷偷修非法值）、G3 显式 Backup V1→V2→V3 迁移管线、G4 存储完整性扫描（manifest/categories/settings/recurring/months 区分 missing/corrupt）、G5 重复 ID 检测（Bill/Recurring/Category/BudgetRule）、G6 数据损坏安全模式（启动检测到异常进入保护模式，可导出原始数据 / 创建诊断 / 从备份恢复，绝不自动清空或覆盖）、G7 灾难演练 + 升级矩阵、G8 `npm run release:check` 一次性发布检查、G9 隐私文案精确化与平台隐私指引配置清单（MessageFile/Clipboard）、G10 临时备份导出到 exports/ 自动清理（保留 3 个）+ 品牌统一为「随时随地大小记」。单测 833→1023（18 套件），另含 E2E 12 用例与性能 Gate）
+- 当前版本：0.8.1（真机 UI / 兼容性 Hotfix，**不新增业务功能**，继续冻结 Bill V3 / Recurring Store V1 / Budget V1 数据合同）。在 v0.8.0 基础上：①公共 Bottom Sheet 透明度收口（`--glass-sheet` 主体提高到 0.97/0.98、遮罩 0.42，后景保留氛围但正文不可辨认，Hero/普通玻璃卡不变）；②公共键盘生命周期（新建 `utils/keyboard.js`，关 Sheet / 返回前先收键盘再播放关闭动画或导航，含超时兜底，API 异常也不卡住）；③Android viewport 恢复（新建 `utils/viewport.js`，键盘高度归 0 / 窗口 resize 后 `device.reset()` 重测并通知页面重新 setData 布局），解决分类管理「Header 被顶走、底部白条」；④二级页根容器背景兜底（`var(--bg)`，抖动最坏露黑不露白）。新增 keyboard/viewport 单测 15 项，单测 1042→1057（20 套件）。
+- v0.8.0（Release Hardening & RC）：G1 严格月份读取（损坏 / shape 错 / 版本不支持的月份分片 fail-closed，禁止被空文件覆盖）、G2 恢复前 Raw Backup Validator（不再让 createBill 先偷偷修非法值）、G3 显式 Backup V1→V2→V3 迁移管线、G4 存储完整性扫描（manifest/categories/settings/recurring/months 区分 missing/corrupt）、G5 重复 ID 检测（Bill/Recurring/Category/BudgetRule）、G6 数据损坏安全模式（启动检测到异常进入保护模式，可导出原始数据 / 创建诊断 / 从备份恢复，绝不自动清空或覆盖）、G7 灾难演练 + 升级矩阵、G8 `npm run release:check` 一次性发布检查、G9 隐私文案精确化与平台隐私指引配置清单（MessageFile/Clipboard）、G10 临时备份导出到 exports/ 自动清理（保留 3 个）+ 品牌统一为「随时随地大小记」。另含 E2E 12 用例与性能 Gate）
 
 ## 测试
 

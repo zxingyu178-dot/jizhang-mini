@@ -49,11 +49,18 @@ async function waitForReady(mp, timeoutMs, log = () => {}) {
 }
 
 /**
- * 拉起 `cli auto`（隐藏窗口，输出收集到日志）。
- * Windows 下 spawn 必须用 shell:true（Node 安全限制：.bat 不能裸 spawn），
- * 但 shell:true 会把命令与参数「只拼接、不转义」，CLI 默认路径含空格
- * （C:\Program Files (x86)\…），不打引号会被截断成 'C:\Program' is not recognized。
- * 因此对所有含空白的命令/参数显式包双引号。
+ * 拉起 `cli auto`。
+ *
+ * Windows 踩坑（本机实测，两种 node 直 spawn 均失败）：
+ *   1) 托管 node（v24）直接 spawn cli.bat（shell:true）：IDE 子进程写
+ *      User Data\<hash>\Default\.cli 时反复 EPERM，automation 端口起不来。
+ *   2) 沙箱 node（v22）能拉起，但隐藏/无独立窗口时模拟器「不渲染首页」，
+ *      pageStack 长期为 0，waitForReady 超时。
+ * 唯一稳定方式：通过 PowerShell `Start-Process -WindowStyle Minimized` 让
+ * cli.bat 在独立、最小化窗口启动（等价人工运行 cli auto），IDE 才会完整
+ * 编译并渲染首页；之后 harness 轮询连接即可。
+ *
+ * 非 Windows 仍用 node spawn（.bat 需 shell:true，含空格路径需加引号）。
  */
 function spawnCli(config, log) {
   const args = [
@@ -62,8 +69,25 @@ function spawnCli(config, log) {
     '--auto-port', String(config.AUTO_PORT),
     '--trust-project',
   ];
-  const q = (s) => (/\s/.test(String(s)) ? `"${s}"` : String(s));
   log('启动 IDE 自动化:', config.CLI_PATH, args.join(' '));
+
+  if (process.platform === 'win32') {
+    const ps = `Start-Process -FilePath '${config.CLI_PATH}' -ArgumentList @(${args.map((a) => `'${a}'`).join(',')}) -WindowStyle Minimized`;
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const onData = (tag) => (chunk) => {
+      const s = chunk.toString().trim();
+      if (s) log(`cli[${tag}] ${s}`);
+    };
+    child.stdout.on('data', onData('out'));
+    child.stderr.on('data', onData('err'));
+    child.on('error', (e) => log('cli 启动错误: ' + e.message));
+    return child;
+  }
+
+  const q = (s) => (/\s/.test(String(s)) ? `"${s}"` : String(s));
   const child = spawn(q(config.CLI_PATH), args.map(q), {
     shell: true,
     windowsHide: true,

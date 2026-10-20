@@ -1,4 +1,5 @@
 const device = require('../../utils/device');
+const keyboard = require('../../utils/keyboard');
 
 Component({
   options: {
@@ -25,11 +26,15 @@ Component({
     onBack() {
       this.triggerEvent('back', {}, { bubbles: false, composed: false });
       const pages = getCurrentPages();
-      if (pages.length > 1) {
-        wx.navigateBack({ delta: 1 });
-      } else {
-        wx.reLaunch({ url: '/pages/main/main' });
-      }
+      const goBack = () => {
+        if (pages.length > 1) {
+          wx.navigateBack({ delta: 1 });
+        } else {
+          wx.reLaunch({ url: '/pages/main/main' });
+        }
+      };
+      // 键盘开着时先收键盘再返回，避免真机 viewport 错位（白条/上移）。
+      keyboard.hideKeyboard().then(goBack);
     },
   },
 });

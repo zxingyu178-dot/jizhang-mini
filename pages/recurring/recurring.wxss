@@ -1,6 +1,7 @@
 .rc-page {
   position: relative;
   width: 100%;
+  background: var(--bg);
 }
 .rc-bg {
   position: absolute;

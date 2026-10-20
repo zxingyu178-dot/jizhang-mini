@@ -1,6 +1,7 @@
 .bs2-page {
   position: relative;
   width: 100%;
+  background: var(--bg);
 }
 .bs2-bg {
   position: absolute;

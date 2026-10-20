@@ -2,6 +2,7 @@
 // 周期记账：规则列表（频率 / 金额 / 分类 / 下次 / 启用开关）+ 编辑器 Sheet。
 // 小程序无后台常驻：每次打开小程序时自动补齐已到期的周期账单（见 app.js）。
 const device = require('../../utils/device');
+const viewport = require('../../utils/viewport');
 const store = require('../../data/index');
 const money = require('../../data/money');
 const core = store.recurring.core;
@@ -102,6 +103,17 @@ Page({
       startDate: core.localDateKey(now),
     });
     this.load();
+    // 键盘收起/窗口恢复后重新设置布局高度（v0.8.1 防白条/上移）
+    this._offRecover = viewport.onRecover((vinfo) => {
+      this.setData({
+        windowHeight: vinfo.windowHeight,
+        statusBarHeight: vinfo.statusBarHeight,
+        headerHeight: vinfo.headerHeight,
+      });
+    });
+  },
+  onUnload() {
+    if (this._offRecover) this._offRecover();
   },
   onShow() {
     this.load();
