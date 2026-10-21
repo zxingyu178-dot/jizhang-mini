@@ -20,6 +20,7 @@ const importHistory = require('./import-history');
 const dailyValue = require('./daily-value/index');
 const budget = require('./budget/index');
 const recurring = require('./recurring/index');
+const search = require('./search/index');
 const health = require('./health');
 
 let initialized = false;
@@ -118,6 +119,14 @@ module.exports = {
   // 备份 / 恢复
   buildBackup: backup.buildBackup,
   restoreBackup: backup.restoreBackup,
+  // 高级搜索（Bill Explorer，纯函数；rangeBills 提供全部账单）
+  searchBills: function (query) {
+    return search.searchBills(ledger.rangeBills(), query, categories.getCategoryResolver());
+  },
+  groupSearchResults: function (matchedBills) {
+    return search.groupSearchResults(matchedBills, categories.getCategoryResolver());
+  },
+  buildSearchQuery: search.buildSearchQuery,
   // 数据健康体检（只读，G10）
   runHealthScan: health.runHealthScan,
   analyzeHealth: health.analyzeHealth,
@@ -142,5 +151,6 @@ module.exports = {
   dailyValue,
   budget,
   recurring,
+  search,
   health,
 };
