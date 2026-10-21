@@ -25,6 +25,8 @@ function buildWx() {
   const memFiles = new Map();
   const memDirs = new Set();
   const storage = {};
+  let sysTheme = 'dark';
+  const chromeCalls = [];
   const fsm = {
     accessSync(p) {
       if (memFiles.has(p) || memDirs.has(p)) return;
@@ -73,7 +75,13 @@ function buildWx() {
     setStorageSync: (k, v) => {
       storage[k] = v;
     },
+    getAppBaseInfo: () => ({ theme: sysTheme }),
+    onThemeChange: (cb) => { fsm.__themeCb = cb; },
+    setNavigationBarColor: (o) => chromeCalls.push(Object.assign({ kind: 'nav' }, o)),
+    setBackgroundColor: (o) => chromeCalls.push(Object.assign({ kind: 'bg' }, o)),
     __fsm: fsm,
+    __chromeCalls: chromeCalls,
+    __setSysTheme: (t) => { sysTheme = t; },
   };
 }
 
@@ -116,6 +124,46 @@ eq(diag2.integrity.ok, false, '损坏后诊断 integrity.ok=false');
 global.wx.__fsm.writeFileSync(store.paths.FILE.categories, '###bad-categories###');
 const raw3 = protection.buildRawExport();
 eq(raw3.files['categories.json'], '###bad-categories###', '损坏 categories 原始文本保留');
+
+/* ---------- 4. PROTECTION-THEME：保护模式 onShow 仍先校准主题 / 原生窗口 ---------- */
+const paths = require(path.join(ROOT, 'data', 'paths'));
+const theme = require(path.join(ROOT, 'utils', 'theme'));
+let capturedApp = null;
+global.App = (cfg) => { capturedApp = cfg; };
+delete require.cache[require.resolve(path.join(ROOT, 'app.js'))];
+require(path.join(ROOT, 'app.js'));
+const appCfg = capturedApp;
+
+// PROTECTION-THEME-01：保护模式 + system + 后台 Dark→Light（事件未送达）→ 回前台主题刷新
+theme._resetForTest();
+global.wx.__setSysTheme('dark');
+global.wx.__fsm.writeFileSync(paths.FILE.settings, JSON.stringify({ currency: '¥', theme: 'system' }));
+theme.init();
+appCfg.protection = { ok: false };
+global.wx.__setSysTheme('light'); // 模拟后台期间系统切换，onThemeChange 未下发
+global.wx.__chromeCalls.length = 0;
+appCfg.onShow();
+eq(appCfg.globalData.effectiveTheme, 'light', 'PROTECTION-THEME-01 保护模式回前台 effective=light');
+eq(theme.getEffectiveTheme(), 'light', 'PROTECTION-THEME-01 Theme Manager effective=light');
+eq(appCfg.globalData.themeMode, 'system', 'PROTECTION-THEME-01 themeMode 仍 system');
+const navLight = global.wx.__chromeCalls.filter((c) => c.kind === 'nav');
+assert(navLight.length > 0 && navLight[navLight.length - 1].frontColor === '#000000',
+  'PROTECTION-THEME-01 原生窗口重守为浅色（前景黑）');
+
+// PROTECTION-THEME-02：保护模式 + manual dark + 系统 Dark→Light → 内容不变但 Chrome 重守
+theme._resetForTest();
+global.wx.__setSysTheme('dark');
+global.wx.__fsm.writeFileSync(paths.FILE.settings, JSON.stringify({ currency: '¥', theme: 'dark' }));
+theme.init();
+appCfg.protection = { ok: false };
+global.wx.__setSysTheme('light');
+global.wx.__chromeCalls.length = 0;
+appCfg.onShow();
+eq(appCfg.globalData.effectiveTheme, 'dark', 'PROTECTION-THEME-02 手动深色内容不跟随系统（仍 dark）');
+eq(theme.getEffectiveTheme(), 'dark', 'PROTECTION-THEME-02 Theme Manager effective=dark');
+const navDark = global.wx.__chromeCalls.filter((c) => c.kind === 'nav');
+assert(navDark.length > 0 && navDark[navDark.length - 1].frontColor === '#ffffff',
+  'PROTECTION-THEME-02 原生窗口仍按深色重守（前景白）');
 
 console.log('protection tests: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
