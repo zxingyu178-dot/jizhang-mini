@@ -7,13 +7,38 @@
 const filters = require('./filters');
 const core = require('./core');
 const group = require('./group');
+const range = require('./range');
 
 /**
  * 从 URL 参数 / 页面状态构造规范化搜索 Contract（供页面与统计钻取 query 复用）。
  * 输入为松散对象，输出完整合法 query。
+ * 兼容统计钻取 URL 参数名 raw.category（等价于 contract 的 categoryId）。
+ * 支持统计钻取便捷参数 raw.month ('YYYY-MM') / raw.year (YYYY)，
+ * 命中时换算为 dateFrom / dateTo（month 优先于 year；显式 dateFrom/dateTo 不被覆盖）。
  */
 function buildSearchQuery(raw) {
-  return filters.normalizeQuery(raw);
+  raw = raw || {};
+  // URL 用 category，contract 用 categoryId：补齐后再规范化
+  const base = Object.assign({}, raw);
+  if (base.categoryId == null && raw.category != null) base.categoryId = raw.category;
+  const q = filters.normalizeQuery(base);
+  const hasExplicitRange = q.dateFrom != null || q.dateTo != null;
+  if (!hasExplicitRange) {
+    if (raw.month) {
+      const r = range.monthRange(raw.month);
+      if (r) {
+        q.dateFrom = r.dateFrom;
+        q.dateTo = r.dateTo;
+      }
+    } else if (raw.year) {
+      const r = range.yearRange(raw.year);
+      if (r) {
+        q.dateFrom = r.dateFrom;
+        q.dateTo = r.dateTo;
+      }
+    }
+  }
+  return q;
 }
 
 module.exports = {
@@ -24,4 +49,6 @@ module.exports = {
   hasAnyFilter: filters.hasAnyFilter,
   isEmptyQuery: filters.isEmptyQuery,
   dayLabel: group.dayLabel,
+  monthRange: range.monthRange,
+  yearRange: range.yearRange,
 };

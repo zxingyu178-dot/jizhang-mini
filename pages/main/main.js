@@ -24,8 +24,8 @@ Page({
     // 日价新增表单（日价 Tab 的 FAB）
     dvSheetShow: false,
     dvSheetTitle: '添加日价物品',
-    // 分类明细弹层（页面级 fixed）
-    catDetail: { show: false, title: '', items: [] },
+    // 分类明细弹层（页面级 fixed）；scope/ym/year/categoryId 供「查看全部」钻取
+    catDetail: { show: false, title: '', items: [], scope: '', categoryId: '', ym: '', year: 0 },
     // 预算日详情弹层（页面级 fixed，只读）
     dayDetail: {
       show: false,
@@ -249,12 +249,35 @@ Page({
   },
   /** 统计 Panel 请求展示某分类明细 */
   onShowCategoryDetail(e) {
-    const { title, items } = e.detail;
-    this.setData({ catDetail: { show: true, title, items } });
+    const d = e.detail;
+    this.setData({
+      catDetail: {
+        show: true,
+        title: d.title,
+        items: d.items,
+        scope: d.scope || '',
+        categoryId: d.categoryId || '',
+        ym: d.ym || '',
+        year: d.year || 0,
+      },
+    });
   },
   /** 关闭分类明细弹层 */
   onCloseCat() {
     this.setData({ 'catDetail.show': false });
+  },
+  /** 分类明细「查看全部」：带钻取条件跳到 Bill Explorer（支出分类） */
+  onTapViewAll() {
+    const c = this.data.catDetail;
+    if (!c.categoryId) return;
+    let url = '/pages/search/search?category=' + encodeURIComponent(c.categoryId) + '&type=expense';
+    if (c.scope === 'year' && c.year) {
+      url += '&year=' + c.year;
+    } else if (c.scope === 'month' && c.ym) {
+      url += '&month=' + c.ym;
+    }
+    this.setData({ 'catDetail.show': false });
+    wx.navigateTo({ url });
   },
   /** 统计 Panel 请求展示某预算日详情（只读） */
   onShowDayDetail(e) {

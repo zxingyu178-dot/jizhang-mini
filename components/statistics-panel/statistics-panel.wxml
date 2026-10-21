@@ -188,7 +188,7 @@
       <view class="glass-card chart">
         <text class="chart__title">12 个月支出趋势</text>
         <view class="chart__bars chart__bars--month">
-          <view class="bar-col" wx:for="{{monthly}}" wx:key="month">
+          <view class="bar-col bar-col--tap" wx:for="{{monthly}}" wx:key="month" data-month="{{item.month}}" bindtap="onTapMonthBar">
             <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
             <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
           </view>

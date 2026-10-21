@@ -184,6 +184,25 @@
   font-size: 24rpx;
   color: var(--text-faint);
 }
+/* 分类明细「查看全部」钻取入口 */
+.cat-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12rpx 32rpx 8rpx;
+  height: 84rpx;
+  border-radius: 20rpx;
+  background: var(--primary-tint);
+}
+.cat-more__text {
+  font-size: 27rpx;
+  color: var(--primary);
+}
+.cat-more__arrow {
+  font-size: 32rpx;
+  color: var(--primary);
+  margin-left: 8rpx;
+}
 
 /* ================= 预算日详情 ================= */
 .dayd {

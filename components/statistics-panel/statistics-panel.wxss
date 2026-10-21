@@ -135,6 +135,12 @@
   align-items: center;
   min-width: 0;
 }
+.bar-col--tap {
+  /* 年度 12 月趋势可点：点击反馈 */
+}
+.bar-col--tap:active {
+  opacity: 0.55;
+}
 .bar {
   width: 60%;
   border-radius: 8rpx 8rpx 0 0;

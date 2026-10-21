@@ -29,8 +29,8 @@ function ids(arr) {
 
 const search = require('../data/search/index');
 
-function ts(y, m, d, hh, mm) {
-  return new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+function ts(y, m, d, hh, mm, ss) {
+  return new Date(y, m - 1, d, hh || 0, mm || 0, ss || 0).getTime();
 }
 
 const bills = [
@@ -115,6 +115,58 @@ eq(q2.type, 'income', 'type=income 保留');
 eq(search.hasAnyFilter(search.buildSearchQuery({})), false, '无任何条件');
 eq(search.hasAnyFilter(search.buildSearchQuery({ type: 'expense' })), true, '有 type 条件');
 eq(search.isEmptyQuery(search.buildSearchQuery({ keyword: '' })), true, '空 keyword 视为空查询');
+
+/* ---------- J. Gate 3 时间范围纯函数 monthRange / yearRange ---------- */
+const oct = search.monthRange('2026-10');
+eq(oct.dateFrom, ts(2026, 10, 1, 0, 0), 'monthRange 10 月起点');
+eq(oct.dateTo, ts(2026, 10, 31, 23, 59, 59), 'monthRange 10 月终点（含 31 日 23:59:59）');
+const feb = search.monthRange('2026-02'); // 2026 非闰年
+eq(feb.dateTo, ts(2026, 2, 28, 23, 59, 59), 'monthRange 2 月（非闰年 28 天）');
+const febLeap = search.monthRange('2024-02'); // 2024 闰年
+eq(febLeap.dateTo, ts(2024, 2, 29, 23, 59, 59), 'monthRange 2 月（闰年 29 天）');
+eq(search.monthRange('2026-13'), null, 'monthRange 月份 13 非法');
+eq(search.monthRange('2026-1'), null, 'monthRange 月份未补零非法');
+eq(search.monthRange('abc'), null, 'monthRange 非日期字符串非法');
+eq(search.monthRange(null), null, 'monthRange null 非法');
+const yr = search.yearRange('2026');
+eq(yr.dateFrom, ts(2026, 1, 1, 0, 0), 'yearRange 起点');
+eq(yr.dateTo, ts(2026, 12, 31, 23, 59, 59), 'yearRange 终点');
+eq(search.yearRange('abc'), null, 'yearRange 非数字非法');
+eq(search.yearRange('1800'), null, 'yearRange 年份过小非法');
+eq(search.yearRange(null), null, 'yearRange null 非法');
+
+/* ---------- K. Gate 3 buildSearchQuery 钻取参数 ---------- */
+const dMonth = search.buildSearchQuery({ month: '2026-10', category: 'c-food', type: 'expense' });
+eq(dMonth.type, 'expense', '月度钻取 type 透传');
+eq(dMonth.categoryId, 'c-food', '月度钻取 category(URL) → categoryId');
+eq(dMonth.dateFrom, ts(2026, 10, 1, 0, 0), '月度钻取 dateFrom 换算');
+eq(dMonth.dateTo, ts(2026, 10, 31, 23, 59, 59), '月度钻取 dateTo 换算');
+const dYear = search.buildSearchQuery({ year: '2026', category: 'c-shopping', type: 'expense' });
+eq(dYear.dateFrom, ts(2026, 1, 1, 0, 0), '年度钻取 dateFrom 换算');
+eq(dYear.dateTo, ts(2026, 12, 31, 23, 59, 59), '年度钻取 dateTo 换算');
+eq(dYear.categoryId, 'c-shopping', '年度钻取 categoryId');
+const dBad = search.buildSearchQuery({ month: 'bad', category: 'c-food' });
+eq(dBad.dateFrom, null, '非法 month 不设置 range');
+eq(dBad.categoryId, 'c-food', '非法 month 仍保留 categoryId');
+const dExplicit = search.buildSearchQuery({ month: '2026-10', dateFrom: 1, dateTo: 2 });
+eq(dExplicit.dateFrom, 1, '显式 dateFrom/dateTo 不被 month 覆盖');
+
+/* ---------- L. Gate 3 钻取 query 与 searchBills 组合 ---------- */
+eq(
+  ids(search.searchBills(bills, search.buildSearchQuery({ month: '2026-10', category: 'c-food', type: 'expense' }), resolver)),
+  'b1,b2',
+  '月度+分类+支出钻取 → 该月该分类支出（daily-value-only b5 排除）'
+);
+eq(
+  ids(search.searchBills(bills, search.buildSearchQuery({ year: '2026', category: 'c-traffic', type: 'expense' }), resolver)),
+  'b4',
+  '年度+交通+支出钻取 → 全年交通 b4'
+);
+eq(
+  ids(search.searchBills(bills, search.buildSearchQuery({ month: '2026-09' }), resolver)),
+  'b4',
+  '仅月度钻取（点年度月柱）→ 该月全部账单'
+);
 
 /* ---------- 汇总 ---------- */
 console.log('search tests: ' + pass + ' passed, ' + fail + ' failed');

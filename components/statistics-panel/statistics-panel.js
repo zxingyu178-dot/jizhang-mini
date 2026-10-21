@@ -243,14 +243,26 @@ Component({
       const bills = store.rangeBills(this.data.ym, this.data.ym);
       const items = toCatItems(bills, catId);
       const title = (store.getCategory(catId).name || '分类') + ' · ' + this.data.monthLabel;
-      this.triggerEvent('categorydetail', { title, items });
+      // 携带钻取上下文，供弹层「查看全部」跳到 Bill Explorer
+      this.triggerEvent('categorydetail', {
+        title, items, scope: 'month', categoryId: catId, ym: this.data.ym,
+      });
     },
     onTapYearCat(e) {
       const catId = e.currentTarget.dataset.id;
       const bills = store.rangeBills(this.data.year + '-01', this.data.year + '-12');
       const items = toCatItems(bills, catId);
       const title = (store.getCategory(catId).name || '分类') + ' · ' + this.data.year + '年';
-      this.triggerEvent('categorydetail', { title, items });
+      this.triggerEvent('categorydetail', {
+        title, items, scope: 'year', categoryId: catId, year: this.data.year,
+      });
+    },
+    /** 年度 12 月趋势：点某个月柱 → Bill Explorer 该月全部账单 */
+    onTapMonthBar(e) {
+      const m = Number(e.currentTarget.dataset.month);
+      if (!m) return;
+      const ym = this.data.year + '-' + String(m).padStart(2, '0');
+      wx.navigateTo({ url: '/pages/search/search?month=' + ym });
     },
   },
 });

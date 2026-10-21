@@ -143,5 +143,10 @@
       </view>
       <view class="cat-empty" wx:if="{{!catDetail.items.length}}">该分类没有账单</view>
     </view>
+    <!-- 查看全部：带钻取条件进入 Bill Explorer -->
+    <view class="cat-more" bindtap="onTapViewAll" wx:if="{{catDetail.categoryId}}">
+      <text class="cat-more__text">查看全部</text>
+      <text class="cat-more__arrow">›</text>
+    </view>
   </bottom-sheet>
 </view>

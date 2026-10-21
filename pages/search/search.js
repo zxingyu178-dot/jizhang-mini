@@ -19,23 +19,7 @@ function ymLabel(ym) {
   const parts = ym.split('-');
   return parts[0] + '年' + Number(parts[1]) + '月';
 }
-/** 'YYYY-MM' → 该月起止时间戳 */
-function monthRange(ym) {
-  const p = ym.split('-').map(Number);
-  const y = p[0];
-  const m = p[1];
-  return {
-    from: new Date(y, m - 1, 1, 0, 0, 0).getTime(),
-    to: new Date(y, m - 1, daysInMonth(y, m), 23, 59, 59).getTime(),
-  };
-}
-/** 年份 → 该年起止时间戳 */
-function yearRange(y) {
-  return {
-    from: new Date(y, 0, 1, 0, 0, 0).getTime(),
-    to: new Date(y, 11, 31, 23, 59, 59).getTime(),
-  };
-}
+// monthRange / yearRange 已收敛为纯函数 data/search/range（经 search.monthRange 等访问）
 function currentYM(d) {
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
 }
@@ -95,28 +79,13 @@ Page({
       name: c.name,
     }));
 
-    // 解析统计钻取 URL 参数：month / year / category / type / keyword
-    const preset = {
-      type: 'all',
-      categoryId: 'all',
-      dateFrom: null,
-      dateTo: null,
-      keyword: '',
-    };
-    if (options) {
-      if (options.type === 'expense' || options.type === 'income') preset.type = options.type;
-      if (options.category) preset.categoryId = options.category;
-      if (options.keyword) preset.keyword = decodeURIComponent(options.keyword);
-      if (options.month && /^\d{4}-\d{2}$/.test(options.month)) {
-        const r = monthRange(options.month);
-        preset.dateFrom = r.from;
-        preset.dateTo = r.to;
-      } else if (options.year && /^\d{4}$/.test(options.year)) {
-        const r = yearRange(Number(options.year));
-        preset.dateFrom = r.from;
-        preset.dateTo = r.to;
-      }
+    // 解析统计钻取 URL 参数（month / year / category / type / keyword），
+    // 统一走纯函数 buildSearchQuery，month/year 自动换算为 dateFrom/dateTo
+    const rawOpts = Object.assign({}, options || {});
+    if (rawOpts.keyword) {
+      try { rawOpts.keyword = decodeURIComponent(rawOpts.keyword); } catch (e) {}
     }
+    const preset = search.buildSearchQuery(rawOpts);
 
     this.setData({
       windowHeight: info.windowHeight,
@@ -182,19 +151,19 @@ Page({
     this.finishTimePick();
   },
   pickThisYear() {
-    const r = yearRange(this.data.thisYear);
-    this.setData({ dateFrom: r.from, dateTo: r.to, customStart: '', customEnd: '' });
+    const r = search.yearRange(this.data.thisYear);
+    this.setData({ dateFrom: r.dateFrom, dateTo: r.dateTo, customStart: '', customEnd: '' });
     this.finishTimePick();
   },
   pickLastYear() {
-    const r = yearRange(this.data.thisYear - 1);
-    this.setData({ dateFrom: r.from, dateTo: r.to, customStart: '', customEnd: '' });
+    const r = search.yearRange(this.data.thisYear - 1);
+    this.setData({ dateFrom: r.dateFrom, dateTo: r.dateTo, customStart: '', customEnd: '' });
     this.finishTimePick();
   },
   pickRecentMonth(e) {
     const ym = e.currentTarget.dataset.ym;
-    const r = monthRange(ym);
-    this.setData({ dateFrom: r.from, dateTo: r.to, customStart: '', customEnd: '' });
+    const r = search.monthRange(ym);
+    this.setData({ dateFrom: r.dateFrom, dateTo: r.dateTo, customStart: '', customEnd: '' });
     this.finishTimePick();
   },
 
