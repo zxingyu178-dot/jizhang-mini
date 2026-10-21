@@ -53,14 +53,66 @@
   padding-left: 12rpx;
 }
 
-/* 结果 */
+/* ---- Filter Chips ---- */
+.s-filters {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10rpx 24rpx;
+  gap: 12rpx;
+  box-sizing: border-box;
+}
+.s-filters__row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.f-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56rpx;
+  padding: 0 28rpx;
+  border-radius: 28rpx;
+  background: var(--pill-bg);
+  border: 1rpx solid var(--pill-border);
+  color: var(--text-secondary);
+  font-size: 25rpx;
+}
+.f-chip--active {
+  background: var(--primary-tint);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.f-chip--wide {
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+  padding: 0 24rpx;
+  gap: 8rpx;
+}
+.f-chip__text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- 结果 ---- */
 .s-results {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
 }
-/* 空态（empty-state 组件）顶部留白 */
+.s-section-label {
+  padding: 16rpx 32rpx 12rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
 .s-search-empty {
   display: block;
   width: 100%;
@@ -99,17 +151,115 @@
   display: flex;
   flex-direction: column;
   margin: 0 16rpx;
+  min-width: 0;
+}
+.bill-item__nameline {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
 .bill-item__name {
   font-size: 28rpx;
   color: var(--text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bill-item__badge {
+  flex-shrink: 0;
+  font-size: 19rpx;
+  color: var(--text-faint);
+  background: var(--pill-bg);
+  border: 1rpx solid var(--pill-border);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+  line-height: 1.4;
 }
 .bill-item__note {
   font-size: 22rpx;
   color: var(--text-faint);
   margin-top: 4rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .bill-item__amount {
   font-size: 28rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ---- Sheet 内选择列表 ---- */
+.pick-list {
+  padding: 8rpx 24rpx 24rpx;
+}
+.pick-item {
+  display: flex;
+  align-items: center;
+  height: 92rpx;
+  padding: 0 24rpx;
+  border-radius: 20rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+.pick-item--muted {
+  color: var(--text-secondary);
+}
+.pick-item__emoji {
+  font-size: 32rpx;
+  margin-right: 16rpx;
+  line-height: 1;
+}
+.pick-item__name {
+  font-size: 28rpx;
+}
+.pick-divider {
+  height: 1rpx;
+  background: var(--divider);
+  margin: 16rpx 8rpx;
+}
+.pick-title {
+  font-size: 24rpx;
+  color: var(--text-faint);
+  padding: 8rpx 24rpx 12rpx;
+}
+.pick-dates {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 0 8rpx;
+}
+.pick-date {
+  flex: 1;
+  min-width: 0;
+}
+.pick-date__inner {
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+.pick-date__ph {
+  color: var(--text-faint);
+}
+.pick-date__sep {
+  color: var(--text-faint);
+  font-size: 24rpx;
+}
+.pick-confirm {
+  margin-top: 24rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 44rpx;
+  background: var(--button-primary);
+  color: #fff;
+  font-size: 30rpx;
   font-weight: 600;
 }

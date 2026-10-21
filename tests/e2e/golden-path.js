@@ -379,13 +379,16 @@ module.exports = async function goldenPath(ctx) {
     ctx.ok(cur.path.indexOf('pages/main') >= 0, '恢复预算后返回主页');
   });
 
-  // ---------------- T09 搜索（input focus：仅 DOM 断言，不截图） ----------------
-  await ctx.test('T09 搜索：初始空态 + 无结果空态', async () => {
+  // ---------------- T09 搜索（Bill Explorer：无筛选=最近账单，无匹配=空态） ----------------
+  await ctx.test('T09 搜索：最近账单 + 无结果空态', async () => {
     const page = await ctx.goto('/pages/search/search', '.s-results');
     let d = await page.data();
+    // 初始无筛选：显示「最近账单」（不是空态）
     ctx.eq(d.kw, '', '初始无关键词');
-    ctx.eq(d.groups.length, 0, '初始无结果');
-    ctx.ok((await page.$$('empty-state')).length >= 1, '初始引导空态渲染');
+    ctx.eq(d.showRecent, true, '初始显示最近账单');
+    ctx.ok(d.resultCount > 0, '最近账单非空');
+    ctx.ok((await page.$$('.s-section-label')).length >= 1, '最近账单标签渲染');
+    ctx.ok((await page.$$('empty-state')).length === 0, '初始无空态');
 
     // 输入一个确定不存在的关键词
     await page.callMethod('onInput', { detail: { value: 'ZZ_NO_MATCH_QX_999' } });
@@ -393,13 +396,16 @@ module.exports = async function goldenPath(ctx) {
     d = await page.data();
     ctx.eq(d.kw, 'ZZ_NO_MATCH_QX_999', '关键词已更新');
     ctx.eq(d.groups.length, 0, '无匹配结果');
+    ctx.eq(d.showRecent, false, '非最近账单态');
     ctx.ok((await page.$$('empty-state')).length >= 1, '无结果空态渲染');
 
-    // 清空恢复
+    // 清空恢复「最近账单」
     await page.callMethod('onClear');
     await sleep(200);
     d = await page.data();
     ctx.eq(d.kw, '', '清空后关键词为空');
+    ctx.eq(d.showRecent, true, '清空恢复最近账单');
+    ctx.ok(d.resultCount > 0, '最近账单恢复');
   });
 
   // ---------------- T10 快速记账新增 ----------------

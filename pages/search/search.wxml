@@ -9,11 +9,10 @@
       <dv-icon class="s-input__icon" name="search" size="16" tone="faint"></dv-icon>
       <input
         class="s-input__field"
-        placeholder="搜索商户、备注、分类"
+        placeholder="搜索商户、备注、分类或金额"
         placeholder-class="s-input__ph"
         value="{{kw}}"
         bindinput="onInput"
-        focus="{{true}}"
         confirm-type="search"
       />
       <view class="s-input__clear" wx:if="{{kw}}" bindtap="onClear">
@@ -22,21 +21,35 @@
     </view>
   </page-header>
 
+  <!-- 两行轻 Filter Chip -->
+  <view class="s-filters" style="top:{{headerHeight}}px;height:{{filtersHeight}}px;">
+    <view class="s-filters__row">
+      <view class="f-chip {{type==='all'?'f-chip--active':''}}" data-type="all" bindtap="onTypeTap">全部</view>
+      <view class="f-chip {{type==='expense'?'f-chip--active':''}}" data-type="expense" bindtap="onTypeTap">支出</view>
+      <view class="f-chip {{type==='income'?'f-chip--active':''}}" data-type="income" bindtap="onTypeTap">收入</view>
+    </view>
+    <view class="s-filters__row">
+      <view class="f-chip f-chip--wide {{dateFrom?'f-chip--active':''}}" bindtap="openTimeSheet">
+        <text class="f-chip__text">{{timeLabel}}</text>
+        <dv-icon name="chevronDown" size="14" tone="secondary"></dv-icon>
+      </view>
+      <view class="f-chip f-chip--wide {{categoryId!=='all'?'f-chip--active':''}}" bindtap="openCatSheet">
+        <text class="f-chip__text">{{catLabel}}</text>
+        <dv-icon name="chevronDown" size="14" tone="secondary"></dv-icon>
+      </view>
+    </view>
+  </view>
+
   <!-- 结果区 -->
-  <scroll-view scroll-y class="s-results" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+  <scroll-view scroll-y class="s-results" style="top:{{resultsTop}}px;" enhanced show-scrollbar="{{false}}">
+    <view class="s-section-label" wx:if="{{showRecent}}">最近账单</view>
+
     <empty-state
-      wx:if="{{!kw}}"
-      class="s-search-empty"
-      icon="search"
-      title="搜索账单"
-      desc="输入关键词，可搜索商户、备注或分类"
-    />
-    <empty-state
-      wx:if="{{kw && groups.length === 0}}"
+      wx:if="{{!showRecent && resultCount === 0}}"
       class="s-search-empty"
       icon="empty"
-      title="没有找到“{{kw}}”相关账单"
-      desc="换个关键词试试"
+      title="没有符合条件的账单"
+      desc="调整一下关键词或筛选条件"
     />
 
     <block wx:for="{{groups}}" wx:key="label">
@@ -54,7 +67,10 @@
         >
           <text class="bill-item__emoji">{{r.emoji}}</text>
           <view class="bill-item__main">
-            <text class="bill-item__name">{{r.name}}</text>
+            <view class="bill-item__nameline">
+              <text class="bill-item__name">{{r.name}}</text>
+              <text class="bill-item__badge" wx:if="{{r.sourceBadge}}">{{r.sourceBadge}}</text>
+            </view>
             <text class="bill-item__note" wx:if="{{r.note}}">{{r.note}}</text>
           </view>
           <text class="bill-item__amount {{r.isExpense ? 'money-expense' : 'money-income'}}">{{r.amountText}}</text>
@@ -63,7 +79,45 @@
     </block>
   </scroll-view>
 
-  <!-- 编辑弹层 -->
+  <!-- 时间筛选 Sheet -->
+  <bottom-sheet show="{{timeSheetShow}}" title="时间" bind:close="onTimeSheetClose">
+    <view class="pick-list">
+      <view class="pick-item" bindtap="pickAllTime">全部时间</view>
+      <view class="pick-item" bindtap="pickThisYear">{{thisYear}}年</view>
+      <view class="pick-item" bindtap="pickLastYear">{{thisYear - 1}}年</view>
+      <view class="pick-item pick-item--muted" wx:for="{{recentMonths}}" wx:key="ym" data-ym="{{item.ym}}" bindtap="pickRecentMonth">{{item.label}}</view>
+
+      <view class="pick-divider"></view>
+      <view class="pick-title">自定义日期</view>
+      <view class="pick-dates">
+        <picker mode="date" value="{{customStart}}" bindchange="onStartDate" class="pick-date">
+          <view class="pick-date__inner">
+            <text class="{{customStart?'':'pick-date__ph'}}">{{customStart || '开始日期'}}</text>
+          </view>
+        </picker>
+        <text class="pick-date__sep">至</text>
+        <picker mode="date" value="{{customEnd}}" bindchange="onEndDate" class="pick-date">
+          <view class="pick-date__inner">
+            <text class="{{customEnd?'':'pick-date__ph'}}">{{customEnd || '结束日期'}}</text>
+          </view>
+        </picker>
+      </view>
+      <view class="pick-confirm" bindtap="applyCustomRange">确定</view>
+    </view>
+  </bottom-sheet>
+
+  <!-- 分类筛选 Sheet -->
+  <bottom-sheet show="{{catSheetShow}}" title="分类" bind:close="onCatSheetClose">
+    <view class="pick-list">
+      <view class="pick-item" data-id="all" bindtap="pickCategory">全部分类</view>
+      <view class="pick-item pick-item--muted" wx:for="{{catList}}" wx:key="id" data-id="{{item.id}}" bindtap="pickCategory">
+        <text class="pick-item__emoji">{{item.emoji}}</text>
+        <text class="pick-item__name">{{item.name}}</text>
+      </view>
+    </view>
+  </bottom-sheet>
+
+  <!-- 账单编辑弹层 -->
   <bottom-sheet show="{{sheetShow}}" title="账单详情" bind:close="onSheetClose">
     <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillSaved" />
   </bottom-sheet>
