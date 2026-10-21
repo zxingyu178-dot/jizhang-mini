@@ -50,6 +50,8 @@ let _mode = DEFAULT_MODE;
 let _effective = 'dark';
 let _started = false;
 let _listeners = [];
+// Native Chrome Guard 监听者（系统主题变化时，手动模式下重守原生窗口颜色）。
+let _chromeListeners = [];
 
 function snapshot() {
   return {
@@ -72,6 +74,21 @@ function emit() {
   });
 }
 
+/**
+ * 触发 Native Chrome Guard：系统主题变化时，即使 App 为手动模式（内容不跟随），
+ * 微信原生 Chrome（状态栏 / 页面背景 / 切换动画）也可能被系统重置，
+ * 通知 app 重新按当前 effectiveTheme 守住原生窗口颜色；内容主题不变。
+ */
+function emitChrome() {
+  _chromeListeners.slice().forEach((cb) => {
+    try {
+      cb(_effective);
+    } catch (e) {
+      /* 忽略单回调异常 */
+    }
+  });
+}
+
 /** 初始化：读取 settings.theme（文件缺失/损坏 → dark），监听系统主题。幂等。 */
 function init() {
   if (_started) return snapshot();
@@ -87,11 +104,15 @@ function init() {
   if (wx.onThemeChange) {
     wx.onThemeChange((res) => {
       const sys = res && res.theme === 'light' ? 'light' : 'dark';
-      // 仅 system 模式跟随系统；手动 dark/light 不被系统改变。
-      if (_mode !== 'system') return;
-      if (sys === _effective) return;
-      _effective = sys;
-      emit();
+      // system 模式：内容跟随系统变化。
+      if (_mode === 'system') {
+        if (sys === _effective) return;
+        _effective = sys;
+        emit();
+      } else {
+        // 手动 dark/light：内容不跟随，但原生 Chrome 可能被系统重置，重守一次。
+        emitChrome();
+      }
     });
   }
   _started = true;
@@ -105,6 +126,19 @@ function subscribe(cb) {
   return function off() {
     const i = _listeners.indexOf(cb);
     if (i >= 0) _listeners.splice(i, 1);
+  };
+}
+
+/**
+ * 订阅 Native Chrome Guard：系统主题变化（手动模式）时回调，
+ * 由 app 重新 syncChrome。返回取消函数。
+ */
+function onChromeNeed(cb) {
+  if (typeof cb !== 'function') return function off() {};
+  _chromeListeners.push(cb);
+  return function off() {
+    const i = _chromeListeners.indexOf(cb);
+    if (i >= 0) _chromeListeners.splice(i, 1);
   };
 }
 
@@ -142,6 +176,28 @@ function setThemeMode(mode) {
 }
 
 /**
+ * 从磁盘 settings.theme 重新加载（备份恢复 / settings 被外部覆盖后调用）：
+ * 重新读取 → 归一 → 重算 effective → 变化时通知。
+ * 不重新注册系统主题监听，也不依赖 init 是否已完成（恢复场景下通常已 init）。
+ * 用于「恢复了一个浅色备份，当前 App 立即变浅色，无需重启」。
+ */
+function reloadFromStorage() {
+  let raw = null;
+  try {
+    raw = fs.readJSON(paths.FILE.settings, null);
+  } catch (e) {
+    raw = null;
+  }
+  const next = normalizeMode(raw && raw.theme);
+  const prevMode = _mode;
+  const prevEffective = _effective;
+  _mode = next;
+  _effective = computeEffective(next);
+  if (_effective !== prevEffective || next !== prevMode) emit();
+  return snapshot();
+}
+
+/**
  * 绑定页面：自动 setData({ themeMode, effectiveTheme, themeClass }) 并订阅变更，
  * 页面根容器写 class="xxx-page {{themeClass}}" 即可继承整套 CSS 变量。
  * 返回取消函数，在页面 onUnload 调用。
@@ -169,6 +225,7 @@ function _resetForTest() {
   _mode = DEFAULT_MODE;
   _effective = 'dark';
   _listeners = [];
+  _chromeListeners = [];
 }
 
 module.exports = {
@@ -178,10 +235,12 @@ module.exports = {
   getSystemTheme,
   init,
   subscribe,
+  onChromeNeed,
   getThemeMode,
   getEffectiveTheme,
   getThemeClass,
   setThemeMode,
+  reloadFromStorage,
   bindPage,
   _resetForTest,
 };

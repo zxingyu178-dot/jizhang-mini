@@ -20,6 +20,7 @@ const recurringStore = require('./recurring/store');
 const backupValidator = require('./backup-validator');
 const backupMigration = require('./backup-migration');
 const health = require('./health');
+const theme = require('../utils/theme');
 const { APP_VERSION } = require('../utils/version');
 
 const FORMAT = 'daily-value-mini-backup';
@@ -114,6 +115,10 @@ function restoreBackup(input, options) {
       warningCount = report.warnings.length;
     }
 
+    // 7. 同步 Theme Manager：恢复覆盖了 settings.theme（如深色→浅色），
+    //    立即从磁盘重新加载并通知，当前 App 即时切换，无需重启。
+    theme.reloadFromStorage();
+
     return {
       restored: result.total,
       months: result.months,
@@ -136,6 +141,8 @@ function rollback(safetyPath) {
   fs.writeJSON(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
   fs.writeJSON(paths.FILE.settings, saved.data.settings || settings.DEFAULT_SETTINGS);
   recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
+  // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。
+  theme.reloadFromStorage();
 }
 
 module.exports = {

@@ -103,13 +103,13 @@ function classify(color, whiteSelector) {
   return { ok: false, reason: '无法解析的颜色写法' };
 }
 
-function listFiles(dir) {
+function listFiles(dir, extSet) {
   const out = [];
   nodeFs.readdirSync(dir).forEach((name) => {
     const full = nodePath.join(dir, name);
     const st = nodeFs.statSync(full);
-    if (st.isDirectory()) out.push(...listFiles(full));
-    else if (SCAN_EXT.has(nodePath.extname(name))) out.push(full);
+    if (st.isDirectory()) out.push(...listFiles(full, extSet));
+    else if (extSet.has(nodePath.extname(name))) out.push(full);
   });
   return out;
 }
@@ -168,14 +168,64 @@ console.log('==== Theme Hardcoded Color Audit ====');
 SCAN_DIRS.forEach((d) => {
   const dir = nodePath.join(ROOT, d);
   if (!nodeFs.existsSync(dir)) return;
-  listFiles(dir).forEach(auditFile);
+  listFiles(dir, SCAN_EXT).forEach(auditFile);
+});
+
+/* ============ Theme-sensitive JS 白名单检查（WARN，不 FAIL） ============
+ * 直接颜色（尤其白色）只允许出现在主题定义 / 原生窗口 / 图标 / 曲线调色板等少数 JS：
+ *   app.js（syncChrome）、utils/theme.js、components/icon/icon.js、
+ *   components/daily-value-curve/daily-value-curve.js
+ * 其它 JS 若出现白色硬编码（#fff/#ffffff/rgb(255,255,255...)），在浅色主题可能
+ * 不可见，给 WARN 提醒迁到 token / 主题调色板（不阻断发布，故不 FAIL）。
+ * 不扩大到扫描所有颜色：业务红绿、Canvas 调色板等合理直接色会造成误报。
+ */
+const JS_WHITELIST = new Set([
+  'app.js',
+  'utils/theme.js',
+  'components/icon/icon.js',
+  'components/daily-value-curve/daily-value-curve.js',
+]);
+const JS_SCAN_DIRS = ['utils', 'components', 'pages', 'packages'];
+const JS_EXT = new Set(['.js']);
+// 仅检测白色（浅色主题最易失效）；不检测业务色，避免误报。
+const JS_WHITE_HEX = /#(?:fff|ffffff)\b/gi;
+const JS_WHITE_RGB = /rgba?\(\s*255\s*,\s*255\s*,\s*255[^)]*\)/gi;
+
+let totalJsWarnings = 0;
+
+function auditJsFile(file) {
+  const rel = nodePath.relative(ROOT, file).split(nodePath.sep).join('/');
+  if (JS_WHITELIST.has(rel)) return;
+  const content = nodeFs.readFileSync(file, 'utf8');
+  const whites = [];
+  let m;
+  JS_WHITE_HEX.lastIndex = 0;
+  while ((m = JS_WHITE_HEX.exec(content))) whites.push(m[0]);
+  JS_WHITE_RGB.lastIndex = 0;
+  while ((m = JS_WHITE_RGB.exec(content))) whites.push(m[0]);
+  if (whites.length) {
+    totalJsWarnings++;
+    console.log(
+      '  [WARN] ' + rel + '  白色硬编码 ' + whites.slice(0, 3).join('、') +
+        ' — 浅色主题可能不可见，建议迁到 token / 主题调色板'
+    );
+  }
+}
+
+JS_SCAN_DIRS.forEach((d) => {
+  const dir = nodePath.join(ROOT, d);
+  if (!nodeFs.existsSync(dir)) return;
+  listFiles(dir, JS_EXT).forEach(auditJsFile);
 });
 
 console.log('\n-------------------- 汇总 --------------------');
-console.log('白名单直接色：' + totalAllowed + ' 处；违规：' + totalFailures + ' 处。');
+console.log(
+  '白名单直接色：' + totalAllowed + ' 处；违规(FAIL)：' + totalFailures +
+    ' 处；JS 白色提醒(WARN)：' + totalJsWarnings + ' 处。'
+);
 if (totalFailures > 0) {
   console.error('主题审计未通过：请把上述硬编码颜色改为 Design Token（或确认后加入白名单）。');
   process.exit(1);
 }
-console.log('主题审计通过：未发现非白名单硬编码颜色。');
+console.log('主题审计通过：未发现非白名单硬编码颜色' + (totalJsWarnings > 0 ? '（存在 ' + totalJsWarnings + ' 项 JS WARN，不阻断发布）' : '') + '。');
 process.exit(0);

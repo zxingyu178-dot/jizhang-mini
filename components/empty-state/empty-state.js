@@ -11,7 +11,6 @@ Component({
     desc: { type: String, value: '' },
     actionText: { type: String, value: '' }, // 空则不显示动作按钮
     iconSize: { type: Number, value: 34 },
-    iconColor: { type: String, value: 'rgba(255,255,255,0.40)' },
     compact: { type: Boolean, value: false }, // 紧凑版：不显示圆底图标、更小内边距（用于卡片 / Hero 内）
     primary: { type: Boolean, value: false }, // 动作用主色实底（首次引导主 CTA），否则为淡紫描边
   },

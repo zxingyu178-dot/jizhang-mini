@@ -74,6 +74,11 @@ App({
         this.globalData.effectiveTheme = s2.effectiveTheme;
         this.syncChrome(s2.effectiveTheme);
       });
+      // Native Chrome Guard：系统主题变化但 App 为手动模式时，内容不跟随，
+      // 但原生 Chrome 可能被系统重置，按当前 effectiveTheme 重新守住窗口颜色。
+      theme.onChromeNeed((eff) => {
+        this.syncChrome(eff);
+      });
     } catch (e) {
       console.warn('主题初始化失败，使用深色', e);
     }

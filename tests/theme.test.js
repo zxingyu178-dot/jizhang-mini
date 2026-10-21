@@ -20,6 +20,11 @@
  *   ICON-THEME-01 dark secondary 图标色
  *   ICON-THEME-02 light secondary 图标色
  *   HEADER-BACK-01 返回键双击只导航一次
+ *   THEME-16~18 恢复 light/system/dark 后 Theme Manager 即时同步（不重启）
+ *   THEME-19 本地非法 theme ensureSettings 后 canonical dark 落盘
+ *   THEME-20 规范化后 buildBackup 可被自身 validator 接受
+ *   THEME-RELOAD-01 reloadFromStorage 重读磁盘并通知
+ *   CHROME-GUARD-01/02 手动模式触发 chrome guard / system 模式内容跟随
  *
  * 运行：node tests/theme.test.js
  */
@@ -109,6 +114,7 @@ const validator = require(path.join(ROOT, 'data', 'backup-validator'));
 /** 重置为「全新安装 + 指定 settings」并 init；settings=null 表示无文件。 */
 function freshInit(settings) {
   global.wx = buildWx();
+  themeCbs.length = 0; // 新 wx 下旧系统主题回调已失效，清空避免累积
   theme._resetForTest();
   if (settings) fsApi.writeJSON(paths.FILE.settings, settings);
   return theme.init();
@@ -259,6 +265,91 @@ async function run() {
   hd.onBack();
   await sleep(30);
   eq(navCount, 1, 'HEADER-BACK-01 快速双击只执行一次 navigateBack');
+
+  /* ============================================================
+   * v0.9.1：恢复主题同步 / Settings 规范化 / Native Chrome Guard
+   * ============================================================ */
+
+  /* ---- THEME-16 恢复 light backup，Theme Manager 立即 light（不重启） ---- */
+  sysTheme = 'dark';
+  theme.setThemeMode('dark');
+  const bk16 = backup.buildBackup();
+  bk16.data.settings.theme = 'light';
+  let calls16 = 0;
+  const off16 = theme.subscribe(() => calls16++);
+  backup.restoreBackup(bk16);
+  eq(theme.getThemeMode(), 'light', 'THEME-16 恢复后 mode light');
+  eq(theme.getEffectiveTheme(), 'light', 'THEME-16 恢复后 effective light');
+  eq(calls16, 1, 'THEME-16 订阅页面即时收到更新');
+  off16();
+
+  /* ---- THEME-17 恢复 system backup，mode 立即 system ---- */
+  sysTheme = 'dark';
+  theme.setThemeMode('dark');
+  const bk17 = backup.buildBackup();
+  bk17.data.settings.theme = 'system';
+  backup.restoreBackup(bk17);
+  eq(theme.getThemeMode(), 'system', 'THEME-17 恢复后 mode system');
+  eq(theme.getEffectiveTheme(), 'dark', 'THEME-17 系统深色 effective dark');
+
+  /* ---- THEME-18 恢复 dark backup，订阅页面立即 dark ---- */
+  sysTheme = 'dark';
+  theme.setThemeMode('light');
+  const bk18 = backup.buildBackup();
+  bk18.data.settings.theme = 'dark';
+  let calls18 = 0;
+  const off18 = theme.subscribe(() => calls18++);
+  backup.restoreBackup(bk18);
+  eq(theme.getThemeMode(), 'dark', 'THEME-18 恢复后 mode dark');
+  eq(theme.getEffectiveTheme(), 'dark', 'THEME-18 恢复后 effective dark');
+  eq(calls18, 1, 'THEME-18 订阅页面即时收到更新');
+  off18();
+
+  /* ---- THEME-19 本地非法 theme，ensureSettings 后 canonical dark 并落盘 ---- */
+  fsApi.writeJSON(paths.FILE.settings, { currency: '¥', theme: 'blue' });
+  const ens19 = store.settings.ensureSettings();
+  eq(ens19.theme, 'dark', 'THEME-19 ensureSettings 规范化 theme dark');
+  eq(fsApi.readJSON(paths.FILE.settings, null).theme, 'dark', 'THEME-19 磁盘非法 theme 已修正 dark');
+  eq(store.settings.getSettings().theme, 'dark', 'THEME-19 getSettings 返回规范化 dark');
+
+  /* ---- THEME-20 规范化后 buildBackup 可被自身 validator 接受 ---- */
+  fsApi.writeJSON(paths.FILE.settings, { currency: '¥', theme: 'blue' });
+  store.settings.ensureSettings();
+  const bk20 = backup.buildBackup();
+  const vr20 = validator.validateBackupRaw(bk20);
+  assert(vr20.ok, 'THEME-20 规范化后生成的备份可被自身 validator 接受');
+  assert(!vr20.errors.some((e) => e.code === 'backup-settings-theme-invalid'), 'THEME-20 不应报 theme 非法');
+
+  /* ---- THEME-RELOAD-01 reloadFromStorage 重新读取磁盘并通知 ---- */
+  theme.setThemeMode('dark');
+  fsApi.writeJSON(paths.FILE.settings, { currency: '¥', theme: 'light' });
+  let callsR = 0;
+  const offR = theme.subscribe(() => callsR++);
+  theme.reloadFromStorage();
+  eq(theme.getThemeMode(), 'light', 'RELOAD-01 reload 后 mode light');
+  eq(theme.getEffectiveTheme(), 'light', 'RELOAD-01 reload 后 effective light');
+  eq(callsR, 1, 'RELOAD-01 reload 即时通知订阅');
+  offR();
+
+  /* ---- CHROME-GUARD-01 手动模式系统变化：内容不变，触发 chrome guard ---- */
+  theme.setThemeMode('light');
+  let chromeN = 0;
+  let chromeEff = null;
+  const offC = theme.onChromeNeed((eff) => { chromeN++; chromeEff = eff; });
+  themeCbs.forEach((cb) => cb({ theme: 'dark' }));
+  eq(chromeN, 1, 'CHROME-GUARD-01 手动模式系统变化触发一次 guard');
+  eq(chromeEff, 'light', 'CHROME-GUARD-01 guard 回传当前 effective light');
+  eq(theme.getEffectiveTheme(), 'light', 'CHROME-GUARD-01 内容主题不变仍 light');
+  offC();
+
+  /* ---- CHROME-GUARD-02 system 模式系统变化：内容跟随，不触发 chrome guard ---- */
+  theme.setThemeMode('system');
+  let chromeN2 = 0;
+  const offC2 = theme.onChromeNeed(() => chromeN2++);
+  themeCbs.forEach((cb) => cb({ theme: 'light' }));
+  eq(chromeN2, 0, 'CHROME-GUARD-02 system 模式不触发 chrome guard');
+  eq(theme.getEffectiveTheme(), 'light', 'CHROME-GUARD-02 system 内容跟随 light');
+  offC2();
 
   /* ---- 汇总 ---- */
   console.log('\ntheme tests: ' + pass + ' passed, ' + fail + ' failed');

@@ -1,6 +1,6 @@
 {
   "name": "jizhang-mini",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "随时随地大小记：微信原生小程序本地记账，无后端、无网络请求、无需登录，账单保存在本机 USER_DATA_PATH（按月分片），支持微信/支付宝/DailyValue 账单导入、日价与预算节奏分析。",
   "main": "app.js",
   "directories": {
