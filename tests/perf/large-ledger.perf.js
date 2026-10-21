@@ -53,6 +53,13 @@ function buildWx() {
       return memFiles.get(p);
     },
     writeFileSync(p, data) { memFiles.set(p, String(data)); },
+    // 微信 renameSync：目标已存在则失败（错误码 1301005），不做覆盖。
+    renameSync(oldPath, newPath) {
+      if (!memFiles.has(oldPath)) throw new Error('ENOENT ' + oldPath);
+      if (memFiles.has(newPath)) throw new Error('file already exists ' + newPath);
+      memFiles.set(newPath, memFiles.get(oldPath));
+      memFiles.delete(oldPath);
+    },
     unlinkSync(p) {
       if (!memFiles.has(p)) throw new Error('ENOENT');
       memFiles.delete(p);

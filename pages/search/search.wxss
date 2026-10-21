@@ -259,7 +259,7 @@
   justify-content: center;
   border-radius: 44rpx;
   background: var(--button-primary);
-  color: #fff;
+  color: var(--button-primary-text);
   font-size: 30rpx;
   font-weight: 600;
 }
