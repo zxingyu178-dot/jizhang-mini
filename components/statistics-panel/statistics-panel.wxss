@@ -271,6 +271,63 @@
   margin-top: 8rpx;
 }
 
+/* 年度回顾三项（Gate 5） */
+.yr-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--divider);
+}
+.yr-row:last-child {
+  border-bottom: none;
+}
+.yr-row:active {
+  opacity: 0.6;
+}
+.yr-row__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.yr-row__label {
+  font-size: 22rpx;
+  color: var(--text-faint);
+}
+.yr-row__sub {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 8rpx;
+  min-width: 0;
+}
+.yr-row__emoji {
+  font-size: 26rpx;
+  margin-right: 10rpx;
+  line-height: 1;
+}
+.yr-row__subtext {
+  font-size: 27rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.yr-row__val {
+  font-size: 28rpx;
+  font-weight: 700;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+.yr-row__arrow {
+  font-size: 40rpx;
+  color: var(--text-faint);
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
 .sta__bottom {
   height: 40rpx;
 }

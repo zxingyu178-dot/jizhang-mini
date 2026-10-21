@@ -225,6 +225,39 @@
         </view>
       </view>
 
+      <!-- 年度回顾：最大单笔 / 记录最多分类 / 最常消费月份（可点击钻取） -->
+      <view class="glass-card chart" wx:if="{{yrLargest || yrTopCat || yrTopMonth}}">
+        <text class="chart__title">年度回顾</text>
+        <view class="yr-row" wx:if="{{yrLargest}}" bindtap="onTapYrLargest">
+          <view class="yr-row__main">
+            <text class="yr-row__label">最大单笔支出</text>
+            <view class="yr-row__sub">
+              <text class="yr-row__subtext">{{yrLargest.dateLabel}} · {{yrLargest.title}}</text>
+            </view>
+          </view>
+          <text class="yr-row__val money-expense">{{yrLargest.amountText}}</text>
+        </view>
+        <view class="yr-row" wx:if="{{yrTopCat}}" bindtap="onTapYrTopCat">
+          <view class="yr-row__main">
+            <text class="yr-row__label">记录最多的分类</text>
+            <view class="yr-row__sub">
+              <text class="yr-row__emoji">{{yrTopCat.emoji}}</text>
+              <text class="yr-row__subtext">{{yrTopCat.name}} · {{yrTopCat.count}}笔</text>
+            </view>
+          </view>
+          <text class="yr-row__arrow">›</text>
+        </view>
+        <view class="yr-row" wx:if="{{yrTopMonth}}" bindtap="onTapYrTopMonth">
+          <view class="yr-row__main">
+            <text class="yr-row__label">最常消费月份</text>
+            <view class="yr-row__sub">
+              <text class="yr-row__subtext">{{yrTopMonth.label}} · {{yrTopMonth.count}}笔</text>
+            </view>
+          </view>
+          <text class="yr-row__arrow">›</text>
+        </view>
+      </view>
+
       <!-- 12 个月趋势 -->
       <view class="glass-card chart">
         <text class="chart__title">12 个月支出趋势</text>

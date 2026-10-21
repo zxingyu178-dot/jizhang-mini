@@ -87,6 +87,11 @@ Component({
     crMaxEnd: '2099-12-31',
     crStats: null, // {expense, income, balance, count}
     crInvalid: false, // 开始晚于结束
+    // 年度回顾再补三项（Gate 5）
+    yrLargest: null, // {dateLabel, title, amountText}
+    yrLargestId: '',
+    yrTopCat: null, // {name, emoji, count}
+    yrTopMonth: null, // {label, count}
   },
   lifetimes: {
     attached() {
@@ -230,6 +235,26 @@ Component({
         ...x,
         centsText: money.formatCents(x.cents),
       }));
+      // 年度回顾再补三项（Gate 5）
+      const largestBill = Y.findLargestExpense(bills);
+      let yrLargest = null;
+      let yrLargestId = '';
+      if (largestBill) {
+        const ld = new Date(largestBill.occurredAt);
+        const lcat = resolveCategory(largestBill.categoryId);
+        yrLargest = {
+          dateLabel: ld.getMonth() + 1 + '月' + ld.getDate() + '日',
+          title: largestBill.title || largestBill.merchant || lcat.name || '支出',
+          amountText: '¥' + money.formatCents(largestBill.amountCents),
+        };
+        yrLargestId = largestBill.id;
+      }
+      const topCat = Y.findMostRecordedCategory(bills, resolveCategory);
+      const yrTopCat = topCat
+        ? { categoryId: topCat.categoryId, name: topCat.name, emoji: topCat.emoji, count: topCat.count }
+        : null;
+      const topMonth = Y.findMostActiveMonth(bills);
+      const yrTopMonth = topMonth ? { label: topMonth.month + '月', month: topMonth.month, count: topMonth.count } : null;
       this.setData({
         year,
         canNextYear: year < new Date().getFullYear(),
@@ -242,6 +267,10 @@ Component({
         lowest: ext.lowest ? ext.lowest.month + '月 · ¥' + money.formatCents(ext.lowest.expense) : '—',
         monthly,
         yearRank,
+        yrLargest,
+        yrLargestId,
+        yrTopCat,
+        yrTopMonth,
       });
     },
     onPrevYear() {
@@ -250,6 +279,29 @@ Component({
     onNextYear() {
       if (!this.data.canNextYear) return;
       this.loadYear(this.data.year + 1);
+    },
+    /* ---------- 年度回顾三项点击（Gate 5） ---------- */
+    /** 最大单笔支出：直接打开该账单编辑（交由 main 复用 bill-form） */
+    onTapYrLargest() {
+      if (!this.data.yrLargestId) return;
+      this.triggerEvent('openbill', { id: this.data.yrLargestId });
+    },
+    /** 记录最多分类：钻取该年 + 该分类（Bill Explorer） */
+    onTapYrTopCat() {
+      const c = this.data.yrTopCat;
+      if (!c) return;
+      wx.navigateTo({
+        url: '/pages/search/search?year=' + this.data.year + '&category=' + c.categoryId,
+      });
+    },
+    /** 最常消费月份：钻取该月（Bill Explorer） */
+    onTapYrTopMonth() {
+      const m = this.data.yrTopMonth;
+      if (!m) return;
+      const mm = String(m.month).padStart(2, '0');
+      wx.navigateTo({
+        url: '/pages/search/search?month=' + this.data.year + '-' + mm,
+      });
     },
     /** 空态：前往预算设置页 */
     onBudgetSettings() {

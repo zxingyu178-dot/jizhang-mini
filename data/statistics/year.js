@@ -89,9 +89,74 @@ function computeExpenseExtremes(bills, year) {
   return { highest, lowest };
 }
 
+/**
+ * 最大单笔支出：金额最大的支出账单；同金额取 occurredAt 最早（确定性）。
+ * @returns {Object|null} 原始账单
+ */
+function findLargestExpense(bills) {
+  let largest = null;
+  (bills || []).forEach((b) => {
+    if (!month.inLedger(b) || b.type === 'income') return;
+    if (
+      !largest ||
+      b.amountCents > largest.amountCents ||
+      (b.amountCents === largest.amountCents && b.occurredAt < largest.occurredAt)
+    ) {
+      largest = b;
+    }
+  });
+  return largest;
+}
+
+/**
+ * 记录最多的分类：按所有计入账本记录（含收入）的笔数；
+ * 同笔数取 categoryId 字典序最小（确定性）。
+ * @returns {{categoryId,name,emoji,count}|null}
+ */
+function findMostRecordedCategory(bills, resolveCategory) {
+  const counts = {};
+  (bills || []).forEach((b) => {
+    if (!month.inLedger(b)) return;
+    const c = b.categoryId || 'c-other';
+    counts[c] = (counts[c] || 0) + 1;
+  });
+  let best = null;
+  Object.keys(counts).forEach((k) => {
+    const cnt = counts[k];
+    if (!best || cnt > best.count || (cnt === best.count && k < best.categoryId)) {
+      const cat = resolveCategory ? resolveCategory(k) : { name: k, emoji: '' };
+      best = { categoryId: k, name: cat.name || '其他', emoji: cat.emoji || '', count: cnt };
+    }
+  });
+  return best;
+}
+
+/**
+ * 最常消费月份：按所有计入账本记录（含收入）的笔数；
+ * 同笔数取月份最小（确定性）。
+ * @returns {{month:number,count:number}|null}
+ */
+function findMostActiveMonth(bills) {
+  const counts = new Array(12).fill(0);
+  (bills || []).forEach((b) => {
+    if (!month.inLedger(b)) return;
+    const mi = new Date(b.occurredAt).getMonth();
+    if (mi >= 0 && mi < 12) counts[mi] += 1;
+  });
+  let best = null;
+  for (let i = 0; i < 12; i++) {
+    if (counts[i] <= 0) continue;
+    if (!best || counts[i] > best.count) best = { month: i + 1, count: counts[i] };
+  }
+  return best;
+}
+
 module.exports = {
   computeYearOverview,
   computeMonthlyTrend,
   computeYearCategoryRanking,
   computeExpenseExtremes,
+  findLargestExpense,
+  findMostRecordedCategory,
+  findMostActiveMonth,
 };

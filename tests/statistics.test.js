@@ -237,5 +237,55 @@ console.log('自定义日期范围统计（Gate 4）');
   eq(s6.count, 0, '空账单 0 笔');
 }
 
+console.log('年度回顾三项（Gate 5）');
+{
+  // 最大单笔支出：normal 支出中最大 = 9月1日 餐饮 50；999 日价单/100 收入均排除
+  const largest = Y.findLargestExpense(yearBills);
+  assert(largest !== null, '最大单笔非 null');
+  eq(largest.amountCents, 5000, '最大单笔 = 50.00（非 999 日价单）');
+  eq(largest.id, sep[0].id, '最大单笔 = 9月1日那笔');
+  eq(Y.findLargestExpense([]), null, '空账单最大单笔 = null');
+  // 同金额取 occurredAt 最早
+  const tieL = [
+    bill('expense', 30, 2026, 5, 1, 'c-a'),
+    bill('expense', 30, 2026, 3, 1, 'c-b'),
+  ];
+  eq(Y.findLargestExpense(tieL).id, tieL[1].id, '同金额取最早（3月1日）');
+
+  // 记录最多分类：餐饮 3 笔（含 9 月 1 笔）；收入计入、日价单不计
+  const tc = Y.findMostRecordedCategory(yearBills, resolveCat);
+  assert(tc !== null, '记录最多分类非 null');
+  eq(tc.categoryId, 'c-food', '记录最多分类 = 餐饮');
+  eq(tc.count, 3, '餐饮 3 笔');
+  eq(tc.name, '餐饮', '分类名解析 = 餐饮');
+  eq(tc.emoji, '🍚', '分类 emoji 解析');
+  eq(Y.findMostRecordedCategory([]), null, '空账单记录最多分类 = null');
+  // 无 resolver：name 回退为 categoryId
+  eq(
+    Y.findMostRecordedCategory([bill('expense', 1, 2026, 1, 1, 'c-x')], null).name,
+    'c-x',
+    '无 resolver 时 name 回退 categoryId'
+  );
+  // 同笔数取 categoryId 字典序最小
+  const tieC = [
+    bill('expense', 1, 2026, 1, 1, 'c-b'),
+    bill('expense', 1, 2026, 1, 2, 'c-a'),
+  ];
+  eq(Y.findMostRecordedCategory(tieC, null).categoryId, 'c-a', '同笔数取 categoryId 最小');
+
+  // 最常消费月份：10 月 5 笔（含收入）；9 月 1 笔
+  const tm = Y.findMostActiveMonth(yearBills);
+  assert(tm !== null, '最常消费月份非 null');
+  eq(tm.month, 10, '最常消费月份 = 10 月');
+  eq(tm.count, 5, '10 月 5 笔（日价单不计）');
+  eq(Y.findMostActiveMonth([]), null, '空账单最常消费月份 = null');
+  // 同笔数取月份最小
+  const tieM = [
+    bill('expense', 1, 2026, 3, 1, 'c-a'),
+    bill('expense', 1, 2026, 5, 1, 'c-a'),
+  ];
+  eq(Y.findMostActiveMonth(tieM).month, 3, '同笔数取月份最小（3 月）');
+}
+
 console.log('\nstatistics tests: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

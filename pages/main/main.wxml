@@ -60,7 +60,7 @@
     easing-function="easeOut"
   >
     <swiper-item>
-      <statistics-panel id="statisticsPanel" bind:categorydetail="onShowCategoryDetail" bind:daydetail="onShowDayDetail" />
+      <statistics-panel id="statisticsPanel" bind:categorydetail="onShowCategoryDetail" bind:daydetail="onShowDayDetail" bind:openbill="onTapBill" />
     </swiper-item>
     <swiper-item>
       <accounting-panel id="accountingPanel" bind:tapbill="onTapBill" />
