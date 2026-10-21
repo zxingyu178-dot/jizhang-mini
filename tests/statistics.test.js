@@ -21,6 +21,7 @@ function eq(actual, expected, msg) {
 
 const M = require('../data/statistics/month');
 const Y = require('../data/statistics/year');
+const R = require('../data/statistics/range');
 
 /** 虚构账单（amount 为元，内部转分） */
 function bill(type, amount, y, mo, d, cat, ledger) {
@@ -198,6 +199,42 @@ console.log('空账本 / 无 resolver 兜底');
   // 全年无支出 → 极值为 null
   const e = Y.computeExpenseExtremes([], 2026);
   assert(e.highest === null && e.lowest === null, '无支出年极值为 null');
+}
+
+console.log('自定义日期范围统计（Gate 4）');
+{
+  // 跨月范围：10月1日 ~ 10月10日，只含 10.00+20.00+5.00 = 35.00（日价单、15日收入、20日购物均排除）
+  const from = new Date(2026, 9, 1, 0, 0, 0).getTime();
+  const to = new Date(2026, 9, 10, 23, 59, 59).getTime();
+  const s = R.computeRangeStats(yearBills, from, to);
+  eq(s.expense, 3500, '范围支出 35.00');
+  eq(s.income, 0, '范围内无收入');
+  eq(s.balance, -3500, '范围结余 -35.00');
+  eq(s.count, 3, '范围 3 笔');
+  // 含端点：10月1日当天
+  const s2 = R.computeRangeStats(
+    oct,
+    new Date(2026, 9, 1, 0, 0, 0).getTime(),
+    new Date(2026, 9, 1, 23, 59, 59).getTime()
+  );
+  eq(s2.expense, 1000, 'dateFrom/dateTo 均含端点（1 日 10.00）');
+  // 跨月范围：9月1日 ~ 10月15日，含 9月50 + 10月35 + 100收入
+  const s3 = R.computeRangeStats(
+    yearBills,
+    new Date(2026, 8, 1, 0, 0, 0).getTime(),
+    new Date(2026, 9, 15, 23, 59, 59).getTime()
+  );
+  eq(s3.expense, 8500, '跨月支出 50+35=85.00');
+  eq(s3.income, 10000, '跨月含 15 日收入 100.00');
+  // 仅起点：dateTo=null
+  const s4 = R.computeRangeStats(oct, new Date(2026, 9, 10, 0, 0, 0).getTime(), null);
+  eq(s4.expense, 4500, '仅起点（10 日起）→ 10 日交通 5 + 20 日购物 40 = 45.00（日价单排除）');
+  // 无范围：null/null → 全部
+  const s5 = R.computeRangeStats(yearBills, null, null);
+  eq(s5.expense, 12500, '无范围限制 → 全年支出 125.00');
+  // 空账单
+  const s6 = R.computeRangeStats([], null, null);
+  eq(s6.count, 0, '空账单 0 笔');
 }
 
 console.log('\nstatistics tests: ' + pass + ' passed, ' + fail + ' failed');

@@ -6,6 +6,7 @@ const money = require('../../data/money');
 const util = require('../../utils/util');
 const M = require('../../data/statistics/month');
 const Y = require('../../data/statistics/year');
+const R = require('../../data/statistics/range');
 
 function currentYM() {
   const d = new Date();
@@ -15,6 +16,16 @@ function shiftYM(ym, delta) {
   const [y, m] = ym.split('-').map(Number);
   const d = new Date(y, m - 1 + delta, 1);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+/** 'YYYY-MM-DD' → 当日 00:00:00 时间戳 */
+function dayStart(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0).getTime();
+}
+/** 'YYYY-MM-DD' → 当日 23:59:59 时间戳 */
+function dayEnd(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59).getTime();
 }
 
 // 柱区可用高度（rpx）：容器高 - 标签高 - 少量顶部间隙。固定值，避免 height:% 解析问题。
@@ -69,6 +80,13 @@ Component({
     lowest: '',
     monthly: [],
     yearRank: [],
+    // 自定义日期统计（月度区域）
+    crStart: '',
+    crEnd: '',
+    crMaxStart: '2099-12-31',
+    crMaxEnd: '2099-12-31',
+    crStats: null, // {expense, income, balance, count}
+    crInvalid: false, // 开始晚于结束
   },
   lifetimes: {
     attached() {
@@ -120,6 +138,14 @@ Component({
       //  存在过规则 → 规则历史逐天取数（无预算日格子灰色）。
       const today = util.formatDate(new Date());
       const hasBudgetRules = store.getBudgetState().rules.length > 0;
+      // 自定义日期统计：首次默认当月 1 日 ~ 今天，之后保留用户选择
+      let crStart = this.data.crStart;
+      let crEnd = this.data.crEnd;
+      if (!crStart || !crEnd) {
+        crStart = ym + '-01';
+        crEnd = today;
+      }
+      const cr = this.buildCustomRange(crStart, crEnd);
       let budgetCalendar = null;
       let pace = [];
       if (hasBudgetRules) {
@@ -153,7 +179,38 @@ Component({
         budgetCalendar,
         budgetEmpty: !hasBudgetRules,
         pace,
+        crStart,
+        crEnd,
+        crStats: cr.crStats,
+        crInvalid: cr.crInvalid,
       });
+    },
+    /* ---------- 自定义日期统计 ---------- */
+    /** 由起止日期字符串计算范围统计；开始晚于结束 → 无效（不偷偷交换） */
+    buildCustomRange(crStart, crEnd) {
+      if (!crStart || !crEnd) return { crStats: null, crInvalid: false };
+      // 'YYYY-MM-DD' 字典序即时间序，可直接比较
+      if (crStart > crEnd) return { crStats: null, crInvalid: true };
+      const stats = R.computeRangeStats(store.rangeBills(), dayStart(crStart), dayEnd(crEnd));
+      return {
+        crStats: {
+          expense: money.formatCents(stats.expense),
+          income: money.formatCents(stats.income),
+          balance: money.formatCents(stats.balance),
+          count: stats.count,
+        },
+        crInvalid: false,
+      };
+    },
+    onCrStart(e) {
+      const crStart = e.detail.value;
+      const cr = this.buildCustomRange(crStart, this.data.crEnd);
+      this.setData({ crStart, crStats: cr.crStats, crInvalid: cr.crInvalid });
+    },
+    onCrEnd(e) {
+      const crEnd = e.detail.value;
+      const cr = this.buildCustomRange(this.data.crStart, crEnd);
+      this.setData({ crEnd, crStats: cr.crStats, crInvalid: cr.crInvalid });
     },
     onPrevMonth() {
       this.loadMonth(shiftYM(this.data.ym, -1));

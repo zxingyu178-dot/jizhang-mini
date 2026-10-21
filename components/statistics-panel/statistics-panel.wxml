@@ -134,6 +134,47 @@
           <text class="cmp-val money-income">¥{{cmp.income}}</text>
         </view>
       </view>
+
+      <!-- 自定义日期统计 -->
+      <view class="glass-card chart">
+        <text class="chart__title">自定义日期统计</text>
+        <view class="cr-pickers">
+          <picker mode="date" value="{{crStart}}" end="{{crMaxStart}}" bindchange="onCrStart" class="cr-picker">
+            <view class="cr-picker__box">
+              <text class="cr-picker__label">开始</text>
+              <text class="cr-picker__value">{{crStart}}</text>
+            </view>
+          </picker>
+          <text class="cr-sep">至</text>
+          <picker mode="date" value="{{crEnd}}" end="{{crMaxEnd}}" bindchange="onCrEnd" class="cr-picker">
+            <view class="cr-picker__box">
+              <text class="cr-picker__label">结束</text>
+              <text class="cr-picker__value">{{crEnd}}</text>
+            </view>
+          </picker>
+        </view>
+        <view class="cr-invalid" wx:if="{{crInvalid}}">
+          <text class="cr-invalid__text">开始日期不能晚于结束日期</text>
+        </view>
+        <view class="cr-stats" wx:if="{{crStats}}">
+          <view class="cr-stat">
+            <text class="cr-stat__label">支出</text>
+            <text class="cr-stat__value money-expense">¥{{crStats.expense}}</text>
+          </view>
+          <view class="cr-stat">
+            <text class="cr-stat__label">收入</text>
+            <text class="cr-stat__value money-income">¥{{crStats.income}}</text>
+          </view>
+          <view class="cr-stat">
+            <text class="cr-stat__label">结余</text>
+            <text class="cr-stat__value">{{crStats.balance}}</text>
+          </view>
+          <view class="cr-stat">
+            <text class="cr-stat__label">账单数</text>
+            <text class="cr-stat__value">{{crStats.count}} 笔</text>
+          </view>
+        </view>
+      </view>
     </block>
 
     <!-- ================= 年度 ================= -->
