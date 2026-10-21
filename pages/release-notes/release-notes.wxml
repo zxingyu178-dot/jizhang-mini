@@ -1,0 +1,24 @@
+<view class="rn-page {{themeClass}}" style="height:{{windowHeight}}px;">
+  <view class="rn-bg">
+    <view class="rn-bg__glow"></view>
+  </view>
+
+  <!-- 统一二级页 Header -->
+  <page-header title="更新日志"></page-header>
+
+  <scroll-view scroll-y class="rn-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
+    <view class="rn-rel" wx:for="{{releases}}" wx:key="version">
+      <view class="rn-rel__head">
+        <text class="rn-rel__version">v{{item.version}}</text>
+        <text class="rn-rel__title">{{item.title}}</text>
+      </view>
+      <view class="glass-card rn-card">
+        <view class="rn-item" wx:for="{{item.items}}" wx:for-item="line" wx:key="*this">
+          <text class="rn-item__dot">·</text>
+          <text class="rn-item__text">{{line}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="rn-bottom"></view>
+  </scroll-view>
+</view>

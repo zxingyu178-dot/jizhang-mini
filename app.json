@@ -9,7 +9,8 @@
     "pages/budget-settings/budget-settings",
     "pages/category-manage/category-manage",
     "pages/recurring/recurring",
-    "pages/daily-value-detail/detail"
+    "pages/daily-value-detail/detail",
+    "pages/release-notes/release-notes"
   ],
   "darkmode": true,
   "themeLocation": "theme.json",

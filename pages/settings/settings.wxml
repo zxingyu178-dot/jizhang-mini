@@ -64,6 +64,10 @@
         <text class="row__label">版本</text>
         <text class="row__val">{{version}}</text>
       </view>
+      <view class="row" bindtap="onReleaseNotes">
+        <text class="row__label">更新日志</text>
+        <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>
+      </view>
       <view class="row row--last" bindtap="onPrivacy">
         <text class="row__label">数据与隐私</text>
         <dv-icon name="chevronRight" size="20" tone="faint"></dv-icon>

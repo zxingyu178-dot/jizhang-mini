@@ -1,0 +1,78 @@
+.rn-page {
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+}
+.rn-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--bg-gradient);
+}
+.rn-bg__glow {
+  position: absolute;
+  top: -120rpx;
+  left: -100rpx;
+  width: 500rpx;
+  height: 500rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--hero-glow) 0%, transparent 70%);
+}
+
+/* 滚动区 */
+.rn-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.rn-rel {
+  margin: 24rpx 28rpx 0;
+}
+.rn-rel__head {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  margin: 0 8rpx 14rpx;
+}
+.rn-rel__version {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-right: 16rpx;
+}
+.rn-rel__title {
+  font-size: 24rpx;
+  color: var(--text-faint);
+}
+.rn-card {
+  padding: 8rpx 24rpx;
+}
+.rn-item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--divider);
+}
+.rn-item:last-child {
+  border-bottom: none;
+}
+.rn-item__dot {
+  font-size: 26rpx;
+  color: var(--primary);
+  margin-right: 14rpx;
+  line-height: 1.5;
+}
+.rn-item__text {
+  flex: 1;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.rn-bottom {
+  height: 40rpx;
+}

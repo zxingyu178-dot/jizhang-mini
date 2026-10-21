@@ -87,6 +87,11 @@ Page({
     wx.navigateTo({ url: '/pages/backup-restore/backup-restore' });
   },
 
+  /** 更新日志（二级页） */
+  onReleaseNotes() {
+    wx.navigateTo({ url: '/pages/release-notes/release-notes' });
+  },
+
   /** 数据与隐私（二级页） */
   onPrivacy() {
     wx.navigateTo({ url: '/pages/data-privacy/data-privacy' });
