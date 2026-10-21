@@ -153,26 +153,30 @@ function getThemeClass() {
 }
 
 /**
- * 设置主题模式：归一 → 重算 effective → 持久化 → 变化时通知。
+ * 设置主题模式（用户主动选择）：**先持久化 settings.json，写成功后才更新内存并通知**。
  * 持久化时保留 settings 其它字段（currency/budget），只更新 theme。
+ * 写失败：内存保持旧主题、不 emit（不假成功），返回 { ok:false }，由 UI 提示重试。
+ * 成功：返回 { ok:true, ...snapshot }。
  */
 function setThemeMode(mode) {
   const next = normalizeMode(mode);
-  const prevMode = _mode;
-  const prevEffective = _effective;
-  _mode = next;
-  _effective = computeEffective(next);
+  // 1) 先写磁盘；失败则保持旧主题，绝不「视觉成功、磁盘失败」。
   try {
     const settings = fs.readJSON(paths.FILE.settings, null) || {};
     settings.theme = next;
     fs.writeJSON(paths.FILE.settings, settings);
   } catch (e) {
-    /* 持久化失败不阻断内存生效（下次启动再尝试） */
+    return Object.assign({ ok: false }, snapshot());
   }
+  // 2) 写成功后才更新内存。
+  const prevMode = _mode;
+  const prevEffective = _effective;
+  _mode = next;
+  _effective = computeEffective(next);
   // mode 变化也必须通知：例如 light → system（系统恰为浅色）时 effective 不变，
   // 但选中对勾需从「浅色」移到「跟随系统」，页面 data.themeMode 也要更新。
   if (_effective !== prevEffective || next !== prevMode) emit();
-  return snapshot();
+  return Object.assign({ ok: true }, snapshot());
 }
 
 /**
@@ -194,6 +198,23 @@ function reloadFromStorage() {
   _mode = next;
   _effective = computeEffective(next);
   if (_effective !== prevEffective || next !== prevMode) emit();
+  return snapshot();
+}
+
+/**
+ * 前台重新校准系统主题（app.onShow 最前面调用）：
+ *   - mode !== 'system'：什么都不做（手动主题不跟随系统），直接返回当前快照；
+ *   - mode === 'system'：重新读取系统主题，与当前 effective 比较，有变化才更新并 emit。
+ * 用于补偿「小程序在后台期间系统切换外观、微信未及时下发 onThemeChange」的场景，
+ * 与实时 onThemeChange、冷启动 init 三条路径全部闭环。
+ */
+function refreshSystemTheme() {
+  if (_mode !== 'system') return snapshot();
+  const sys = getSystemTheme();
+  if (sys !== _effective) {
+    _effective = sys;
+    emit();
+  }
   return snapshot();
 }
 
@@ -241,6 +262,7 @@ module.exports = {
   getThemeClass,
   setThemeMode,
   reloadFromStorage,
+  refreshSystemTheme,
   bindPage,
   _resetForTest,
 };

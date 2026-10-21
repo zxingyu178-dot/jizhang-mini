@@ -11,7 +11,7 @@
 
 | 层级 | 工具 | 命令 | 覆盖什么 | 谁来跑 |
 | --- | --- | --- | --- | --- |
-| ① 纯逻辑单测（主力） | Node 原生断言 | `npm test` | 预算/分类/周期/导入/日价/统计/健康体检等所有数据口径与边界，**833 项 / 11 套件** | 每次改动必跑，CI 友好 |
+| ① 纯逻辑单测（主力） | Node 原生断言 | `npm test` | 预算/分类/周期/导入/日价/统计/健康体检等所有数据口径与边界（套件 / 用例数以命令实际输出为准） | 每次改动必跑，CI 友好 |
 | ② GUI 自动化（本 harness） | miniprogram-automator | `npm run e2e` | 页面渲染、数据绑定、交互闭环（增/改/停用/删）、自动截图 | 每次版本、改 UI 后 |
 | ③ 真机 Gate（人工） | 真实微信 Android/iOS | 按版本 `DEVICE_GATE` | Canvas 曲线、毛玻璃 Bottom Sheet 穿字、性能、触控、安全区 | **用户本人**，助手不代签 |
 
@@ -35,7 +35,7 @@ npm run e2e
 
 1. 若 9420 端口已有自动化实例 → 直接复用；
 2. 若没有 → 自动拉起微信开发者工具 `cli auto`（隐藏窗口），等待端口监听并等首页编译就绪；
-3. 顺序跑黄金路径 12 个用例（T01–T12），每个用例自动断言，子页自动截图；
+3. 顺序跑黄金路径用例（T01–T18，含主题 Golden Path），每个用例自动断言，子页自动截图；
 4. 断开连接后，把截图从项目外暂存目录复制到 `docs/screenshots/e2e/`；
 5. 退出码：全绿 `0`，有失败 `1`。
 
@@ -70,7 +70,7 @@ tests/e2e/
 ├── config.js       # 路径/端口/超时/CLI 解析/截图目录，支持环境变量覆盖
 ├── launcher.js     # 幂等启动/复用 IDE：ensureAutomation / waitForReady / spawnCli
 ├── helpers.js      # Ctx 测试上下文：导航、等待、断言、标准截图
-├── golden-path.js  # 黄金路径 12 个用例（T01–T12，数据 + UI 绑定 + 子页截图）
+├── golden-path.js  # 黄金路径用例（T01–T18，数据 + UI 绑定 + 主题路径 + 子页截图）
 └── run.js          # 一键入口：连接 → 跑用例 → 收集日志 → 归档截图 → 退出码
 ```
 
@@ -90,10 +90,16 @@ tests/e2e/
 | T10 快速记账新增 | FAB → 金额/备注 → 保存，新账单进入时间线（DOM 断言） |
 | T11 快速记账编辑 | 点开回填 → 改 56.78 → 重开断言；删除清理（mock showModal） |
 | T12 日价新增 | 切日价 Tab → 建日价物品 → 进列表 → 详情整单删除（按 `item.name` 定位） |
+| T13 打开外观 | 设置入口 → appearance 三选一（幂等开头先确保深色） |
+| T14 深色 → 浅色 | 选择浅色即时生效 |
+| T15 浅色主页 | 根 class 切换为 theme-light |
+| T16 浅色设置页 | 外观提示更新 |
+| T17 浅色记一笔 Sheet | 浅色 Sheet 不穿字，随后关闭 |
+| T18 跟随系统 | 选择 system 并持久化，结尾恢复深色 |
 
 > 主页三态（预算 Hero / 快速记账结果 / 日价 Tab）是常驻 main 上的状态，截图会帧冻结（见坑 7），T08/T10/T12 **只做 DOM 断言不截图**；真实视觉留档用独立冷启动脚本（见坑 7）。
 >
-> 产出：`docs/screenshots/e2e/e2e_*_simulator.png`（8 张**子页**：main / settings / category_manage / recurring_weekly_sunday / disabled / enabled / edit / empty）。
+> 产出：`docs/screenshots/e2e/e2e_*_simulator.png`（深色子页 main / settings / category_manage / recurring_*，以及浅色 appearance / main / settings / quick_entry 等）。
 
 ---
 

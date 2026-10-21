@@ -6,10 +6,8 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：0.9.1（Theme Real-device Closure & Release Candidate，真机主题收口与发布候选，**不新增业务功能、不升级数据合同**，Bill V3 / Recurring Store V1 / Budget V1 / Backup V3 继续冻结）。①P0 新增 `theme.reloadFromStorage()`：备份恢复 / 回滚覆盖 settings 后，立即从磁盘重读并通知，恢复什么主题当前 App 就即时切换，无需重启（`backup.restoreBackup` 成功前、`rollback` 后均接入）；②Settings 主题规范化：`ensureSettings()` 在完整性扫描通过后把磁盘非法 theme（如 `blue`）规范为 dark 并落盘，`getSettings/updateSettings` 同步保证，Theme Manager / Settings / Backup / Validator 四者口径一致，杜绝「自己生成的备份含非法 theme 又被自己拒绝恢复」；启动前只读阶段仍不写文件（fail-closed）；③Native Chrome Guard：系统主题变化时手动模式内容不跟随，但 `onChromeNeed` 触发 `app.syncChrome` 重守可能被系统重置的原生窗口（状态栏 / 页面背景 / 切换动画）；④`theme:audit` 增加 theme-sensitive JS 白名单 WARN（仅 app.js / utils/theme.js / icon / curve 调色板允许直接色，其余 JS 白色硬编码 WARN 不阻断），并删除 empty-state 未使用的白色残留属性。新增 THEME-16~20、RELOAD、CHROME-GUARD 用例（21 项断言），单测 1085→1106（21 套件），E2E 18/18、perf、release:check 全绿。
-- v0.9.0（Theme & Appearance，主题系统正式上线）：首版三主题（跟随系统 / 深色 / 浅色）。①新建 `utils/theme.js` Theme Manager（mode/effective 解析、持久化、订阅通知、`bindPage`，只改 themeClass，不 reLaunch、不丢页面状态，非法 theme→dark）；②`app.wxss` 拆为 `page` 深色 fallback + `.theme-dark` / `.theme-light` 并补全语义 token，深色保持紫黑毛玻璃 Golden Reference；③浅色为浅灰紫白玻璃、非纯白（`#F3F4FA` 底 + 半透明白卡 + 紫色主色，业务绿/红不反转）；④`dv-icon` 主题化（tone 语义 + dark/light 双调色板）；⑤Canvas 曲线 / 统计图表 / 预算日历主题化；⑥新建 `pages/appearance` 外观页与设置入口；⑦状态栏随主题同步；⑧page-header 双击返回锁、main 接 viewport；⑨`theme-audit` 与 `backup-validator` 主题校验。单测 1057→1085（21 套件），E2E 18/18（T13–T18）。
-- v0.8.1（真机 UI / 兼容性 Hotfix）：①公共 Bottom Sheet 透明度收口（`--glass-sheet` 主体 0.97/0.98、遮罩 0.42，正文不可辨认）；②公共键盘生命周期（`utils/keyboard.js`，关 Sheet / 返回前先收键盘，含超时兜底）；③Android viewport 恢复（`utils/viewport.js`，键盘归零 / resize 后 `device.reset()` 重测），解决分类管理「Header 被顶走、底部白条」；④二级页根容器背景兜底（`var(--bg)`，最坏露黑不露白）。单测 1042→1057（20 套件）。
-- v0.8.0（Release Hardening & RC）：G1 严格月份读取（损坏 / shape 错 / 版本不支持的月份分片 fail-closed，禁止被空文件覆盖）、G2 恢复前 Raw Backup Validator（不再让 createBill 先偷偷修非法值）、G3 显式 Backup V1→V2→V3 迁移管线、G4 存储完整性扫描（manifest/categories/settings/recurring/months 区分 missing/corrupt）、G5 重复 ID 检测（Bill/Recurring/Category/BudgetRule）、G6 数据损坏安全模式（启动检测到异常进入保护模式，可导出原始数据 / 创建诊断 / 从备份恢复，绝不自动清空或覆盖）、G7 灾难演练 + 升级矩阵、G8 `npm run release:check` 一次性发布检查、G9 隐私文案精确化与平台隐私指引配置清单（MessageFile/Clipboard）、G10 临时备份导出到 exports/ 自动清理（保留 3 个）+ 品牌统一为「随时随地大小记」。另含 E2E 12 用例与性能 Gate）
+- 当前版本：1.0.0（正式发布版）。
+- 版本历史与各版变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 测试
 
@@ -19,8 +17,8 @@ npm run e2e  # miniprogram-automator 跑微信开发者工具 GUI 端到端回�
 npm run perf # 1k/5k/10k 大账本性能 Gate
 ```
 
-- `npm test` 在独立子进程依次运行 `device`、`data`、`accounting`、`statistics`、`daily-value`、`budget`、`categories`、`recurring`、`settings`、`health`、`storage-integrity`、`duplicate-id`、`protection`、`strict-read`、`backup-validator`、`backup-migration`、`disaster-recovery`、`importer` **18 个套件、1023 项**，任一失败即以非零退出码结束（跨平台，不依赖 shell）。
-- `npm run e2e`（`tests/e2e/`，T01–T12 共 12 用例）自动拉起 / 复用微信开发者工具，验证页面渲染、data 绑定与增改停用删交互闭环；数学口径仍归 Node 单测。运行前需开启开发者工具「服务端口」，详见 `docs/E2E_TESTING.md`。
+- `npm test` 运行 `tests/run-all.js` 中注册的全部测试套件（设备、数据层、统计、日价、预算、分类、周期、备份 / 迁移、灾难恢复、导入、主题等），任一失败即以非零退出码结束（跨平台，不依赖 shell）。最新套件与用例数量以命令实际输出为准，不在此硬编码。
+- `npm run e2e`（`tests/e2e/`）自动拉起 / 复用微信开发者工具，验证页面渲染、data 绑定与增改停用删交互闭环；数学口径仍归 Node 单测。运行前需开启开发者工具「服务端口」，详见 `docs/E2E_TESTING.md`。
 - `npm run perf`（`tests/perf/large-ledger.perf.js`）用虚构账单验证冷启动、当月 Timeline、统计、搜索、预算日历在 1k/5k/10k 规模下无崩溃、近线性、分类快照只读一次盘。
 
 App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` / `package-lock.json` 的 `version` 保持一致。

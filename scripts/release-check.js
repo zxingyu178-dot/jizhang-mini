@@ -39,14 +39,25 @@ function section(title) {
   console.log('\n==== ' + title + ' ====');
 }
 
-/* ---------- 1. 版本一致性 ---------- */
-section('1. 版本一致性');
+/* ---------- 1. 版本一致性（Release Manifest） ---------- */
+section('1. 版本一致性（Release Manifest）');
 const { APP_VERSION } = require(nodePath.join(ROOT, 'utils', 'version'));
 const pkg = readJson(nodePath.join(ROOT, 'package.json'));
 if (/^\d+\.\d+\.\d+$/.test(APP_VERSION)) pass('APP_VERSION 格式合法：' + APP_VERSION);
 else fail('APP_VERSION 不是 x.y.z：' + APP_VERSION);
 if (APP_VERSION === pkg.version) pass('utils/version.js 与 package.json 版本一致：' + APP_VERSION);
 else fail('版本不一致：version.js=' + APP_VERSION + '，package.json=' + pkg.version);
+// package-lock.json 两处版本（顶层 version + packages[""].version）。
+try {
+  const lock = readJson(nodePath.join(ROOT, 'package-lock.json'));
+  if (lock.version === APP_VERSION) pass('package-lock.json 顶层 version 一致：' + APP_VERSION);
+  else fail('package-lock.json 顶层 version 不一致：' + lock.version);
+  const lockRoot = lock.packages && lock.packages[''];
+  if (lockRoot && lockRoot.version === APP_VERSION) pass('package-lock.json packages[""].version 一致：' + APP_VERSION);
+  else fail('package-lock.json packages[""].version 不一致：' + (lockRoot && lockRoot.version));
+} catch (e) {
+  fail('package-lock.json 解析失败：' + e.message);
+}
 
 /* ---------- 2. 配置文件 ---------- */
 section('2. 配置文件');
@@ -67,6 +78,13 @@ try {
   const proj = readJson(nodePath.join(ROOT, 'project.config.json'));
   if (/^wx[0-9a-f]{16}$/.test(proj.appid)) pass('project.config.json AppID 合法：' + proj.appid);
   else fail('project.config.json AppID 异常：' + proj.appid);
+  // 发布前应固定基础库版本（避免 latest 在发布前自动换环境导致表现变化）。
+  // 不代猜版本号：最终体验版验证时再固定；此处 latest 仅 WARN 提醒。
+  if (!proj.libVersion || proj.libVersion === 'latest') {
+    warn('project.config.json libVersion 仍为「latest」，最终体验版验证后需固定为实际验证版本');
+  } else {
+    pass('project.config.json 基础库版本已固定：' + proj.libVersion);
+  }
 } catch (e) {
   fail('project.config.json 解析失败：' + e.message);
 }
@@ -150,6 +168,18 @@ if (nodeFs.existsSync(fixtureDir)) {
 } else {
   fail('tests/fixtures 目录不存在');
 }
+
+/* ---------- 5.5 发布文档 ---------- */
+section('5.5 发布文档（Release Closure）');
+[
+  { f: 'docs/HANDOFF_v1.0.0.md', required: true },
+  { f: 'docs/RELEASE_CHECKLIST_v1.0.0.md', required: true },
+  { f: 'docs/DEVICE_GATE_v1.0.0.md', required: true },
+  { f: 'docs/PRIVACY_SETUP_v0.8.0.md', required: true },
+].forEach((item) => {
+  if (nodeFs.existsSync(nodePath.join(ROOT, item.f))) pass('发布文档存在：' + item.f);
+  else fail('发布文档缺失：' + item.f);
+});
 
 /* ---------- 6. 包体估算 ---------- */
 section('6. 包体估算');

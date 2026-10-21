@@ -114,6 +114,16 @@ App({
   onShow() {
     // G6 保护模式：不补账、不刷新正常视图（恢复需重启小程序）
     if (this.protection) return;
+    // 前台主题校准：system 模式补偿后台期间可能丢失的系统主题变化（内容跟随）；
+    // 无论是否变化都重新守住原生窗口颜色（防后台被系统重置，含手动模式）。
+    try {
+      const rs = theme.refreshSystemTheme();
+      this.globalData.themeMode = rs.themeMode;
+      this.globalData.effectiveTheme = rs.effectiveTheme;
+      this.syncChrome(rs.effectiveTheme);
+    } catch (e) {
+      console.warn('前台主题校准失败', e);
+    }
     // 回前台：先补齐后台期间到期的周期账单，再刷新时间敏感视图（日价 / 预算 / 周期），排午夜。
     // 周期是附加能力：无论补生成成功与否（含 rejected），刷新都必须执行，且不产生 unhandled rejection。
     this.runRecurringCatchup()

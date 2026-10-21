@@ -1,0 +1,174 @@
+# 更新日志（CHANGELOG）
+
+本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
+版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
+
+## [1.0.0] — 2026-10-21
+
+正式发布版（Final Release Closure）。核心产品功能自 v0.7 起冻结，本版只做发布收口与可靠性修复，不新增业务功能。
+
+### 变更
+- **主题持久化可靠性**：`setThemeMode()` 改为「先写 `settings.json` 成功，再更新内存并通知」；写盘失败时内存保持旧主题、不发假状态，外观页提示「主题保存失败，请稍后重试」。杜绝「选了浅色、重启又变回去」。
+- **跟随系统前台校准**：新增 `theme.refreshSystemTheme()`，`app.onShow` 最前面调用，补偿小程序在后台期间系统切换外观、微信未及时下发 `onThemeChange` 的场景；回前台同时重新守住原生窗口颜色（状态栏 / 页面背景）。
+- **发布检查增强（Release Manifest）**：`release:check` 增加 `package-lock.json` 三处版本一致性、`libVersion` 固定提醒（仍为 `latest` 时 WARN）、发布文档存在性检查。
+- **文档收口**：新增 `CHANGELOG.md`、`docs/HANDOFF_v1.0.0.md`、`docs/RELEASE_CHECKLIST_v1.0.0.md`、`docs/DEVICE_GATE_v1.0.0.md`；`README.md` 去掉硬编码测试数量与版本历史，版本历史统一归本文件。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1。
+- 主题：跟随系统 / 深色 / 浅色；一级导航：统计 / 记账 / 日价。
+
+## [0.9.1] — 2026-10-20
+
+Theme Real-device Closure & Release Candidate（真机主题收口与发布候选）。
+
+### 修复
+- **P0 恢复备份后主题不同步**：新增 `theme.reloadFromStorage()`，`restoreBackup` 成功前、`rollback` 后均接入，恢复什么主题当前 App 立即切换，无需重启。
+- **非法 theme 磁盘规范化**：`ensureSettings()` 在完整性扫描通过后把磁盘非法 theme（如 `blue`）规范为 dark 并落盘；Theme Manager / Settings / Backup / Validator 四者口径一致。启动前只读阶段不写文件（fail-closed）。
+- **Native Chrome Guard**：系统主题变化时手动模式内容不跟随，但 `onChromeNeed` 触发 `app.syncChrome` 重守可能被系统重置的原生窗口。
+- `theme:audit` 增加 theme-sensitive JS 白名单 WARN；删除 empty-state 未使用的白色残留属性。
+
+## [0.9.0] — 2026-10-20
+
+Theme & Appearance（主题系统正式上线）。首版仅三主题：跟随系统 / 深色 / 浅色。
+
+### 新增
+- `utils/theme.js` Theme Manager：mode/effective 解析、持久化、订阅通知、`bindPage`，非法 theme 归一 dark；只改 themeClass，不 reLaunch、不丢页面状态。
+- `app.wxss` 拆为 `page` 深色 fallback + `.theme-dark` / `.theme-light`，补全语义 token；深色保持紫黑毛玻璃 Golden Reference。
+- 浅色主题：浅灰紫白玻璃（非纯白），业务绿/红不反转仅加深。
+- `dv-icon` 主题化（tone 语义 + dark/light 双调色板）。
+- Canvas 曲线 / 统计图表 / 预算日历主题化。
+- 新建 `pages/appearance` 外观页与设置入口；状态栏随主题同步。
+- page-header 双击返回锁；main 接 viewport；`theme-audit` 与 `backup-validator` 主题校验。
+
+## [0.8.1] — 2026-10-20
+
+真机 UI / 兼容性 Hotfix。
+
+### 修复
+- 公共 Bottom Sheet 透明度收口（主体 0.97/0.98、遮罩 0.42，正文不可辨认）。
+- 公共键盘生命周期（`utils/keyboard.js`，关 Sheet / 返回前先收键盘，含超时兜底）。
+- Android viewport 恢复（`utils/viewport.js`，键盘归零 / resize 后 `device.reset()` 重测），解决分类管理「Header 被顶走、底部白条」。
+- 二级页根容器背景兜底（`var(--bg)`，最坏露黑不露白）。
+
+## [0.8.0] — 2026-10-20
+
+Release Hardening & RC（发布硬化）。
+
+### 变更
+- 严格月份读取（损坏 / shape 错 / 版本不支持 fail-closed，禁止被空文件覆盖）。
+- 恢复前 Raw Backup Validator（不再让 createBill 先偷偷修非法值）。
+- 显式 Backup V1→V2→V3 迁移管线。
+- 存储完整性扫描（missing/corrupt 五态）。
+- 重复 ID 检测（Bill/Recurring/Category/BudgetRule）。
+- 数据损坏安全模式（启动检测进保护模式，可导出原始数据 / 创建诊断 / 从备份恢复，绝不自动覆盖）。
+- 灾难演练 + 升级矩阵；`npm run release:check` 一次性发布检查。
+- 隐私文案精确化与平台隐私指引配置清单；临时备份导出到 `exports/` 自动清理；品牌统一为「随时随地大小记」。
+
+## [0.6.1] — 2026-10-17
+
+Recurring & Migration Closure（周期与迁移收口）。
+
+### 修复
+- P0 Android「每周日」迁移错误（weekly day=0 被错改成 1），按频率分域规范化。
+- 编辑规则后立即刷新 nextOccurrence；停用显示「已停用」；>365 补记提示据实。
+- 生成器异常隔离、并发锁修复；分类归档 fail-closed；规则严格校验。
+- 恢复 / 导入周期规则后立即重算 nextOccurrence；修复 Skyline 周期编辑器 chips 高度塌陷。
+
+## [0.6.0] — 2026-10-16
+
+Categories & Recurring（分类管理 + 周期记账）。
+
+### 新增
+- 分类管理：软归档（不物理删除）、系统核心 5 类只读、我的分类 CRUD、重名校验。
+- 周期规则：数据模型（recurring.json）、Bill V3（新增 recurringRuleId）、生成器（日/周/月/年 + 每 N、月末钳制、catch-up 上限 365、幂等、编辑只影响未来）。
+- 分类被周期引用时禁止归档；Android 自定义分类 / 周期规则迁移；Backup V3。
+
+## [0.5.1] — 2026-10-16
+
+Budget Correctness & Interaction Closure（预算口径正确性）。
+
+### 修复
+- 预算口径：`countsAgainstBudget`（当日规则启用才参与）；当前周期截到今天；无预算明确显示。
+- 预算颜色 token 统一（盈余绿 / 超支红）；剩余负值文案；历史月摘要；日详情无预算 / 未来日 + 图例。
+
+## [0.5.0] — 2026-10-16
+
+Budget Rhythm（预算节奏）。
+
+### 新增
+- 预算规则（settings.budget.rules，历史只增不改）。
+- Budget Core 纯函数（rules/period/core/calendar）。
+- Hero 支出 / 预算模式（今日 / 本周 / 本月）。
+- 预算设置页；统计预算日历地图 + 日详情 Sheet。
+- 日期不允许未来；Header 盒模型统一；生命周期 onShow 刷新。
+
+## [0.4.1] — 2026-10-16
+
+Interaction & Visual Polish（交互与视觉收口）。
+
+### 修复
+- 日价详情编辑不再污染原交易 occurredAt；表单 title/canSubmit 一致。
+- 记一笔 Sheet 重做（半透明、自然高度、金额不裁切）；设置页减法；曲线触摸坐标修复。
+
+## [0.4.0] — 2026-10-16
+
+Daily Value Core（每日价值核心）。
+
+### 新增
+- 日价语义：normal+dailyValue（同时进账本 / 统计 / 日价）与 daily-value-only（仅日价）。
+- 日价纯函数（购买当天起算、最少 1 天、日价 = 金额 / 已用天数，不持久化每天重算）。
+- 日价主页 / 表单 / 详情；Canvas 2D 下降曲线；里程碑；跨日自动刷新。
+- Bill V2；Android .dvbackup 完整迁移；Backup V2。
+
+## [0.3.2] — 2026-10-15
+
+Android Main UI Parity（记账主页对齐 Android）。
+
+### 变更
+- Hero 卡成为唯一月份区域（箭头、超大金额、横滑手势）。
+- 账单改连续时间线；FAB 改圆角方形玻璃；自研 dv-icon 组件替代 Emoji。
+
+## [0.3.1] — 2026-10-15
+
+统计正式版验收修复。
+
+### 修复
+- 年度月均支出口径（按有支出月份数）；分类 Top5 只统计支出。
+- 柱图显示根因；分类弹层定位；加载时序。
+
+## [0.3.0] — 2026-10-15
+
+统计正式版。
+
+### 新增
+- 统计纯函数（月度 / 年度：概览、趋势、分类排行、收支对比）。
+- statistics-panel 月度 / 年度（纯 WXSS 图表，不引图表库）；FAB 遮挡修复。
+
+## [0.2.2] — 2026-10-15
+
+真实账单兼容（Real Statement Compatibility）。
+
+### 修复
+- 微信真实 XLSX 通用表头 + 金额别名；微信退款按官方收 / 支入账。
+- 支付宝 GBK 纯 JS 兜底；结构摘要与缺失列诊断。
+
+## [0.2.1] — 2026-10-15
+
+### 修复
+- 跨月编辑 updateBill（oldYm/newYm、id 不变、快照回滚）。
+- legacy jm_records 迁移原子化与幂等；版本统一与 npm test 入口。
+- 编辑账单保留原始时分；导入失败脱敏诊断。
+
+## [0.2.0] — 2026-10-15
+
+双端正式版。
+
+### 新增
+- 紫黑毛玻璃视觉（Tabs + Swiper、玻璃 FAB / Bottom Sheet）。
+- 正式本地数据层（USER_DATA_PATH 月份分片、Bill V1、整数分、jm_records 无损迁移）。
+- 统一导入引擎（微信 / 支付宝 XLSX+CSV（GBK）、Android DailyValue、Mini 恢复；三级去重、原子化写入）。
+- iOS / Android 双端 safe-area；绑定真实 AppID。
+
+## [0.1.0]
+
+初始脚手架（v0.1.0 冻结）。

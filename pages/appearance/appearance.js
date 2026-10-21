@@ -37,6 +37,10 @@ Page({
   },
   onSelect(e) {
     const value = e.currentTarget.dataset.value;
-    theme.setThemeMode(value);
+    const r = theme.setThemeMode(value);
+    // 持久化失败：内存保持旧主题，提示重试（不出现「选了浅色、重启又变回去」）。
+    if (!r || !r.ok) {
+      wx.showToast({ title: '主题保存失败，请稍后重试', icon: 'none' });
+    }
   },
 });

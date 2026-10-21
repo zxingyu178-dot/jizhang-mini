@@ -25,6 +25,8 @@
  *   THEME-20 规范化后 buildBackup 可被自身 validator 接受
  *   THEME-RELOAD-01 reloadFromStorage 重读磁盘并通知
  *   CHROME-GUARD-01/02 手动模式触发 chrome guard / system 模式内容跟随
+ *   THEME-PERSIST-01/02/03 主题持久化成功才生效 / 写失败保持旧主题不 emit
+ *   THEME-RESUME-01/02 system 前台校准跟随 / 手动模式不跟随
  *
  * 运行：node tests/theme.test.js
  */
@@ -350,6 +352,69 @@ async function run() {
   eq(chromeN2, 0, 'CHROME-GUARD-02 system 模式不触发 chrome guard');
   eq(theme.getEffectiveTheme(), 'light', 'CHROME-GUARD-02 system 内容跟随 light');
   offC2();
+
+  /* ============================================================
+   * v1.0.0：主题持久化可靠性 / 前台恢复校准
+   * ============================================================ */
+
+  /* ---- THEME-PERSIST-01 写成功才切换并返回 ok ---- */
+  sysTheme = 'dark';
+  freshInit({ currency: '¥', theme: 'dark' });
+  const rP1 = theme.setThemeMode('light');
+  assert(rP1.ok === true, 'PERSIST-01 写成功返回 ok=true');
+  eq(theme.getEffectiveTheme(), 'light', 'PERSIST-01 写成功后 effective light');
+  eq(fsApi.readJSON(paths.FILE.settings, null).theme, 'light', 'PERSIST-01 磁盘 theme light');
+
+  /* ---- THEME-PERSIST-02 写失败：保持旧主题，返回 ok=false ---- */
+  freshInit({ currency: '¥', theme: 'dark' });
+  const fsm = global.wx.getFileSystemManager();
+  const origWrite = fsm.writeFileSync;
+  fsm.writeFileSync = function () { throw new Error('EIO disk full'); };
+  const rP2 = theme.setThemeMode('light');
+  fsm.writeFileSync = origWrite;
+  assert(rP2.ok === false, 'PERSIST-02 写失败返回 ok=false');
+  eq(theme.getThemeMode(), 'dark', 'PERSIST-02 写失败 mode 保持 dark');
+  eq(theme.getEffectiveTheme(), 'dark', 'PERSIST-02 写失败 effective 保持 dark');
+  eq(fsApi.readJSON(paths.FILE.settings, null).theme, 'dark', 'PERSIST-02 磁盘 theme 仍 dark');
+
+  /* ---- THEME-PERSIST-03 写失败不 emit 假状态 ---- */
+  freshInit({ theme: 'dark' });
+  const fsm3 = global.wx.getFileSystemManager();
+  const origWrite3 = fsm3.writeFileSync;
+  fsm3.writeFileSync = function () { throw new Error('EIO'); };
+  let callsP3 = 0;
+  const offP3 = theme.subscribe(() => callsP3++);
+  const rP3 = theme.setThemeMode('light');
+  fsm3.writeFileSync = origWrite3;
+  offP3();
+  assert(rP3.ok === false, 'PERSIST-03 写失败 ok=false');
+  eq(callsP3, 0, 'PERSIST-03 写失败不 emit 假状态');
+
+  /* ---- THEME-RESUME-01 system 后台 Dark→Light（事件丢失），onShow 校准变 Light ---- */
+  sysTheme = 'dark';
+  freshInit({ theme: 'system' });
+  eq(theme.getEffectiveTheme(), 'dark', 'RESUME-01 初始 effective dark');
+  sysTheme = 'light'; // 模拟后台期间系统切换、未下发 onThemeChange
+  let callsR1 = 0;
+  const offR1 = theme.subscribe(() => callsR1++);
+  const rsR1 = theme.refreshSystemTheme();
+  offR1();
+  assert(rsR1.effectiveTheme === 'light', 'RESUME-01 校准后 effective light');
+  eq(theme.getEffectiveTheme(), 'light', 'RESUME-01 effective 变 light');
+  eq(callsR1, 1, 'RESUME-01 订阅页面收到一次更新');
+
+  /* ---- THEME-RESUME-02 manual dark 系统变化不受影响 ---- */
+  sysTheme = 'dark';
+  freshInit({ theme: 'dark' });
+  sysTheme = 'light';
+  let callsR2 = 0;
+  const offR2 = theme.subscribe(() => callsR2++);
+  const rsR2 = theme.refreshSystemTheme();
+  offR2();
+  assert(rsR2.effectiveTheme === 'dark', 'RESUME-02 手动 dark 校准后仍 dark');
+  eq(theme.getEffectiveTheme(), 'dark', 'RESUME-02 effective 保持 dark');
+  eq(callsR2, 0, 'RESUME-02 手动模式不 emit');
+  sysTheme = 'dark';
 
   /* ---- 汇总 ---- */
   console.log('\ntheme tests: ' + pass + ' passed, ' + fail + ' failed');
