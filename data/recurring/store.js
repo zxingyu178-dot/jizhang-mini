@@ -25,9 +25,30 @@ function readStore() {
   };
 }
 
-/** 写入存储 */
+/** 写入存储（原子写） */
 function writeStore(rules) {
-  fs.writeJSON(paths.FILE.recurring, { version: STORE_VERSION, rules });
+  fs.writeJSONAtomic(paths.FILE.recurring, { version: STORE_VERSION, rules });
+}
+
+/**
+ * 严格读 store（所有 mutation 路径用）：文件不存在 → 空 store（可建）；
+ * 文件存在但损坏 / 不是对象 → 抛错（fail-closed），绝不退回空 store 再覆盖。
+ */
+function readStoreStrict() {
+  if (!fs.exists(paths.FILE.recurring)) return { version: STORE_VERSION, rules: [] };
+  const raw = fs.readJSONStrict(paths.FILE.recurring);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw fs.fileError('FILE_CORRUPT', paths.FILE.recurring, 'recurring store 不是对象');
+  }
+  return {
+    version: STORE_VERSION,
+    rules: Array.isArray(raw.rules) ? raw.rules : [],
+  };
+}
+
+/** 读取全部规则（严格，规范化；mutation 用） */
+function getRulesStrict() {
+  return readStoreStrict().rules.map(normalizeRule);
 }
 
 /** 规范化单条规则（补全字段 + 周期字段钳制；金额整数分） */
@@ -80,7 +101,7 @@ function getRule(id) {
  * @returns 新规则
  */
 function addRule(input) {
-  const rules = getRules();
+  const rules = getRulesStrict(); // 损坏即抛，不退回空
   // 新建规则默认 enabled=true（显式传 false 才停用）；迁移/编辑走 normalizeRule 保留原值。
   const rule = normalizeRule(
     Object.assign({ id: genId(), createdAt: Date.now(), enabled: true }, input || {})
@@ -95,7 +116,7 @@ function addRule(input) {
  * @returns {{ok:boolean, rule?:object}}
  */
 function updateRule(id, patch) {
-  const rules = getRules();
+  const rules = getRulesStrict();
   const idx = rules.findIndex((r) => r.id === id);
   if (idx < 0) return { ok: false };
   const merged = Object.assign({}, rules[idx], patch, { id, updatedAt: Date.now() });
@@ -104,9 +125,9 @@ function updateRule(id, patch) {
   return { ok: true, rule: rules[idx] };
 }
 
-/** 删除规则（仅删规则；已生成 Bill 全部保留） */
+/** 删除规则（仅删规则；已生成 Bill 全部保留；严格读） */
 function removeRule(id) {
-  const rules = getRules().filter((r) => r.id !== id);
+  const rules = getRulesStrict().filter((r) => r.id !== id);
   writeStore(rules);
   return { ok: true };
 }
@@ -128,8 +149,10 @@ module.exports = {
   EMPTY,
   normalizeRule,
   readStore,
+  readStoreStrict,
   writeStore,
   getRules,
+  getRulesStrict,
   getRule,
   addRule,
   updateRule,

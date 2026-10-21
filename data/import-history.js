@@ -15,12 +15,12 @@ function getHistory() {
 function addImport(record) {
   const h = getHistory();
   h.unshift(Object.assign({ id: genId(), importedAt: Date.now() }, record));
-  fs.writeJSON(paths.FILE.importHistory, h);
+  fs.writeJSONAtomic(paths.FILE.importHistory, h);
   return h;
 }
 
 function clearHistory() {
-  fs.writeJSON(paths.FILE.importHistory, []);
+  fs.writeJSONAtomic(paths.FILE.importHistory, []);
 }
 
 module.exports = {

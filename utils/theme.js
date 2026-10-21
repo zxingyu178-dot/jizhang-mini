@@ -162,9 +162,11 @@ function setThemeMode(mode) {
   const next = normalizeMode(mode);
   // 1) 先写磁盘；失败则保持旧主题，绝不「视觉成功、磁盘失败」。
   try {
-    const settings = fs.readJSON(paths.FILE.settings, null) || {};
+    const settings = fs.exists(paths.FILE.settings)
+      ? fs.readJSONStrict(paths.FILE.settings)
+      : {};
     settings.theme = next;
-    fs.writeJSON(paths.FILE.settings, settings);
+    fs.writeJSONAtomic(paths.FILE.settings, settings);
   } catch (e) {
     return Object.assign({ ok: false }, snapshot());
   }

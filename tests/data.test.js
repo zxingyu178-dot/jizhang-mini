@@ -57,6 +57,13 @@ function buildWx(initialStorage) {
       if (!memFiles.has(path)) throw new Error('ENOENT file ' + path);
       memFiles.delete(path);
     },
+    renameSync(oldPath, newPath) {
+      // 模拟微信：源不存在 / 目标已存在（1301005）均失败
+      if (!memFiles.has(oldPath)) throw new Error('ENOENT file ' + oldPath);
+      if (memFiles.has(newPath)) throw new Error('file already exists ' + newPath);
+      memFiles.set(newPath, memFiles.get(oldPath));
+      memFiles.delete(oldPath);
+    },
     readdirSync(path) {
       const prefix = path.endsWith('/') ? path : path + '/';
       const out = new Set();
@@ -370,15 +377,15 @@ console.log('v0.2.1 跨月编辑失败回滚');
   });
 
   const fs = store.fs;
-  const origWrite = fs.writeJSON;
+  const origWrite = fs.writeJSONAtomic;
   let hit = false;
-  fs.writeJSON = function (p, o) {
+  fs.writeJSONAtomic = function (p, o) {
     const pp = String(p).replace(/\\/g, '/');
     if (!hit && pp.indexOf('/bills/2026-09') >= 0) {
       hit = true;
       throw new Error('INJECTED_MOVE');
     }
-    return origWrite(p, o);
+    return origWrite.call(this, p, o);
   };
 
   let caught = '';
@@ -388,7 +395,7 @@ console.log('v0.2.1 跨月编辑失败回滚');
   } catch (e) {
     caught = e.message;
   }
-  fs.writeJSON = origWrite;
+  fs.writeJSONAtomic = origWrite;
 
   assert(caught.indexOf('INJECTED_MOVE') >= 0, '跨月写入失败向上抛错');
   eq(store.monthSummary('2026-10').expense, 1800, '回滚后旧月仍为 1800');
@@ -411,17 +418,17 @@ console.log('v0.2.1 迁移失败回滚 + 幂等重跑');
   const wx = buildWx({ jm_records: legacy });
   const store = loadStore(wx);
   const fs = store.fs;
-  const origWrite = fs.writeJSON;
+  const origWrite = fs.writeJSONAtomic;
 
   // 第一次写非空 bills 分片即注入失败
   let injected = false;
-  fs.writeJSON = function (p, o) {
+  fs.writeJSONAtomic = function (p, o) {
     const pp = String(p).replace(/\\/g, '/');
     if (!injected && pp.indexOf('/bills/') >= 0 && o && Array.isArray(o.bills) && o.bills.length) {
       injected = true;
       throw new Error('INJECTED_MIG');
     }
-    return origWrite(p, o);
+    return origWrite.call(this, p, o);
   };
 
   let caught = '';
@@ -435,7 +442,7 @@ console.log('v0.2.1 迁移失败回滚 + 幂等重跑');
   eq(store.manifest.getMigration('jmRecords').status, 'failed', '迁移状态标记 failed');
 
   // 恢复写入，重新执行迁移
-  fs.writeJSON = origWrite;
+  fs.writeJSONAtomic = origWrite;
   const again = store.init();
   eq(again.migration.status, 'done', '重跑迁移成功 done');
   eq(again.migration.recordCount, 3, '重跑迁移 3 条');

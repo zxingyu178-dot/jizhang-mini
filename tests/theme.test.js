@@ -83,6 +83,12 @@ function buildWx() {
       if (!memFiles.has(p)) throw new Error('ENOENT');
       memFiles.delete(p);
     },
+    renameSync(oldPath, newPath) {
+      if (!memFiles.has(oldPath)) throw new Error('ENOENT');
+      if (memFiles.has(newPath)) throw new Error('file already exists');
+      memFiles.set(newPath, memFiles.get(oldPath));
+      memFiles.delete(oldPath);
+    },
     readdirSync(p) {
       const prefix = p.endsWith('/') ? p : p + '/';
       const out = new Set();

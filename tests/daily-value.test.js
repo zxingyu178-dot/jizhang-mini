@@ -57,6 +57,12 @@ function buildWx(initialStorage) {
       if (!memFiles.has(path)) throw new Error('ENOENT file ' + path);
       memFiles.delete(path);
     },
+    renameSync(oldPath, newPath) {
+      if (!memFiles.has(oldPath)) throw new Error('ENOENT file ' + oldPath);
+      if (memFiles.has(newPath)) throw new Error('file already exists ' + newPath);
+      memFiles.set(newPath, memFiles.get(oldPath));
+      memFiles.delete(oldPath);
+    },
     readdirSync(path) {
       const prefix = path.endsWith('/') ? path : path + '/';
       const out = new Set();

@@ -142,10 +142,10 @@ function readMonthFileStrict(ym) {
   return data;
 }
 
-/** 写月份分片（默认写当前 schema；迁移可在 data.version 显式指定目标版本） */
+/** 写月份分片（默认写当前 schema；迁移可在 data.version 显式指定目标版本；原子写） */
 function writeMonthFile(ym, data) {
   const version = data.version || SCHEMA_VERSION;
-  fs.writeJSON(paths.billFile(ym), { ym, version, bills: data.bills });
+  fs.writeJSONAtomic(paths.billFile(ym), { ym, version, bills: data.bills });
 }
 
 /** 列出全部月份分片（正序；文件存在即返回，不区分是否有普通账单） */
@@ -291,7 +291,7 @@ function restoreMonths(snap) {
       fs.remove(paths.billFile(ym));
     } else {
       const s = snap[ym];
-      fs.writeJSON(paths.billFile(ym), { ym, version: s.version || 1, bills: s.bills });
+      fs.writeJSONAtomic(paths.billFile(ym), { ym, version: s.version || 1, bills: s.bills });
     }
   });
 }

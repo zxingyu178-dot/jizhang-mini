@@ -36,11 +36,11 @@ function ensureSettings() {
     const canon = canonicalizeTheme(merged.theme);
     if (canon !== existing.theme) {
       merged.theme = canon;
-      fs.writeJSON(paths.FILE.settings, merged);
+      fs.writeJSONAtomic(paths.FILE.settings, merged);
     }
     return merged;
   }
-  fs.writeJSON(paths.FILE.settings, DEFAULT_SETTINGS);
+  fs.writeJSONAtomic(paths.FILE.settings, DEFAULT_SETTINGS);
   return DEFAULT_SETTINGS;
 }
 
@@ -51,11 +51,18 @@ function getSettings() {
   return merged;
 }
 
-/** 更新设置（浅合并，theme 一并规范化） */
+/**
+ * 更新设置（浅合并，theme 一并规范化；原子写）。
+ * 严格读：原文件存在但损坏直接抛错（fail-closed），绝不拿默认值覆盖，
+ * 避免把用户已有的 Budget Rules / 自定义设置冲掉。
+ */
 function updateSettings(patch) {
-  const next = Object.assign({}, getSettings(), patch || {});
+  const current = fs.exists(paths.FILE.settings)
+    ? fs.readJSONStrict(paths.FILE.settings)
+    : {};
+  const next = Object.assign({}, DEFAULT_SETTINGS, current, patch || {});
   next.theme = canonicalizeTheme(next.theme);
-  fs.writeJSON(paths.FILE.settings, next);
+  fs.writeJSONAtomic(paths.FILE.settings, next);
   return next;
 }
 

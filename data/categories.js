@@ -74,13 +74,26 @@ function normalizeCategory(c) {
   };
 }
 
-/** 首次启动写入默认分类（已存在则保留用户数据） */
+/**
+ * 严格读分类（所有 mutation 路径用）：文件不存在 → 默认分类（可建）；
+ * 文件存在但损坏 / 不是数组 → 抛错（fail-closed），绝不退回默认再覆盖。
+ */
+function readCategoriesStrict() {
+  if (!fs.exists(paths.FILE.categories)) return DEFAULT_CATEGORIES.slice();
+  const raw = fs.readJSONStrict(paths.FILE.categories);
+  if (!Array.isArray(raw)) {
+    throw fs.fileError('FILE_CORRUPT', paths.FILE.categories, 'categories 不是数组');
+  }
+  return raw.map(normalizeCategory);
+}
+
+/** 首次启动写入默认分类（已存在则保留用户数据；原子写） */
 function ensureCategories() {
   const existing = fs.readJSON(paths.FILE.categories, null);
   if (existing && Array.isArray(existing) && existing.length) {
     return existing.map(normalizeCategory);
   }
-  fs.writeJSON(paths.FILE.categories, DEFAULT_CATEGORIES);
+  fs.writeJSONAtomic(paths.FILE.categories, DEFAULT_CATEGORIES);
   return DEFAULT_CATEGORIES.slice();
 }
 
@@ -170,9 +183,16 @@ function addCategory(input) {
   input = input || {};
   const v = validateName(input.name);
   if (!v.ok) return { ok: false, reason: 'invalid-name' };
-  if (findDuplicateName(v.name, null)) return { ok: false, reason: 'duplicate' };
 
-  const all = getCategories();
+  let all;
+  try {
+    all = readCategoriesStrict(); // 损坏即抛，不退回默认
+  } catch (e) {
+    return { ok: false, reason: 'read-failed' };
+  }
+  if (all.some((c) => c.name.trim() === v.name)) {
+    return { ok: false, reason: 'duplicate' };
+  }
   if (input.id && all.some((c) => c.id === input.id)) {
     return { ok: false, reason: 'duplicate-id' };
   }
@@ -186,7 +206,11 @@ function addCategory(input) {
     archived: false,
   };
   all.push(category);
-  fs.writeJSON(paths.FILE.categories, all);
+  try {
+    fs.writeJSONAtomic(paths.FILE.categories, all);
+  } catch (e) {
+    return { ok: false, reason: 'write-failed' };
+  }
   return { ok: true, category };
 }
 
@@ -196,7 +220,12 @@ function addCategory(input) {
  */
 function updateCategory(id, patch) {
   patch = patch || {};
-  const all = getCategories();
+  let all;
+  try {
+    all = readCategoriesStrict();
+  } catch (e) {
+    return { ok: false, reason: 'read-failed' };
+  }
   const cat = all.find((c) => c.id === id);
   if (!cat) return { ok: false, reason: 'not-found' };
 
@@ -204,14 +233,20 @@ function updateCategory(id, patch) {
     if (cat.builtin) return { ok: false, reason: 'builtin' };
     const v = validateName(patch.name);
     if (!v.ok) return { ok: false, reason: 'invalid-name' };
-    if (findDuplicateName(v.name, id)) return { ok: false, reason: 'duplicate' };
+    if (all.some((c) => c.id !== id && c.name.trim() === v.name)) {
+      return { ok: false, reason: 'duplicate' };
+    }
     cat.name = v.name;
   }
   if (patch.emoji !== undefined) {
     const emoji = String(patch.emoji).trim();
     if (emoji) cat.emoji = emoji;
   }
-  fs.writeJSON(paths.FILE.categories, all);
+  try {
+    fs.writeJSONAtomic(paths.FILE.categories, all);
+  } catch (e) {
+    return { ok: false, reason: 'write-failed' };
+  }
   return { ok: true, category: cat };
 }
 
@@ -223,16 +258,23 @@ function updateCategory(id, patch) {
  * @returns {{ok:boolean, reason?:string, recurringCount?:number}}
  */
 function archiveCategory(id) {
-  const all = getCategories();
+  let all;
+  try {
+    all = readCategoriesStrict();
+  } catch (e) {
+    return { ok: false, reason: 'read-failed' };
+  }
   const cat = all.find((c) => c.id === id);
   if (!cat) return { ok: false, reason: 'not-found' };
   if (cat.builtin) return { ok: false, reason: 'builtin' };
 
   // Gate E：被周期规则引用时阻止归档（延迟 require，避免底层反向依赖）。
-  // recurring 模块已正式存在：检查失败（recurring.json 损坏 / IO 异常 / 模块异常）必须
+  // 先 strict 校验 recurring.json 可读取（损坏则 fail-closed，不能放行）；
+  // 再 countRulesByCategory。检查失败（损坏 / IO 异常 / 模块异常）必须
   // fail-closed —— 宁可不归档，也不能放行一个仍被周期规则引用的分类导致后续生成悬空分类。
   let usage;
   try {
+    if (fs.exists(paths.FILE.recurring)) fs.readJSONStrict(paths.FILE.recurring);
     const recurring = require('./recurring/index');
     usage = recurring.countRulesByCategory(id);
   } catch (e) {
@@ -242,17 +284,30 @@ function archiveCategory(id) {
   if (usage > 0) return { ok: false, reason: 'in-use', recurringCount: usage };
 
   cat.archived = true;
-  fs.writeJSON(paths.FILE.categories, all);
+  try {
+    fs.writeJSONAtomic(paths.FILE.categories, all);
+  } catch (e) {
+    return { ok: false, reason: 'write-failed' };
+  }
   return { ok: true };
 }
 
 /** 恢复已归档分类 */
 function restoreCategory(id) {
-  const all = getCategories();
+  let all;
+  try {
+    all = readCategoriesStrict();
+  } catch (e) {
+    return { ok: false, reason: 'read-failed' };
+  }
   const cat = all.find((c) => c.id === id);
   if (!cat) return { ok: false, reason: 'not-found' };
   cat.archived = false;
-  fs.writeJSON(paths.FILE.categories, all);
+  try {
+    fs.writeJSONAtomic(paths.FILE.categories, all);
+  } catch (e) {
+    return { ok: false, reason: 'write-failed' };
+  }
   return { ok: true, category: cat };
 }
 
@@ -262,6 +317,7 @@ module.exports = {
   DEFAULT_CATEGORIES,
   NAME_MAX,
   normalizeCategory,
+  readCategoriesStrict,
   ensureCategories,
   getCategories,
   getActiveCategories,

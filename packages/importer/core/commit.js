@@ -113,9 +113,9 @@ function commitImport(session, opts) {
   // 「补充日价」：命中已存在账单，不新增条数，只在安全快照内补写 dailyValue/title
   const toMerge = session.bills.filter((b) => b.status === 'merge');
 
-  // 1. 快照
+  // 1. 快照（原子写，安全点自身不能写坏）
   const safety = paths.legacyRestoreSafety();
-  fs.writeJSON(safety, backup.buildBackup());
+  fs.writeJSONAtomic(safety, backup.buildBackup());
 
   const beforeCount = ledger.rangeBills().length;
   const batchId = 'imp-' + Date.now();

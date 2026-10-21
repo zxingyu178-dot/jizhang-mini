@@ -76,8 +76,8 @@ function restoreBackup(input, options) {
   }
 
   const safety = paths.legacyRestoreSafety();
-  // 1. 安全点（当前完整数据）
-  fs.writeJSON(safety, buildBackup());
+  // 1. 安全点（当前完整数据；原子写，最需要安全时安全点自身不能写坏）
+  fs.writeJSONAtomic(safety, buildBackup());
 
   try {
     // 2. 清空现有月份分片
@@ -86,9 +86,9 @@ function restoreBackup(input, options) {
     // 3. 写入新账单
     const result = ledger.addBills(backup.data.bills);
 
-    // 4. 分类、设置
-    fs.writeJSON(paths.FILE.categories, backup.data.categories || categories.DEFAULT_CATEGORIES);
-    fs.writeJSON(paths.FILE.settings, Object.assign({}, settings.DEFAULT_SETTINGS, backup.data.settings || {}));
+    // 4. 分类、设置（原子写）
+    fs.writeJSONAtomic(paths.FILE.categories, backup.data.categories || categories.DEFAULT_CATEGORIES);
+    fs.writeJSONAtomic(paths.FILE.settings, Object.assign({}, settings.DEFAULT_SETTINGS, backup.data.settings || {}));
 
     // 4.5 周期规则（V3 新增；V1/V2 备份无此字段 → 空）
     const ruleList = Array.isArray(backup.data.recurringRules) ? backup.data.recurringRules : [];
@@ -138,8 +138,8 @@ function rollback(safetyPath) {
   if (!saved || !saved.data) return;
   ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
   ledger.addBills(saved.data.bills || []);
-  fs.writeJSON(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
-  fs.writeJSON(paths.FILE.settings, saved.data.settings || settings.DEFAULT_SETTINGS);
+  fs.writeJSONAtomic(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
+  fs.writeJSONAtomic(paths.FILE.settings, saved.data.settings || settings.DEFAULT_SETTINGS);
   recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
   // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。
   theme.reloadFromStorage();

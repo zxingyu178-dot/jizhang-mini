@@ -131,9 +131,60 @@ function scanMonthFile(ym) {
   return entry('month', file, STATUS.VALID);
 }
 
+/** 读取并判断残留文件（.tmp / .bak）是否为合法 JSON（候选可恢复） */
+function inspectArtifact(file) {
+  let valid = false;
+  try {
+    JSON.parse(fs.readText(file));
+    valid = true;
+  } catch (e) {
+    valid = false;
+  }
+  return valid;
+}
+
+/**
+ * 扫描原子写残留（.tmp / .bak）：**只识别并报告，不自动删除 / 不自动替换**。
+ *  - 正式文件 VALID   + 残留存在 → safeToClean=true（可在后续 cleanup 阶段安全清理）；
+ *  - 正式文件 CORRUPT/MISSING + 残留存在且 artifactValid → 可能是可恢复候选，
+ *    提示用户，绝不自动覆盖（不确定时绝不自动替换用户数据）。
+ */
+function scanLeftovers(entries, orphanMonthFiles) {
+  const out = [];
+  const seen = new Set();
+  const add = (artifactFile, baseFile, baseStatus) => {
+    if (seen.has(artifactFile)) return;
+    seen.add(artifactFile);
+    out.push({
+      file: artifactFile,
+      suffix: artifactFile.endsWith('.tmp') ? '.tmp' : '.bak',
+      target: baseFile,
+      targetStatus: baseStatus,
+      artifactValid: inspectArtifact(artifactFile),
+      safeToClean: baseStatus === STATUS.VALID,
+    });
+  };
+  entries.forEach((e) => {
+    ['.tmp', '.bak'].forEach((suf) => {
+      const p = e.file + suf;
+      if (fs.exists(p)) add(p, e.file, e.status);
+    });
+  });
+  // bills 目录下的孤儿残留（无对应正式月份文件）
+  orphanMonthFiles.forEach((n) => {
+    const m = n.match(/^(\d{4}-\d{2})\.json(\.tmp|\.bak)$/);
+    if (!m) return;
+    const baseFile = paths.billFile(m[1]);
+    if (fs.exists(baseFile)) return; // 已在上面处理
+    add(paths.DIR.bills + '/' + n, baseFile, STATUS.MISSING);
+  });
+  return out;
+}
+
 /**
  * 完整扫描本地存储（manifest / categories / settings / recurring + 全部月份分片）。
  * 只读，不创建目录。ok = 无 CORRUPT / INVALID_SHAPE / UNSUPPORTED_VERSION（MISSING 不算）。
+ * leftovers 为原子写残留（.tmp / .bak），只识别报告，不影响 ok。
  */
 function scanStorage() {
   const files = [
@@ -143,12 +194,13 @@ function scanStorage() {
     scanJsonFile('recurring', paths.FILE.recurring, shapeRecurring),
   ];
   // 直接列月份目录（不 ensure），纯只读
-  const monthNames = fs
-    .listDir(paths.DIR.bills)
+  const rawMonthNames = fs.listDir(paths.DIR.bills);
+  const monthNames = rawMonthNames
     .filter((n) => /^\d{4}-\d{2}\.json$/.test(n))
     .sort();
   const months = monthNames.map((n) => scanMonthFile(n.replace('.json', '')));
   const all = files.concat(months);
+  const leftovers = scanLeftovers(all, rawMonthNames);
   const counts = { MISSING: 0, CORRUPT: 0, INVALID_SHAPE: 0, UNSUPPORTED_VERSION: 0, VALID: 0 };
   all.forEach((e) => {
     counts[e.status] += 1;
@@ -161,6 +213,7 @@ function scanStorage() {
     files,
     months,
     all,
+    leftovers,
     counts,
   };
 }

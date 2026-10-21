@@ -85,8 +85,8 @@ function runMigration() {
     return { status: 'skipped', reason: 'no-legacy-data' };
   }
 
-  // 1. 备份原始数组（每次重跑覆盖，记录最新一次）
-  fs.writeJSON(paths.legacyRecordsBackup(), {
+  // 1. 备份原始数组（每次重跑覆盖，记录最新一次；原子写）
+  fs.writeJSONAtomic(paths.legacyRecordsBackup(), {
     backedUpAt: Date.now(),
     recordCount: legacy.length,
     records: legacy,

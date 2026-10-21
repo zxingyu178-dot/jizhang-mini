@@ -31,7 +31,7 @@ function ensureManifest() {
       billV3: { status: 'pending' },
     },
   };
-  fs.writeJSON(paths.FILE.manifest, manifest);
+  fs.writeJSONAtomic(paths.FILE.manifest, manifest);
   return manifest;
 }
 
@@ -48,7 +48,7 @@ function setMigrationResult(name, result) {
   m.migrations = m.migrations || {};
   m.migrations[name] = Object.assign({}, result, { migratedAt: Date.now() });
   m.updatedAt = Date.now();
-  fs.writeJSON(paths.FILE.manifest, m);
+  fs.writeJSONAtomic(paths.FILE.manifest, m);
   return m.migrations[name];
 }
 
@@ -57,7 +57,7 @@ function setSchemaVersion(v) {
   const m = getManifest();
   m.schemaVersion = v;
   m.updatedAt = Date.now();
-  fs.writeJSON(paths.FILE.manifest, m);
+  fs.writeJSONAtomic(paths.FILE.manifest, m);
   return m;
 }
 

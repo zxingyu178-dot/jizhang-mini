@@ -81,6 +81,78 @@ function writeJSON(path, obj) {
   getFS().writeFileSync(path, JSON.stringify(obj), 'utf8');
 }
 
+/**
+ * 原子写 JSON（核心账本 / 设置 / 分类 / 周期文件用）：
+ *   1) 写 <path>.tmp；
+ *   2) 重新读回 tmp，校验内容一致且 JSON.parse 通过；
+ *   3) 旧正式文件（若存在）rename 为 <path>.bak；
+ *   4) tmp rename 为正式文件；
+ *   5) 成功后删除 .bak。
+ *
+ * 微信 renameSync 不覆盖已存在目标（错误码 1301005 file already exists），
+ * 因此必须先把旧文件挪到 .bak，不能直接 rename tmp → 已存在的正式文件。
+ *
+ * 任一步失败：清理 tmp；若旧文件已被挪到 .bak 而新文件未就位，
+ * 回滚 .bak → 正式文件。正式文件要么是旧内容、要么是新内容，绝不留下半截 JSON。
+ */
+function writeJSONAtomic(path, obj) {
+  ensureDir(parentDir(path));
+  const tmp = path + '.tmp';
+  const bak = path + '.bak';
+  const payload = JSON.stringify(obj);
+  const hadOriginal = exists(path);
+  let movedOriginal = false;
+  try {
+    getFS().writeFileSync(tmp, payload, 'utf8');
+    const back = getFS().readFileSync(tmp, 'utf8');
+    if (back !== payload) throw fileError('ATOMIC_VERIFY_FAILED', path, 'tmp 读回内容不一致');
+    JSON.parse(back); // 确保 tmp 是合法 JSON
+    if (hadOriginal) {
+      try { getFS().unlinkSync(bak); } catch (e) {} // 清掉陈旧 bak
+      getFS().renameSync(path, bak);
+      movedOriginal = true;
+    }
+    getFS().renameSync(tmp, path);
+    if (hadOriginal) {
+      try { getFS().unlinkSync(bak); } catch (e) {}
+    }
+  } catch (e) {
+    try { getFS().unlinkSync(tmp); } catch (e2) {}
+    if (movedOriginal && !exists(path) && exists(bak)) {
+      try { getFS().renameSync(bak, path); } catch (e3) {}
+    }
+    if (e && e.code === 'ATOMIC_VERIFY_FAILED') throw e;
+    throw fileError('ATOMIC_WRITE_FAILED', path, (e && e.message) || String(e));
+  }
+}
+
+/**
+ * 原子「读-改-写」（所有准备修改核心 JSON 的操作必须使用）：
+ *   strict read（文件不存在用 create() 初始值）→ updater(state) 修改 →
+ *   validate(state)（可选）→ writeJSONAtomic。
+ *
+ * 原文件存在但损坏（FILE_CORRUPT / 读取失败）：直接抛出，绝不 fallback 到
+ * 默认值再覆盖，从源头堵住「用户自定义分类 / 预算规则被默认值覆盖」。
+ *
+ * @param {string} path
+ * @param {function():any} create   文件不存在时的初始值
+ * @param {function(any):any} updater  接收当前 state，就地修改（或返回新 state）
+ * @param {function(any):void} [validate]  可选校验，抛错即中止
+ * @returns {any} 写入后的新 state
+ */
+function updateJSONAtomic(path, create, updater, validate) {
+  let state;
+  if (exists(path)) {
+    state = readJSONStrict(path); // 损坏即抛
+  } else {
+    state = create();
+  }
+  const result = updater(state) || state;
+  if (typeof validate === 'function') validate(result);
+  writeJSONAtomic(path, result);
+  return result;
+}
+
 /** 读文本；失败返回 null */
 function readText(path) {
   try {
@@ -137,6 +209,8 @@ module.exports = {
   readJSONStrict,
   fileError,
   writeJSON,
+  writeJSONAtomic,
+  updateJSONAtomic,
   readText,
   writeText,
   readBuffer,

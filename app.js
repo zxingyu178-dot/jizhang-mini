@@ -44,6 +44,16 @@ App({
         console.warn('检测到本地存储异常，进入数据保护模式');
         return;
       }
+      // 完整性已通过：清理上次原子写中途崩溃留下的残留。仅清理「正式文件 VALID」的
+      // .tmp/.bak（safeToClean）；正式文件 MISSING 的孤儿残留不自动处理（可能是可恢复候选）。
+      try {
+        const fsSafe = require('./data/fs');
+        (scan.leftovers || []).forEach((lf) => {
+          if (lf.safeToClean) {
+            try { fsSafe.remove(lf.file); } catch (e2) {}
+          }
+        });
+      } catch (e1) {}
       this.dataStatus = store.init();
       // 冷启动补齐「已到期但未生成」的周期账单（含长期未打开后的 catch-up）。
       // 附加能力，失败不阻断启动（生成器内部已隔离，这里再兜底防止 unhandled rejection）。
