@@ -38,6 +38,28 @@ function pruneExports() {
   });
 }
 
+/**
+ * 清理 exports/ 目录中的 CSV：只保留最近 EXPORT_KEEP 个 .csv（与备份缓存分开管理）。
+ */
+function pruneCSVExports() {
+  const fsm = wx.getFileSystemManager();
+  let names = [];
+  try {
+    names = fsm.readdirSync(EXPORT_DIR);
+  } catch (e) {
+    names = [];
+  }
+  const files = names
+    .filter((n) => /\.csv$/.test(n))
+    .map((n) => EXPORT_DIR + '/' + n)
+    .sort((a, b) => (a < b ? 1 : -1));
+  files.slice(EXPORT_KEEP).forEach((full) => {
+    try {
+      fsm.unlinkSync(full);
+    } catch (e) {}
+  });
+}
+
 Page({
   data: {
     windowHeight: 0,
@@ -82,6 +104,27 @@ Page({
       });
     } catch (e) {
       wx.showToast({ title: '备份失败', icon: 'none' });
+    }
+  },
+
+  /** 导出账单 CSV：生成 .csv（UTF-8 BOM）并分享到微信（查看/分析用，非恢复格式） */
+  onExportCSV() {
+    try {
+      const csv = store.exportBillsCSV();
+      const d = new Date();
+      const stamp = '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+      const filePath = EXPORT_DIR + '/daily-value-mini-bills-' + stamp + '.csv';
+      wx.getFileSystemManager().mkdirSync(EXPORT_DIR, true);
+      // 直接写含 BOM 的字符串（'utf8' 会保留 BOM 字符），Excel/WPS/Numbers 可直接打开。
+      wx.getFileSystemManager().writeFileSync(filePath, csv, 'utf8');
+      pruneCSVExports();
+      wx.shareFileMessage({
+        filePath,
+        success: () => wx.showToast({ title: '可发送到文件传输助手', icon: 'none' }),
+        fail: () => wx.showToast({ title: '已生成 CSV 文件', icon: 'none' }),
+      });
+    } catch (e) {
+      wx.showToast({ title: 'CSV 导出失败', icon: 'none' });
     }
   },
 

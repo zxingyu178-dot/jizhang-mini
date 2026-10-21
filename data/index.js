@@ -21,6 +21,7 @@ const dailyValue = require('./daily-value/index');
 const budget = require('./budget/index');
 const recurring = require('./recurring/index');
 const search = require('./search/index');
+const csvExport = require('./export/csv');
 const health = require('./health');
 
 let initialized = false;
@@ -127,6 +128,10 @@ module.exports = {
     return search.groupSearchResults(matchedBills, categories.getCategoryResolver());
   },
   buildSearchQuery: search.buildSearchQuery,
+  // 账单 CSV 导出（Gate 6，查看/分析用，非恢复格式）
+  exportBillsCSV: function () {
+    return csvExport.buildBillsCSV(ledger.rangeBills(), categories.getCategoryResolver());
+  },
   // 数据健康体检（只读，G10）
   runHealthScan: health.runHealthScan,
   analyzeHealth: health.analyzeHealth,
@@ -152,5 +157,6 @@ module.exports = {
   budget,
   recurring,
   search,
+  csvExport,
   health,
 };

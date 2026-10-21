@@ -22,6 +22,17 @@
       </view>
     </view>
 
+    <!-- 导出账单 CSV -->
+    <view class="sec-label">导出</view>
+    <view class="glass-card sec">
+      <view class="br-action row--last" bindtap="onExportCSV">
+        <view class="br-action__text">
+          <text class="br-action__name">导出账单 CSV</text>
+          <text class="br-action__sub">导出 .csv，Excel / WPS / Numbers 可直接打开</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 恢复 -->
     <view class="sec-label">恢复</view>
     <view class="glass-card sec">
@@ -35,6 +46,9 @@
 
     <view class="br-tip">
       <text class="br-tip__text">恢复会覆盖当前全部数据，操作前建议先创建备份。旧版本备份仍可恢复。</text>
+    </view>
+    <view class="br-tip">
+      <text class="br-tip__text">CSV 只用于查看 / 分析，不用于完整恢复；需要完整迁移数据请使用「创建备份」。</text>
     </view>
   </scroll-view>
 </view>
