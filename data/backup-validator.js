@@ -18,6 +18,7 @@
  */
 const health = require('./health');
 const recurringCore = require('./recurring/core');
+const { isBuiltinId } = require('./category-icons');
 
 const FORMAT = 'daily-value-mini-backup';
 const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3];
@@ -96,6 +97,21 @@ function validateCategoriesStructure(data, pushE, pushW) {
     }
     if (c.emoji !== undefined && typeof c.emoji !== 'string') {
       pushE('category-emoji-invalid', 'categories', ref);
+    }
+    // 视觉字段（v1.2.0）：纯视觉元数据，非法值只给 warning、不拒绝恢复，
+    // 渲染层统一回退 emoji，避免一个图标字段挡住整份账本恢复。
+    if (c.iconType !== undefined) {
+      if (c.iconType !== 'builtin' && c.iconType !== 'emoji') {
+        pushW('category-icon-type-invalid', 'categories', ref);
+      } else if (typeof c.iconValue !== 'string' || !c.iconValue) {
+        pushW('category-icon-value-missing', 'categories', ref);
+      } else if (c.iconType === 'builtin' && !isBuiltinId(c.iconValue)) {
+        // 未知 builtin（更高版本 / 其他端图标）：warning，渲染时 emoji 兜底。
+        pushW('category-builtin-icon-unknown', 'categories', ref, 'icon=' + c.iconValue);
+      }
+    }
+    if (c.iconValue !== undefined && typeof c.iconValue !== 'string') {
+      pushW('category-icon-value-invalid', 'categories', ref);
     }
     if (c.builtin !== undefined && typeof c.builtin !== 'boolean') {
       pushW('category-builtin-invalid', 'categories', ref);

@@ -5,6 +5,8 @@
 //   - 不直接依赖 store / 分类表，分类名由 resolveCategory 注入，便于单测；
 //   - 金额一律整数分。
 
+const { pickCategoryVisual } = require('../category-icons');
+
 /** 是否计入账本（与 ledger.monthSummary 口径一致） */
 function inLedger(b) {
   return b && b.ledgerImpact !== 'daily-value-only';
@@ -80,15 +82,17 @@ function computeCategoryRanking(bills, resolveCategory) {
   const list = Object.keys(map).map((k) => {
     const x = map[k];
     const cat = resolveCategory ? resolveCategory(k) : { name: k, emoji: '' };
-    return {
-      categoryId: x.categoryId,
-      name: cat.name || '其他',
-      emoji: cat.emoji || '',
-      cents: x.cents,
-      count: x.count,
-      percent: total ? Math.round((x.cents / total) * 100) : 0,
-      barPercent: 0,
-    };
+    return Object.assign(
+      {
+        categoryId: x.categoryId,
+        name: cat.name || '其他',
+        cents: x.cents,
+        count: x.count,
+        percent: total ? Math.round((x.cents / total) * 100) : 0,
+        barPercent: 0,
+      },
+      pickCategoryVisual(cat)
+    );
   });
   list.sort((a, b) => b.cents - a.cents);
   const maxC = list.length ? list[0].cents : 0;

@@ -3,6 +3,29 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.2.0] — 2026-10-26
+
+Category Visual System（分类视觉系统）。把分类从纯 Emoji 升级为统一专业的本地 SVG 图标系统，严格保证历史数据无损；不升级数据合同、不新增业务功能。
+
+### 新增
+- **本地 SVG 图标注册表**：`data/category-icons.js` 提供 49 个统一线性 / 圆角风格图标，图标 id 与 Android DailyValue 完全一致，无网络 / CDN 依赖。
+- **category-icon 组件**：`components/category-icon/` 支持 builtin（本地 SVG data-URI，颜色走深浅主题 Token）与 emoji（独立文本渲染，规避 Skyline emoji 变方块）两种模式，非法 / 未知图标自动回退 emoji。
+- **分类管理图标编辑器**：编辑 Sheet 改为「图标库（7 列网格）| Emoji」两个 Tab，系统核心 5 类允许改图标但不可改名 / 归档。
+- **Bill Explorer 历史分类筛选**：分类 Sheet 显示 active + 已归档分类，归档项弱化并标注「已归档」；新记账表单仍只显示 active。
+
+### 数据兼容
+- 分类对象扩展可选 `iconType`（builtin / emoji）与 `iconValue`，emoji 始终保留作旧数据与渲染失败兜底。
+- **无损视觉迁移**：旧分类无图标字段时，默认分类仍是系统默认 emoji 则升级 builtin；用户手动改过的 emoji 保持 emoji 模式，绝不强行改回系统 SVG。
+- **Backup V3 不升级**：备份分类本就保存完整对象，视觉字段仅扩展校验；非法 iconType、未知 builtin 等只给 warning、不拒绝恢复，渲染层统一回退。
+- **Android `.dvbackup` 视觉接入**：Mini 支持的 builtin 复用本地 SVG、emoji 原样保留、不支持的 builtin 退回其 emoji；标准 12 类只做 id 映射、不覆盖本地已设图标。
+
+### 其他
+- Gate 0：App 回前台周期补账后，若当前停在 Bill Explorer 则刷新会话快照并保持筛选，不再显示陈旧数据。
+- 健康检查对 `iconType` / `iconValue` 只给 warning、不升级为结构错误。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1。
+
 ## [1.1.1] — 2026-10-26
 
 Explorer Correctness & Performance Closure（账单浏览正确性与性能收口）。不新增业务功能、不升级数据合同，修复 Bill Explorer 三个真实日期边界 / 分组 / 文案问题并消除真机输入卡顿隐患。

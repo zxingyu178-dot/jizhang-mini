@@ -6,6 +6,7 @@ const viewport = require('../../utils/viewport');
 const theme = require('../../utils/theme');
 const store = require('../../data/index');
 const money = require('../../data/money');
+const { pickCategoryVisual } = require('../../data/category-icons');
 const core = store.recurring.core;
 
 const WEEK_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -128,18 +129,20 @@ Page({
     const resolveCategory = store.getCategoryResolver(); // 单次列表快照
     const rules = store.recurring.getRules().map((r) => {
       const cat = resolveCategory(r.categoryId);
-      return {
-        id: r.id,
-        enabled: r.enabled,
-        type: r.type,
-        freqText: frequencyText(r),
-        amountText: money.formatCents(r.amountCents),
-        emoji: cat.emoji,
-        categoryName: cat.name,
-        note: r.note,
-        // 停用规则保留 nextOccurrence 游标便于恢复，但列表显示「已停用」，不写「下次」
-        nextText: r.enabled ? fmtDateShort(r.nextOccurrence) : '',
-      };
+      return Object.assign(
+        {
+          id: r.id,
+          enabled: r.enabled,
+          type: r.type,
+          freqText: frequencyText(r),
+          amountText: money.formatCents(r.amountCents),
+          categoryName: cat.name,
+          note: r.note,
+          // 停用规则保留 nextOccurrence 游标便于恢复，但列表显示「已停用」，不写「下次」
+          nextText: r.enabled ? fmtDateShort(r.nextOccurrence) : '',
+        },
+        pickCategoryVisual(cat)
+      );
     });
     this.setData({ rules, empty: rules.length === 0 });
   },

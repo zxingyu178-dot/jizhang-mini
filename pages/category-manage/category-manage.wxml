@@ -11,7 +11,9 @@
     <view class="sec-label">系统分类</view>
     <view class="glass-card sec">
       <view class="cm-row" wx:for="{{system}}" wx:key="id">
-        <text class="cm-row__emoji">{{item.emoji}}</text>
+        <view class="cm-row__icon">
+          <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="22"/>
+        </view>
         <text class="cm-row__name">{{item.name}}</text>
       </view>
     </view>
@@ -21,7 +23,9 @@
     <view class="glass-card sec">
       <view class="cm-row" wx:for="{{custom}}" wx:key="id">
         <view class="cm-row__main" data-id="{{item.id}}" bindtap="onEdit">
-          <text class="cm-row__emoji">{{item.emoji}}</text>
+          <view class="cm-row__icon">
+            <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="22"/>
+          </view>
           <text class="cm-row__name">{{item.name}}</text>
         </view>
         <view class="cm-row__archive" data-id="{{item.id}}" bindtap="onArchive">归档</view>
@@ -43,7 +47,9 @@
       <view class="glass-card sec">
         <view class="cm-row cm-row--last" wx:for="{{archived}}" wx:key="id">
           <view class="cm-row__main">
-            <text class="cm-row__emoji cm-row__emoji--off">{{item.emoji}}</text>
+            <view class="cm-row__icon cm-row__icon--off">
+              <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="22"/>
+            </view>
             <text class="cm-row__name cm-row__name--off">{{item.name}}</text>
           </view>
           <view class="cm-row__restore" data-id="{{item.id}}" bindtap="onRestore">恢复</view>
@@ -57,14 +63,40 @@
   <!-- 分类编辑器 Sheet -->
   <bottom-sheet show="{{editorShow}}" title="{{editorTitle}}" bind:close="onEditorClose">
     <view class="ce">
-      <view class="ce__field">
-        <text class="ce__label">图标</text>
-        <input class="ce__emoji" type="text" placeholder="选一个 Emoji" placeholder-class="ce-ph" value="{{emoji}}" bindinput="onEmoji" maxlength="4"/>
+      <!-- 图标库 / Emoji 两个 Tab -->
+      <view class="ce__tabs">
+        <view class="ce__tab {{editorTab==='builtin'?'ce__tab--on':''}}" data-tab="builtin" bindtap="onEditorTab">图标库</view>
+        <view class="ce__tab {{editorTab==='emoji'?'ce__tab--on':''}}" data-tab="emoji" bindtap="onEditorTab">Emoji</view>
       </view>
+
+      <!-- 图标库：49 个本地 SVG 网格，当前选中高亮 -->
+      <scroll-view wx:if="{{editorTab==='builtin'}}" scroll-y class="ce__grid-scroll" enhanced show-scrollbar="{{false}}">
+        <view class="ce__grid">
+          <view wx:for="{{iconList}}" wx:key="id"
+            class="ce__cell {{iconType==='builtin'&&iconValue===item.id?'ce__cell--on':''}}"
+            data-id="{{item.id}}" bindtap="onPickBuiltin">
+            <category-icon icon-type="builtin" icon-value="{{item.id}}" size="24"/>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- Emoji：自定义输入 + 预览 -->
+      <view wx:else class="ce__emoji-wrap">
+        <input class="ce__emoji-input" type="text" placeholder="输入一个 Emoji"
+          placeholder-class="ce-ph" value="{{iconType==='emoji'?iconValue:''}}"
+          bindinput="onEmoji" maxlength="4"/>
+        <view class="ce__emoji-preview" wx:if="{{iconType==='emoji'&&iconValue}}">
+          <category-icon icon-type="emoji" icon-value="{{iconValue}}" size="30"/>
+        </view>
+      </view>
+
+      <!-- 名称 -->
       <view class="ce__field">
         <text class="ce__label">名称</text>
-        <input class="ce__name" type="text" placeholder="分类名称，1-8 个字" placeholder-class="ce-ph" value="{{name}}" bindinput="onName" maxlength="8"/>
+        <input class="ce__name" type="text" placeholder="分类名称，1-8 个字"
+          placeholder-class="ce-ph" value="{{name}}" bindinput="onName" maxlength="8"/>
       </view>
+
       <view class="ce__save {{canSave?'':'ce__save--disabled'}}" bindtap="onSaveEditor">保存</view>
     </view>
   </bottom-sheet>

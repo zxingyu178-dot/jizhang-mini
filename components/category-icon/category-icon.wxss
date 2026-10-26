@@ -1,0 +1,16 @@
+.ci {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.ci--framed {
+  border-radius: 12px;
+  background: var(--primary-tint);
+}
+.ci__img {
+  display: block;
+}
+.ci__emoji {
+  text-align: center;
+}

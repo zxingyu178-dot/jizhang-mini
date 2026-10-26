@@ -139,7 +139,7 @@
               data-id="{{r.id}}"
               bindtap="onTapBill"
             >
-              <view class="tl-item__icon"><text>{{r.emoji}}</text></view>
+              <view class="tl-item__icon"><category-icon icon-type="{{r.iconType}}" icon-value="{{r.iconValue}}" emoji="{{r.emoji}}" size="20"/></view>
               <view class="tl-item__main">
                 <text class="tl-item__name">{{r.name}}</text>
                 <text class="tl-item__note" wx:if="{{r.note}}">{{r.note}}</text>

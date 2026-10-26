@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "empty-state": "../empty-state/empty-state"
+    "empty-state": "../empty-state/empty-state",
+    "category-icon": "../category-icon/category-icon"
   }
 }

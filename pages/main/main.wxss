@@ -249,6 +249,9 @@
 .dayd__cat-emoji {
   font-size: 30rpx;
   margin-right: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .dayd__cat-name {
   flex: 1;

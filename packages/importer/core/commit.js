@@ -50,7 +50,13 @@ function ensureExtraCategories(session, bills) {
       remap[c.id] = dup.id;
       return;
     }
-    const r = categories.addCategory({ id: c.id, name: c.name, emoji: c.emoji });
+    const r = categories.addCategory({
+      id: c.id,
+      name: c.name,
+      emoji: c.emoji,
+      iconType: c.iconType,
+      iconValue: c.iconValue,
+    });
     remap[c.id] = r.ok ? r.category.id : c.id;
   });
   const keys = Object.keys(remap);

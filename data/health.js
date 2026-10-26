@@ -27,6 +27,7 @@ const categories = require('./categories');
 const settings = require('./settings');
 const recurringStore = require('./recurring/store');
 const recurringCore = require('./recurring/core');
+const { isBuiltinId } = require('./category-icons');
 
 const VALID_SCHEMA_VERSIONS = [1, 2, 3];
 const VALID_TYPES = ['expense', 'income'];
@@ -71,11 +72,23 @@ function analyzeHealth(d) {
   // 分类 id 集合（全量，含已归档：历史账单引用归档分类是合法的）；重复 id 为 error
   const catIds = new Set();
   (d.categories || []).forEach((c, i) => {
+    const catRef = 'cat#' + i;
     if (c && c.id) {
       if (catIds.has(c.id)) {
-        pushE('category-duplicate-id', 'categories', 'cat#' + i, shortId(c.id));
+        pushE('category-duplicate-id', 'categories', catRef, shortId(c.id));
       }
       catIds.add(c.id);
+    }
+    // 视觉字段（v1.2.0）：纯视觉元数据，只给 warning，不升级为结构错误，
+    // 渲染层统一回退 emoji。
+    if (c && c.iconType !== undefined) {
+      if (c.iconType !== 'builtin' && c.iconType !== 'emoji') {
+        pushW('category-icon-type-invalid', 'categories', catRef);
+      } else if (typeof c.iconValue !== 'string' || !c.iconValue) {
+        pushW('category-icon-value-missing', 'categories', catRef);
+      } else if (c.iconType === 'builtin' && !isBuiltinId(c.iconValue)) {
+        pushW('category-builtin-icon-unknown', 'categories', catRef, 'icon=' + c.iconValue);
+      }
     }
   });
 

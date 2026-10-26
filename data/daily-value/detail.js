@@ -7,6 +7,7 @@
  * 金额单位：整数分（amountCents），currentCents 为派生浮点。
  */
 const core = require('./core');
+const { pickCategoryVisual } = require('../category-icons');
 
 /**
  * @param {object|undefined} bill
@@ -17,41 +18,45 @@ function computeDailyValueDetail(bill, today, resolveCategory) {
   const t = today || core.localDateKey();
   const cat = bill && resolveCategory ? resolveCategory(bill.categoryId) : null;
   const categoryName = cat ? cat.name : '';
-  const emoji = cat ? cat.emoji : '';
+  const visual = pickCategoryVisual(cat);
 
   if (!bill || !core.isDailyValueEnabled(bill)) {
-    return {
-      bill: bill || null,
-      ok: false,
-      name: (bill && bill.title) || categoryName || '',
-      emoji,
-      categoryId: bill ? bill.categoryId : '',
-      title: bill ? bill.title || '' : '',
-      amountCents: bill ? bill.amountCents || 0 : 0,
-      occurredAt: bill ? bill.occurredAt : 0,
-      startDate: bill ? core.startDateOf(bill) : '',
-      ledgerImpact: bill ? bill.ledgerImpact || 'normal' : 'normal',
-      elapsed: 0,
-      currentCents: 0,
-    };
+    return Object.assign(
+      {
+        bill: bill || null,
+        ok: false,
+        name: (bill && bill.title) || categoryName || '',
+        categoryId: bill ? bill.categoryId : '',
+        title: bill ? bill.title || '' : '',
+        amountCents: bill ? bill.amountCents || 0 : 0,
+        occurredAt: bill ? bill.occurredAt : 0,
+        startDate: bill ? core.startDateOf(bill) : '',
+        ledgerImpact: bill ? bill.ledgerImpact || 'normal' : 'normal',
+        elapsed: 0,
+        currentCents: 0,
+      },
+      visual
+    );
   }
 
   const startDate = core.startDateOf(bill);
   const elapsed = core.elapsedDays(startDate, t);
-  return {
-    bill,
-    ok: true,
-    name: bill.title || categoryName || '日价物品',
-    emoji,
-    categoryId: bill.categoryId,
-    title: bill.title || '',
-    amountCents: bill.amountCents,
-    occurredAt: bill.occurredAt,
-    startDate,
-    ledgerImpact: bill.ledgerImpact === 'daily-value-only' ? 'daily-value-only' : 'normal',
-    elapsed,
-    currentCents: core.dailyValueCentsOf(bill, t),
-  };
+  return Object.assign(
+    {
+      bill,
+      ok: true,
+      name: bill.title || categoryName || '日价物品',
+      categoryId: bill.categoryId,
+      title: bill.title || '',
+      amountCents: bill.amountCents,
+      occurredAt: bill.occurredAt,
+      startDate,
+      ledgerImpact: bill.ledgerImpact === 'daily-value-only' ? 'daily-value-only' : 'normal',
+      elapsed,
+      currentCents: core.dailyValueCentsOf(bill, t),
+    },
+    visual
+  );
 }
 
 module.exports = {

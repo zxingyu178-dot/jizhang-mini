@@ -11,6 +11,7 @@
  */
 const money = require('../money');
 const dateUtil = require('../date');
+const { pickCategoryVisual } = require('../category-icons');
 
 /** 时间戳 -> 「N月D日」标签（兼容旧导出，不带年份） */
 function dayLabel(ts) {
@@ -36,15 +37,17 @@ function groupSearchResults(bills, categoryResolver, refYear) {
     const isExp = b.type === 'expense';
     // 来源标记：recurring→周期、import→导入、manual 不显示。
     const sourceBadge = b.source === 'recurring' ? '周期' : b.source === 'import' ? '导入' : '';
-    const item = {
-      id: b.id,
-      emoji: cat.emoji,
-      name: b.merchant || b.title || cat.name,
-      note: b.note || '',
-      amountText: (isExp ? '-' : '+') + money.formatCents(b.amountCents),
-      isExpense: isExp,
-      sourceBadge,
-    };
+    const item = Object.assign(
+      {
+        id: b.id,
+        name: b.merchant || b.title || cat.name,
+        note: b.note || '',
+        amountText: (isExp ? '-' : '+') + money.formatCents(b.amountCents),
+        isExpense: isExp,
+        sourceBadge,
+      },
+      pickCategoryVisual(cat)
+    );
     if (!map.has(dateKey)) map.set(dateKey, { dateKey, label, records: [] });
     map.get(dateKey).records.push(item);
   });

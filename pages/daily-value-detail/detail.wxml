@@ -26,7 +26,7 @@
     <view class="detail-hero">
       <view class="detail-hero__body">
         <view class="detail-hero__name">
-          <text class="detail-hero__emoji">{{emoji}}</text>
+          <view class="detail-hero__emoji"><category-icon icon-type="{{iconType}}" icon-value="{{iconValue}}" emoji="{{emoji}}" size="22"/></view>
           <text class="detail-hero__title">{{name}}</text>
         </view>
         <text class="detail-hero__label">当前日价</text>

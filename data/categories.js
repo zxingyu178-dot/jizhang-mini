@@ -1,41 +1,81 @@
 /**
- * data/categories.js — 分类定义、读写与管理（v0.6.0）
+ * data/categories.js — 分类定义、读写与管理（v1.2.0 分类视觉系统）
  *
  * 与 Android DailyValue 对齐：核心 5 类（builtin，名称不可改、不可归档）+
  * 预置 7 类（builtin=false，可改名 / 改图标 / 归档）。
  *
- * 分类对象：{ id, name, emoji, builtin, sort, archived }
+ * 分类对象：
+ *   { id, name, emoji, iconType:'builtin'|'emoji', iconValue, builtin, sort, archived }
+ *   - iconType='builtin' → iconValue 存 category-icons 的图标 id，渲染本地 SVG；
+ *   - iconType='emoji'   → iconValue 存 emoji 字符，渲染文本 emoji；
+ *   - emoji 始终保留，作为旧数据兼容与渲染失败兜底。
  *
- * 软归档（不物理删除）：
- *   - 用户「删除」自定义分类 → archived=true；
- *   - 新记账表单（getActiveCategories）看不到已归档分类；
- *   - 历史账单仍经 getCategory(id) 解析出原名称 / 图标，避免历史账因找不到分类全变「其他」。
+ * 无损视觉迁移（旧数据无 iconType）：
+ *   - 默认分类若 emoji 仍等于系统默认 emoji（用户没改过）→ 升级为 builtin 本地图标；
+ *   - 用户已手动改过 emoji → 保持 emoji 模式，绝不强行改回系统 SVG；
+ *   - 用户自定义分类（非默认 id）→ 保持 emoji 模式。
  *
- * Mini Bill 不保存分类快照，统一靠 getCategory 动态解析，因此改名 / 归档只需改本文件一处，
- * 无需同步更新历史账单（比 Android 简单）。
+ * 软归档（不物理删除）：新记账表单看不到已归档分类；历史账单经 getCategory 仍能
+ * 解析原名 / 图标。Mini Bill 不保存分类快照，统一靠 getCategory 动态解析。
  */
 const fs = require('./fs');
 const paths = require('./paths');
 const { genId } = require('../utils/util');
+const categoryIcons = require('./category-icons');
 
-/** 系统核心分类（固定 id，builtin=true，名称不可改、不可归档） */
+/**
+ * 默认分类 id → 内置图标 id（与 Android 图标 id 完全一致）。
+ * 同时作为「旧数据无损迁移」时的默认图标依据。
+ */
+const DEFAULT_ICON_BY_CAT = {
+  'c-food': 'dining',
+  'c-transport': 'transport',
+  'c-shopping': 'shopping',
+  'c-fun': 'fun',
+  'c-life': 'life',
+  'c-drink': 'drink',
+  'c-bill': 'phone-bill',
+  'c-salary': 'salary',
+  'c-medical': 'medical',
+  'c-housing': 'housing',
+  'c-travel': 'travel',
+  'c-other': 'other',
+};
+
+/** 默认分类 id → 系统初始 emoji（用于判断用户是否手动改过 emoji） */
+const DEFAULT_EMOJI_BY_CAT = {
+  'c-food': '🍚',
+  'c-transport': '🚗',
+  'c-shopping': '🛍️',
+  'c-fun': '🎮',
+  'c-life': '🏠',
+  'c-drink': '🥤',
+  'c-bill': '📱',
+  'c-salary': '💰',
+  'c-medical': '💊',
+  'c-housing': '🏢',
+  'c-travel': '✈️',
+  'c-other': '📦',
+};
+
+/** 系统核心分类（固定 id，builtin=true，名称不可改、不可归档；图标可改） */
 const CORE_BUILTINS = [
-  { id: 'c-food', name: '餐饮', emoji: '🍚', builtin: true, sort: 1 },
-  { id: 'c-transport', name: '交通', emoji: '🚗', builtin: true, sort: 2 },
-  { id: 'c-shopping', name: '购物', emoji: '🛍️', builtin: true, sort: 3 },
-  { id: 'c-fun', name: '娱乐', emoji: '🎮', builtin: true, sort: 4 },
-  { id: 'c-life', name: '生活', emoji: '🏠', builtin: true, sort: 5 },
+  { id: 'c-food', name: '餐饮', emoji: '🍚', iconType: 'builtin', iconValue: 'dining', builtin: true, sort: 1 },
+  { id: 'c-transport', name: '交通', emoji: '🚗', iconType: 'builtin', iconValue: 'transport', builtin: true, sort: 2 },
+  { id: 'c-shopping', name: '购物', emoji: '🛍️', iconType: 'builtin', iconValue: 'shopping', builtin: true, sort: 3 },
+  { id: 'c-fun', name: '娱乐', emoji: '🎮', iconType: 'builtin', iconValue: 'fun', builtin: true, sort: 4 },
+  { id: 'c-life', name: '生活', emoji: '🏠', iconType: 'builtin', iconValue: 'life', builtin: true, sort: 5 },
 ];
 
 /** 默认预置分类（builtin=false，可改名 / 改图标 / 归档） */
 const DEFAULT_PRESETS = [
-  { id: 'c-drink', name: '饮料', emoji: '🥤', builtin: false, sort: 6 },
-  { id: 'c-bill', name: '话费', emoji: '📱', builtin: false, sort: 7 },
-  { id: 'c-salary', name: '工资', emoji: '💰', builtin: false, sort: 8 },
-  { id: 'c-medical', name: '医疗', emoji: '💊', builtin: false, sort: 9 },
-  { id: 'c-housing', name: '住房', emoji: '🏢', builtin: false, sort: 10 },
-  { id: 'c-travel', name: '旅行', emoji: '✈️', builtin: false, sort: 11 },
-  { id: 'c-other', name: '其他', emoji: '📦', builtin: false, sort: 12 },
+  { id: 'c-drink', name: '饮料', emoji: '🥤', iconType: 'builtin', iconValue: 'drink', builtin: false, sort: 6 },
+  { id: 'c-bill', name: '话费', emoji: '📱', iconType: 'builtin', iconValue: 'phone-bill', builtin: false, sort: 7 },
+  { id: 'c-salary', name: '工资', emoji: '💰', iconType: 'builtin', iconValue: 'salary', builtin: false, sort: 8 },
+  { id: 'c-medical', name: '医疗', emoji: '💊', iconType: 'builtin', iconValue: 'medical', builtin: false, sort: 9 },
+  { id: 'c-housing', name: '住房', emoji: '🏢', iconType: 'builtin', iconValue: 'housing', builtin: false, sort: 10 },
+  { id: 'c-travel', name: '旅行', emoji: '✈️', iconType: 'builtin', iconValue: 'travel', builtin: false, sort: 11 },
+  { id: 'c-other', name: '其他', emoji: '📦', iconType: 'builtin', iconValue: 'other', builtin: false, sort: 12 },
 ];
 
 const DEFAULT_CATEGORIES = [...CORE_BUILTINS, ...DEFAULT_PRESETS].map((c) =>
@@ -62,16 +102,68 @@ const LEGACY_MAP = {
   other_income: 'c-other',
 };
 
-/** 规范化单个分类（兼容旧数据：缺省 archived=false、builtin=false） */
+/**
+ * 解析输入的图标字段，返回 { iconType, iconValue, emoji }。
+ * 优先显式 iconType/iconValue；兼容直接传 emoji；都没有则默认 builtin/other。
+ */
+function resolveIconInput(input) {
+  input = input || {};
+  if (input.iconType === 'builtin' && input.iconValue && categoryIcons.isBuiltinId(input.iconValue)) {
+    const def = categoryIcons.builtinIconById(input.iconValue);
+    return { iconType: 'builtin', iconValue: input.iconValue, emoji: def.glyph };
+  }
+  if (input.iconType === 'emoji') {
+    const ev = String(input.iconValue || '').trim();
+    if (ev) return { iconType: 'emoji', iconValue: ev, emoji: ev };
+  }
+  const em = String(input.emoji || '').trim();
+  if (em) return { iconType: 'emoji', iconValue: em, emoji: em };
+  const def = categoryIcons.builtinIconById('other');
+  return { iconType: 'builtin', iconValue: 'other', emoji: def.glyph };
+}
+
+/**
+ * 规范化单个分类（兼容旧数据：缺省 archived=false、builtin=false，并做无损视觉迁移）。
+ */
 function normalizeCategory(c) {
-  return {
+  const emoji = c.emoji || '📦';
+  const base = {
     id: c.id,
     name: c.name,
-    emoji: c.emoji || '📦',
+    emoji,
     builtin: c.builtin === true,
     sort: Number.isFinite(c.sort) ? c.sort : 0,
     archived: c.archived === true,
   };
+
+  // 已有显式且合法的图标字段：校验后保留。
+  if (c.iconType === 'builtin' && c.iconValue && categoryIcons.isBuiltinId(c.iconValue)) {
+    base.iconType = 'builtin';
+    base.iconValue = c.iconValue;
+    return base;
+  }
+  if (c.iconType === 'emoji') {
+    const ev = String(c.iconValue || '').trim();
+    if (ev) {
+      base.iconType = 'emoji';
+      base.iconValue = ev;
+      return base;
+    }
+  }
+
+  // 旧数据（无有效 iconType）：无损视觉迁移。
+  const defaultIcon = DEFAULT_ICON_BY_CAT[c.id];
+  const defaultEmoji = DEFAULT_EMOJI_BY_CAT[c.id];
+  if (defaultIcon && emoji === defaultEmoji) {
+    // 默认分类且 emoji 未被用户改动 → 升级本地 SVG。
+    base.iconType = 'builtin';
+    base.iconValue = defaultIcon;
+  } else {
+    // 用户改过 emoji，或自定义分类 → 保持 emoji 模式。
+    base.iconType = 'emoji';
+    base.iconValue = emoji;
+  }
+  return base;
 }
 
 /**
@@ -113,6 +205,8 @@ const FALLBACK_OTHER = {
   id: 'c-other',
   name: '其他',
   emoji: '📦',
+  iconType: 'builtin',
+  iconValue: 'other',
   builtin: false,
   sort: 12,
   archived: false,
@@ -138,7 +232,6 @@ function getCategoryMap() {
 /**
  * 一次读盘，返回基于内存快照的分类解析函数 (id → 分类)。
  * 找不到（含已归档以外的悬空 id）统一回退「其他」。
- * 一次页面 refresh / 聚合计算内只取一次 resolver，再复用于整批账单。
  */
 function getCategoryResolver() {
   const map = getCategoryMap();
@@ -175,7 +268,7 @@ function validateName(name) {
 
 /**
  * 新增分类。
- * @param {{name:string, emoji?:string, id?:string}} input
+ * @param {{name:string, iconType?:string, iconValue?:string, emoji?:string, id?:string}} input
  * @returns {{ok:boolean, reason?:string, category?:object}}
  * 支持传入 id（Android 迁移用确定性 id dvcat-xxx）；否则自动生成。
  */
@@ -197,14 +290,17 @@ function addCategory(input) {
     return { ok: false, reason: 'duplicate-id' };
   }
   const maxSort = all.reduce((m, c) => Math.max(m, c.sort || 0), 0);
-  const category = {
-    id: input.id || genId(),
-    name: v.name,
-    emoji: String(input.emoji || '').trim() || '📦',
-    builtin: false,
-    sort: maxSort + 1,
-    archived: false,
-  };
+  const icon = resolveIconInput(input);
+  const category = Object.assign(
+    {
+      id: input.id || genId(),
+      name: v.name,
+      builtin: false,
+      sort: maxSort + 1,
+      archived: false,
+    },
+    icon
+  );
   all.push(category);
   try {
     fs.writeJSONAtomic(paths.FILE.categories, all);
@@ -232,16 +328,29 @@ function updateCategory(id, patch) {
   if (patch.name !== undefined) {
     if (cat.builtin) return { ok: false, reason: 'builtin' };
     const v = validateName(patch.name);
-    if (!v.ok) return { ok: false, reason: 'invalid-name' };
+    if (!v) return { ok: false, reason: 'invalid-name' };
     if (all.some((c) => c.id !== id && c.name.trim() === v.name)) {
       return { ok: false, reason: 'duplicate' };
     }
     cat.name = v.name;
   }
-  if (patch.emoji !== undefined) {
+
+  // 图标更新（显式 iconType/iconValue）。
+  if (patch.iconType !== undefined) {
+    const icon = resolveIconInput(patch);
+    cat.iconType = icon.iconType;
+    cat.iconValue = icon.iconValue;
+    cat.emoji = icon.emoji;
+  } else if (patch.emoji !== undefined) {
+    // 兼容旧的 emoji-only patch：转为 emoji 模式。
     const emoji = String(patch.emoji).trim();
-    if (emoji) cat.emoji = emoji;
+    if (emoji) {
+      cat.emoji = emoji;
+      cat.iconType = 'emoji';
+      cat.iconValue = emoji;
+    }
   }
+
   try {
     fs.writeJSONAtomic(paths.FILE.categories, all);
   } catch (e) {
@@ -268,10 +377,8 @@ function archiveCategory(id) {
   if (!cat) return { ok: false, reason: 'not-found' };
   if (cat.builtin) return { ok: false, reason: 'builtin' };
 
-  // Gate E：被周期规则引用时阻止归档（延迟 require，避免底层反向依赖）。
-  // 先 strict 校验 recurring.json 可读取（损坏则 fail-closed，不能放行）；
-  // 再 countRulesByCategory。检查失败（损坏 / IO 异常 / 模块异常）必须
-  // fail-closed —— 宁可不归档，也不能放行一个仍被周期规则引用的分类导致后续生成悬空分类。
+  // Gate E：被周期规则引用时阻止归档。先 strict 校验 recurring.json 可读取
+  // （损坏则 fail-closed），再 countRulesByCategory。
   let usage;
   try {
     if (fs.exists(paths.FILE.recurring)) fs.readJSONStrict(paths.FILE.recurring);
@@ -315,7 +422,10 @@ module.exports = {
   CORE_BUILTINS,
   DEFAULT_PRESETS,
   DEFAULT_CATEGORIES,
+  DEFAULT_ICON_BY_CAT,
+  DEFAULT_EMOJI_BY_CAT,
   NAME_MAX,
+  resolveIconInput,
   normalizeCategory,
   readCategoriesStrict,
   ensureCategories,

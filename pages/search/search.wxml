@@ -65,7 +65,7 @@
           data-id="{{r.id}}"
           bindtap="onTapBill"
         >
-          <text class="bill-item__emoji">{{r.emoji}}</text>
+          <view class="bill-item__emoji"><category-icon icon-type="{{r.iconType}}" icon-value="{{r.iconValue}}" emoji="{{r.emoji}}" size="20"/></view>
           <view class="bill-item__main">
             <view class="bill-item__nameline">
               <text class="bill-item__name">{{r.name}}</text>
@@ -110,9 +110,10 @@
   <bottom-sheet show="{{catSheetShow}}" title="分类" bind:close="onCatSheetClose">
     <view class="pick-list">
       <view class="pick-item" data-id="all" bindtap="pickCategory">全部分类</view>
-      <view class="pick-item pick-item--muted" wx:for="{{catList}}" wx:key="id" data-id="{{item.id}}" bindtap="pickCategory">
-        <text class="pick-item__emoji">{{item.emoji}}</text>
+      <view class="pick-item pick-item--muted {{item.archived?'pick-item--archived':''}}" wx:for="{{catList}}" wx:key="id" data-id="{{item.id}}" bindtap="pickCategory">
+        <view class="pick-item__emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
         <text class="pick-item__name">{{item.name}}</text>
+        <text wx:if="{{item.archived}}" class="pick-item__archived-tag">已归档</text>
       </view>
     </view>
   </bottom-sheet>

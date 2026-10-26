@@ -1,0 +1,4 @@
+<view class="ci {{framed ? 'ci--framed' : ''}}" style="width:{{boxSize}}px;height:{{boxSize}}px;">
+  <image wx:if="{{mode==='builtin'}}" class="ci__img" src="{{uri}}" style="width:{{iconSize}}px;height:{{iconSize}}px;" mode="aspectFit"/>
+  <text wx:elif="{{mode==='emoji'}}" class="ci__emoji" style="font-size:{{emojiSize}}px;line-height:{{iconSize}}px;">{{emojiText}}</text>
+</view>

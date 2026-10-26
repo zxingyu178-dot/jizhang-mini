@@ -212,6 +212,9 @@ App({
         cur.loadDetail();
         const curve = cur.selectComponent('#detailCurve');
         if (curve && typeof curve.refresh === 'function') curve.refresh();
+      } else if (cur.route === 'pages/search/search' && typeof cur.refreshAfterExternalDataChange === 'function') {
+        // 回前台周期补账后，刷新 Bill Explorer 会话快照并保持当前筛选，不重建页面
+        cur.refreshAfterExternalDataChange();
       }
     } catch (e) {
       console.error('时间敏感视图跨日刷新失败', e);

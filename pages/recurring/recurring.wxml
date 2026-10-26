@@ -34,7 +34,7 @@
         />
       </view>
       <view class="rc-card__sub">
-        <text class="rc-card__emoji">{{item.emoji}}</text>
+        <view class="rc-card__emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="18"/></view>
         <text class="rc-card__cat">{{item.categoryName}}</text>
         <text class="rc-card__sep">·</text>
         <text class="rc-card__freq">{{item.freqText}}</text>
@@ -130,7 +130,7 @@
       <view class="re-label">分类</view>
       <scroll-view scroll-x enable-flex class="re-chips" enhanced show-scrollbar="{{false}}">
         <view class="re-chip re-chip--cat {{categoryId===item.id?'active':''}}" wx:for="{{cats}}" wx:key="id" data-id="{{item.id}}" bindtap="onCategory">
-          <text class="re-chip__emoji">{{item.emoji}}</text>
+          <view class="re-chip__emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="18"/></view>
           <text class="re-chip__name">{{item.name}}</text>
         </view>
       </scroll-view>

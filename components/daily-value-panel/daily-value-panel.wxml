@@ -26,7 +26,7 @@
         data-id="{{item.id}}"
         bindtap="onTapItem"
       >
-        <view class="dv-item__icon"><text>{{item.emoji}}</text></view>
+        <view class="dv-item__icon"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
         <view class="dv-item__main">
           <text class="dv-item__name">{{item.name}}</text>
           <text class="dv-item__meta">{{item.metaText}}</text>

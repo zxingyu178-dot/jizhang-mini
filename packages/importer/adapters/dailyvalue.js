@@ -8,6 +8,7 @@ const normalizer = require('../core/normalizer');
 const diagnosis = require('../core/diagnosis');
 const header = require('../core/header');
 const recurringCore = require('../../../data/recurring/core');
+const categoryIcons = require('../../../data/category-icons');
 
 // Android 分类中文名 → Mini 分类 id
 const NAME_TO_ID = {
@@ -191,7 +192,25 @@ function makeSafeIdFactory(prefix) {
 }
 
 /**
- * 映射备份分类：系统 id 原样；自定义分类给确定性 Mini id，并产出待建分类。
+ * Android 分类 → Mini 视觉字段（两端共用 builtin id 体系）：
+ *   - 合法 builtin 且 Mini 支持 → 复用本地 SVG；
+ *   - emoji 模式 → 原样保留；
+ *   - 不支持的 builtin / 无有效字段 → 退回其 emoji，不丢图标。
+ */
+function mapAndroidVisual(c) {
+  if (c && c.iconType === 'builtin' && c.iconValue && categoryIcons.isBuiltinId(c.iconValue)) {
+    return { iconType: 'builtin', iconValue: c.iconValue, emoji: String(c.emoji || '📦') };
+  }
+  if (c && c.iconType === 'emoji' && c.iconValue) {
+    return { iconType: 'emoji', iconValue: String(c.iconValue), emoji: String(c.emoji || c.iconValue) };
+  }
+  const emoji = String((c && c.emoji) || '📦');
+  return { iconType: 'emoji', iconValue: emoji, emoji };
+}
+
+/**
+ * 映射备份分类：系统 id 原样（不创建、不覆盖本地已设图标）；
+ * 自定义分类给确定性 Mini id，并产出带视觉字段的待建分类。
  * @returns {{idMap:object, toCreate:array}}
  */
 function mapBackupCategories(backupCats) {
@@ -203,13 +222,14 @@ function mapBackupCategories(backupCats) {
     if (!c || !c.id || seen.has(c.id)) return;
     seen.add(c.id);
     if (STANDARD_SET.has(c.id)) {
+      // 标准 12 类只做 id 映射：本地自定义图标优先，不用 Android 视觉覆盖。
       idMap[c.id] = c.id;
       return;
     }
     const mid = catIdFactory(c.id);
     idMap[c.id] = mid;
     const name = String(c.name || '').trim().slice(0, 8) || '自定义';
-    toCreate.push({ id: mid, name, emoji: String(c.emoji || '📦') });
+    toCreate.push(Object.assign({ id: mid, name }, mapAndroidVisual(c)));
   });
   return { idMap, toCreate };
 }

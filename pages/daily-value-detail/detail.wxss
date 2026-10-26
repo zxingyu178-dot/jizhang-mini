@@ -71,6 +71,9 @@
 .detail-hero__emoji {
   font-size: 40rpx;
   margin-right: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .detail-hero__title {
   font-size: 30rpx;

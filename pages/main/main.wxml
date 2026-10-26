@@ -117,7 +117,7 @@
 
       <view class="dayd__cathead" wx:if="{{dayDetail.categories.length}}">分类</view>
       <view class="dayd__cat" wx:for="{{dayDetail.categories}}" wx:key="categoryId">
-        <text class="dayd__cat-emoji">{{item.emoji}}</text>
+        <view class="dayd__cat-emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
         <text class="dayd__cat-name">{{item.name}}</text>
         <text class="dayd__cat-cents">{{item.centsText}}</text>
       </view>

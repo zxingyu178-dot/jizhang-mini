@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：1.1.1（Explorer Correctness & Performance Closure）。
+- 当前版本：1.2.0（Category Visual System）。
 - 版本历史与各版变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 测试
@@ -40,9 +40,9 @@ App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` /
 - **预算规则历史**：预算存于 `settings.json` 的 `budget.rules`（非单一 dailyBudget），每条规则含 `dailyCents / effectiveFrom / enabled`。某一天适用「effectiveFrom ≤ 当天且最近一条」规则；改 ¥30→¥40 只新增规则、不重算历史；关闭预算新增 `enabled:false` 规则、不删历史。生效日期可选过去、不允许未来。预算设置页（`pages/budget-settings`）可设启用开关、每日金额、生效日期。
 - **预算日历地图**：统计月度页在月度 Hero 后展示当月预算日历（周一为周起点），绿=盈余、红=超支、灰=无预算或未来、紫色描边=今天，绿/红各两档深浅；点击某一天弹出只读 Bottom Sheet（预算 / 实际 / 盈余或超支、当天分类与账单）。日历下方给出本周截至今日、本月截至今日、上周、上月的节奏摘要。规则中途变更时，历史日历按各规则生效日自动分段计算。
 - **Budget Core（纯函数）**：`data/budget/`（rules / period / core / calendar / index）全部为纯函数，金额整数分，周期边界（周一为周起点、月天数 28/29/30/31）、未来日不进累计预算、已结束周期累计预算=总预算，均由单元测试覆盖。预算规则随 `settings` 已包含在 Backup V2 中，备份格式无需升级。
-- **分类管理**：`pages/category-manage` 分系统分类（核心 5 类 `builtin` 只读、不可改名 / 归档）、我的分类（可新增 / 编辑 / 归档）、已归档（可恢复）。分类对象为 `{id,name,emoji,builtin,sort,archived}`，删除采用软归档（`archived=true`）而非物理删除：新记账看不到、历史账单仍正常解析原分类名 / 图标，不会因分类被删而变「其他」。名称 1–8 字、重名拒绝（含归档）。记账表单 `bill-form` 从数据层取 active 分类（不再硬编码），编辑历史账单引用归档分类时仍显示原分类。
+- **分类管理 / 视觉系统**：`pages/category-manage` 分系统分类（核心 5 类 `builtin` 只读、不可改名 / 归档）、我的分类（可新增 / 编辑 / 归档）、已归档（可恢复）。分类对象为 `{id,name,emoji,iconType,iconValue,builtin,sort,archived}`，`iconType='builtin'` 渲染本地统一 SVG（49 个图标，id 与 Android 对齐）、`'emoji'` 渲染文本 emoji；emoji 始终保留作旧数据与渲染失败兜底。旧数据无损迁移：默认分类仍是系统 emoji 则升级 builtin，用户改过的 emoji 保持 emoji 模式。删除采用软归档（`archived=true`）而非物理删除：新记账看不到、历史账单仍正常解析原分类名 / 图标，不会因分类被删而变「其他」。名称 1–8 字、重名拒绝（含归档）。记账表单 `bill-form` 从数据层取 active 分类（不再硬编码），编辑历史账单引用归档分类时仍显示原分类。
 - **周期记账（Recurring）**：`pages/recurring` 提供规则列表（开关、下次到期）与编辑器。频率每天 / 每周 / 每周 N / 每月 / 每年，支持每 N 与间隔；月末规则自动钳制（每月 31 日遇 2 月→28/29、4 月→30，不滚到下月；每年 2-29 平年→2-28）。小程序无后台常驻，在 App `onLaunch` / `onShow`（打开或回到前台）时自动补齐到期账单，生成器有并发锁、确定性 Bill id（`recur-{ruleId}-{date}-{time}`，多次运行幂等）、catch-up 单规则上限 365、删除已生成账单不复活（游标 `lastGeneratedDate`）、编辑规则只影响未来（`scheduleEffectiveAt`）、删除规则保留历史账单、停用不生成、重新启用不补停用期间。保存过去开始的规则前提示将补记笔数。周期账单 `source='recurring'`、`ledgerImpact='normal'`，支出进统计 / 预算，收入进月度收入。
-- **Android 分类与周期迁移**：`.dvbackup` 除日价外，自定义分类按确定性 id（`dvcat-`）迁入（先按名称复用、否则新建，重复导入不重复），账单分类跟随映射、不再全部变「其他」；`recurringRules` 转换为 Mini 规则（金额元→分、频率 / 间隔 / 日期 / 游标保留，`dvrule-` id），导入后不从头补账。
+- **Android 分类与周期迁移**：`.dvbackup` 除日价外，自定义分类按确定性 id（`dvcat-`）迁入（先按名称复用、否则新建，重复导入不重复），并带上视觉字段：Mini 支持的 builtin 复用本地 SVG、emoji 原样保留、不支持的 builtin 退回其 emoji；标准 12 类只做 id 映射、不覆盖本地已设图标。账单分类跟随映射、不再全部变「其他」；`recurringRules` 转换为 Mini 规则（金额元→分、频率 / 间隔 / 日期 / 游标保留，`dvrule-` id），导入后不从头补账。
 - **Android 日价迁移**：`.dvbackup` 完整迁移 `title / ledgerImpact / dailyValue`（含 normal+dailyValue、仅日价物品），已存在账单按源 id 合并补日价、不重复；CSV 无日价字段，仅迁普通账单（对无 id 账单做保守匹配，唯一才补、多条需确认）。
 - **Mini 备份 V3**：完整保存 `title / ledgerImpact / dailyValue / recurringRules`，恢复兼容 V1 + V2 + V3（旧备份缺 `recurringRules` 按空处理）。
 
@@ -69,6 +69,7 @@ jizhang-mini/
 │   ├── daily-value-form/  # 日价物品表单（新增 / 编辑）
 │   ├── daily-value-curve/ # 日价 Canvas 2D 曲线
 │   ├── bottom-sheet/      # 通用底部弹出面板
+│   ├── category-icon/     # 分类图标（本地 SVG / emoji，主题化）
 │   └── bill-form/         # 记账表单（新增 / 编辑，数据层取分类）
 ├── data/                  # 正式本地数据层（ledger / categories / money / backup / migration / dailyValue / budget / recurring 等）
 │   ├── daily-value/       # 日价纯函数（core / list / detail / curve / milestones / form）
@@ -84,7 +85,7 @@ jizhang-mini/
 - 存储根：`wx.env.USER_DATA_PATH`，结构为 `manifest.json`、`bills/YYYY-MM.json`、`categories.json`、`settings.json`、`recurring.json`、`import-history.json`、`legacy/`。
 - 金额核心使用整数分 `amountCents`（¥25.50 = 2550），统计全程整数，显示时再换算，避免浮点误差。
 - Bill V3：`id, type, amountCents, categoryId, occurredAt, title, merchant, note, source, sourceTxnId, importBatchId, createdAt, updatedAt, ledgerImpact, dailyValue?, recurringRuleId?`。`ledgerImpact` 取 `normal`（进账本 / 统计）或 `daily-value-only`（仅日价）；`dailyValue` 为 `{ enabled, mode:'elapsed', startDate }`；`recurringRuleId` 仅周期账单挂载。Bill V1→V2→V3 逐级无损升级（V3 仅补 `recurringRuleId`），不改变 id / type / amountCents / occurredAt / ledgerImpact / dailyValue，迁移按月份快照、失败回滚。日价、预算、周期均从 Bill 与规则动态派生，不新增预算字段到每笔 Bill。
-- 分类存于 `categories.json`：`{id,name,emoji,builtin,sort,archived}`；删除为软归档，历史账单引用不丢失。
+- 分类存于 `categories.json`：`{id,name,emoji,iconType,iconValue,builtin,sort,archived}`；`iconType` 取 `builtin`（本地 SVG，49 图标 id 与 Android 一致）或 `emoji`，emoji 始终保留兜底；删除为软归档，历史账单引用不丢失。
 - 周期规则存于 `recurring.json`：`{version:1,rules:[{id,enabled,type,amountCents,categoryId,note,frequency,interval,day,month?,startDate,time,scheduleEffectiveAt?,lastGeneratedDate?,nextOccurrence?}]}`。
 - 预算规则存于 `settings.json` 的 `budget`：`{ version:1, weekStartsOn:1, rules:[{ id, enabled, dailyCents, effectiveFrom, createdAt }] }`。
 - 备份 Backup V3（`daily-value-mini-backup`）：`data` 含 `bills / categories / settings / recurringRules`，预算规则随 `settings` 一并保存；恢复兼容 V1/V2/V3。

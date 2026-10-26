@@ -8,6 +8,7 @@
  * - 默认按当前日价（分/天）从高到低排序。
  */
 const core = require('./core');
+const { pickCategoryVisual } = require('../category-icons');
 
 /**
  * @param {Array} bills 全部账单（rangeBills）
@@ -23,20 +24,21 @@ function computeDailyValueList(bills, today, resolveCategory) {
       const startDate = core.startDateOf(b);
       const cat = resolveCategory ? resolveCategory(b.categoryId) : null;
       const categoryName = cat ? cat.name : '';
-      const emoji = cat ? cat.emoji : '';
-      return {
-        id: b.id,
-        title: b.title || '',
-        name: b.title || categoryName || '日价物品',
-        emoji,
-        categoryId: b.categoryId,
-        amountCents: b.amountCents,
-        occurredAt: b.occurredAt,
-        startDate,
-        elapsed: core.elapsedDays(startDate, t),
-        currentCents: core.dailyValueCentsOf(b, t),
-        ledgerImpact: b.ledgerImpact === 'daily-value-only' ? 'daily-value-only' : 'normal',
-      };
+      return Object.assign(
+        {
+          id: b.id,
+          title: b.title || '',
+          name: b.title || categoryName || '日价物品',
+          categoryId: b.categoryId,
+          amountCents: b.amountCents,
+          occurredAt: b.occurredAt,
+          startDate,
+          elapsed: core.elapsedDays(startDate, t),
+          currentCents: core.dailyValueCentsOf(b, t),
+          ledgerImpact: b.ledgerImpact === 'daily-value-only' ? 'daily-value-only' : 'normal',
+        },
+        pickCategoryVisual(cat)
+      );
     })
     .sort((a, b) => b.currentCents - a.currentCents);
 }

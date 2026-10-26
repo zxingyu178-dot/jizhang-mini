@@ -6,6 +6,7 @@
     "dv-icon": "../../components/icon/icon",
     "empty-state": "../../components/empty-state/empty-state",
     "bottom-sheet": "../../components/bottom-sheet/bottom-sheet",
-    "bill-form": "../../components/bill-form/bill-form"
+    "bill-form": "../../components/bill-form/bill-form",
+    "category-icon": "../../components/category-icon/category-icon"
   }
 }

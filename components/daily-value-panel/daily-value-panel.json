@@ -2,6 +2,7 @@
   "component": true,
   "usingComponents": {
     "dv-icon": "../icon/icon",
-    "empty-state": "../empty-state/empty-state"
+    "empty-state": "../empty-state/empty-state",
+    "category-icon": "../category-icon/category-icon"
   }
 }

@@ -3,6 +3,7 @@
 // 复用 month.js 的口径与排行逻辑；金额整数分；不直接依赖 store。
 
 const month = require('./month');
+const { pickCategoryVisual } = require('../category-icons');
 
 /**
  * 年度概览
@@ -125,7 +126,10 @@ function findMostRecordedCategory(bills, resolveCategory) {
     const cnt = counts[k];
     if (!best || cnt > best.count || (cnt === best.count && k < best.categoryId)) {
       const cat = resolveCategory ? resolveCategory(k) : { name: k, emoji: '' };
-      best = { categoryId: k, name: cat.name || '其他', emoji: cat.emoji || '', count: cnt };
+      best = Object.assign(
+        { categoryId: k, name: cat.name || '其他', count: cnt },
+        pickCategoryVisual(cat)
+      );
     }
   });
   return best;

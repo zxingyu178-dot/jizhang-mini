@@ -37,7 +37,7 @@
       data-id="{{item.id}}"
       bindtap="onCategory"
     >
-      <text class="df-cat__emoji">{{item.emoji}}</text>
+      <category-icon class="df-cat__icon" icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="24"/>
       <text class="df-cat__name">{{item.name}}</text>
     </view>
   </view>

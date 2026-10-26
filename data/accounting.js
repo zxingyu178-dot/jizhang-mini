@@ -9,6 +9,7 @@
  * - 月度连续时间线构造
  */
 const money = require('./money');
+const { pickCategoryVisual } = require('./category-icons');
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -105,14 +106,16 @@ function shiftMonth(monthList, activeYM, delta) {
 function billDisplay(bill, category) {
   const isExpense = bill.type !== 'income';
   const cat = category || {};
-  return {
-    id: bill.id,
-    emoji: cat.emoji || '📦',
-    name: bill.merchant || cat.name || '其他',
-    note: bill.note || '',
-    amountText: (isExpense ? '-' : '+') + money.formatCents(bill.amountCents),
-    isExpense,
-  };
+  return Object.assign(
+    {
+      id: bill.id,
+      name: bill.merchant || cat.name || '其他',
+      note: bill.note || '',
+      amountText: (isExpense ? '-' : '+') + money.formatCents(bill.amountCents),
+      isExpense,
+    },
+    pickCategoryVisual(cat)
+  );
 }
 
 /**

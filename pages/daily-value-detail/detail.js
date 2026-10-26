@@ -91,6 +91,8 @@ Page({
       ok: true,
       name: detail.name,
       emoji: detail.emoji || '📦',
+      iconType: detail.iconType || 'emoji',
+      iconValue: detail.iconValue || detail.emoji || '📦',
       heroValue,
       heroSizeClass: this.sizeClass(heroValue),
       elapsed: detail.elapsed,

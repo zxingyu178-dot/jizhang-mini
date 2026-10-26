@@ -88,9 +88,11 @@
 .bf-cat--active {
   background: var(--primary-tint);
 }
-.bf-cat__emoji {
-  font-size: 40rpx;
+.bf-cat__icon {
   margin-bottom: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .bf-cat__more-icon {
   margin-bottom: 6rpx;

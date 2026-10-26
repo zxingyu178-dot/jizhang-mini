@@ -10,6 +10,7 @@ const rules = require('./rules');
 const core = require('./core');
 const period = require('./period');
 const dvCore = require('../daily-value/core');
+const { pickCategoryVisual } = require('../category-icons');
 
 const WEEK_HEADERS = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -122,12 +123,14 @@ function buildDayDetail(bills, state, dateStr, resolveCategory, todayStr) {
 
   const categories = Object.keys(catMap).map((cid) => {
     const cat = resolveCategory ? resolveCategory(cid) : null;
-    return {
-      categoryId: cid,
-      name: cat && cat.name ? cat.name : '其他',
-      emoji: cat && cat.emoji ? cat.emoji : '📦',
-      cents: catMap[cid].cents,
-    };
+    return Object.assign(
+      {
+        categoryId: cid,
+        name: cat && cat.name ? cat.name : '其他',
+        cents: catMap[cid].cents,
+      },
+      pickCategoryVisual(cat)
+    );
   }).sort((a, c) => c.cents - a.cents);
 
   const deltaCents = budgetCents - actualCents;

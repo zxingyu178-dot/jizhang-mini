@@ -49,7 +49,7 @@
       data-id="{{item.id}}"
       bindtap="onCategory"
     >
-      <text class="bf-cat__emoji">{{item.emoji}}</text>
+      <category-icon class="bf-cat__icon" icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="24"/>
       <text class="bf-cat__name">{{item.name}}</text>
     </view>
     <view wx:if="{{!showAllCats}}" class="bf-cat bf-cat--more" bindtap="onShowAllCats">

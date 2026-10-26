@@ -104,7 +104,7 @@
             data-id="{{item.categoryId}}"
             bindtap="onTapMonthCat"
           >
-            <text class="rank-emoji">{{item.emoji}}</text>
+            <view class="rank-emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
             <view class="rank-main">
               <view class="rank-line">
                 <text class="rank-name">{{item.name}}</text>
@@ -241,7 +241,7 @@
           <view class="yr-row__main">
             <text class="yr-row__label">记录最多的分类</text>
             <view class="yr-row__sub">
-              <text class="yr-row__emoji">{{yrTopCat.emoji}}</text>
+              <view class="yr-row__emoji"><category-icon icon-type="{{yrTopCat.iconType}}" icon-value="{{yrTopCat.iconValue}}" emoji="{{yrTopCat.emoji}}" size="20"/></view>
               <text class="yr-row__subtext">{{yrTopCat.name}} · {{yrTopCat.count}}笔</text>
             </view>
           </view>
@@ -280,7 +280,7 @@
             data-id="{{item.categoryId}}"
             bindtap="onTapYearCat"
           >
-            <text class="rank-emoji">{{item.emoji}}</text>
+            <view class="rank-emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
             <view class="rank-main">
               <view class="rank-line">
                 <text class="rank-name">{{item.name}}</text>

@@ -1,10 +1,12 @@
 // pages/category-manage/category-manage.js
 // 分类管理：系统分类（只读）/ 我的分类（可编辑、归档）/ 添加分类 / 已归档（可恢复）。
-// 新增、编辑只需图标（Emoji）+ 名称（1-8 字、不可重名）。
+// v1.2.0：编辑器图标从单一 Emoji 升级为「图标库（49 个本地 SVG）| Emoji」两个 Tab；
+// 名称 1-8 字、不可重名；系统核心 5 类可改图标但名称不可改、不可归档。
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
 const theme = require('../../utils/theme');
 const store = require('../../data/index');
+const categoryIcons = require('../../data/category-icons');
 
 const NAME_MAX = 8;
 
@@ -17,11 +19,16 @@ Page({
     system: [],
     custom: [],
     archived: [],
+    // 内置图标库（49 个，网格用）
+    iconList: [],
     // 编辑器 Sheet
     editorShow: false,
     editingId: null, // null=新增，否则编辑
     editorTitle: '添加分类',
-    emoji: '',
+    editorTab: 'builtin', // builtin | emoji
+    iconType: 'builtin', // 当前编辑选中的图标类型
+    iconValue: '', // builtin → 图标 id；emoji → emoji 字符
+    emoji: '', // 兜底 emoji（与 iconValue 同步）
     name: '',
     canSave: false,
   },
@@ -31,6 +38,9 @@ Page({
       windowHeight: info.windowHeight,
       statusBarHeight: info.statusBarHeight,
       headerHeight: info.headerHeight,
+      iconList: categoryIcons.BUILTIN_ICONS.map((i) => ({
+        id: i.id, label: i.label, glyph: i.glyph,
+      })),
     });
     this.load();
     // 主题绑定：根容器 themeClass 实时跟随，不重启、不丢状态。
@@ -60,27 +70,36 @@ Page({
     });
   },
 
-  /** 打开编辑器（新增） */
+  /** 打开编辑器（新增）；默认选中 builtin/other，名称待填 */
   onAdd() {
+    const def = categoryIcons.builtinIconById('other');
     this.setData({
       editorShow: true,
       editingId: null,
       editorTitle: '添加分类',
-      emoji: '',
+      editorTab: 'builtin',
+      iconType: 'builtin',
+      iconValue: 'other',
+      emoji: def.glyph,
       name: '',
       canSave: false,
     });
   },
 
-  /** 打开编辑器（编辑） */
+  /** 打开编辑器（编辑）；恢复当前图标类型与选中态 */
   onEdit(e) {
     const id = e.currentTarget.dataset.id;
     const cat = store.getCategories().find((c) => c.id === id);
     if (!cat) return;
+    const iconType = cat.iconType || 'emoji';
+    const iconValue = cat.iconValue || cat.emoji || '';
     this.setData({
       editorShow: true,
       editingId: id,
       editorTitle: '编辑分类',
+      editorTab: iconType === 'builtin' ? 'builtin' : 'emoji',
+      iconType,
+      iconValue,
       emoji: cat.emoji || '',
       name: cat.name || '',
       canSave: true,
@@ -141,22 +160,43 @@ Page({
   },
 
   /* ---- 编辑器 Sheet ---- */
+  // 切换「图标库 / Emoji」Tab
+  onEditorTab(e) {
+    this.setData({ editorTab: e.currentTarget.dataset.tab });
+  },
+  // 从图标库点选一个内置图标（选中高亮由 wxml 根据 iconType/iconValue 判定）
+  onPickBuiltin(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!categoryIcons.isBuiltinId(id)) return;
+    this.setData({
+      iconType: 'builtin',
+      iconValue: id,
+      emoji: categoryIcons.builtinIconById(id).glyph,
+    }, this.recheck);
+  },
+  // Emoji 自定义输入：转为 emoji 模式
   onEmoji(e) {
-    this.setData({ emoji: e.detail.value }, this.recheck);
+    const v = e.detail.value;
+    this.setData({ iconType: 'emoji', iconValue: v, emoji: v }, this.recheck);
   },
   onName(e) {
     this.setData({ name: e.detail.value }, this.recheck);
   },
   recheck() {
     const n = this.data.name.trim();
-    this.setData({ canSave: !!n && n.length <= NAME_MAX });
+    const hasIcon = this.data.iconType === 'builtin'
+      ? categoryIcons.isBuiltinId(this.data.iconValue)
+      : !!String(this.data.iconValue || '').trim();
+    this.setData({ canSave: !!n && n.length <= NAME_MAX && hasIcon });
   },
   onSaveEditor() {
     const name = this.data.name.trim();
-    const emoji = this.data.emoji.trim();
     if (!name || name.length > NAME_MAX) return;
-    const patch = { name };
-    if (emoji) patch.emoji = emoji;
+    const patch = {
+      name,
+      iconType: this.data.iconType,
+      iconValue: this.data.iconValue,
+    };
 
     const r = this.data.editingId
       ? store.categories.updateCategory(this.data.editingId, patch)

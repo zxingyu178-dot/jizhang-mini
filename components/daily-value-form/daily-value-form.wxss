@@ -86,9 +86,11 @@
 .df-cat--active {
   background: var(--primary-tint);
 }
-.df-cat__emoji {
-  font-size: 40rpx;
+.df-cat__icon {
   margin-bottom: 6rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .df-cat__name {
   font-size: 22rpx;

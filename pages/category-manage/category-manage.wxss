@@ -53,11 +53,14 @@
   flex: 1;
   min-width: 0;
 }
-.cm-row__emoji {
-  font-size: 36rpx;
+.cm-row__icon {
+  width: 44rpx;
   margin-right: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.cm-row__emoji--off {
+.cm-row__icon--off {
   opacity: 0.4;
 }
 .cm-row__name {
@@ -105,6 +108,77 @@
 }
 
 /* 编辑器 */
+.ce__tabs {
+  display: flex;
+  gap: 12rpx;
+  padding: 8rpx 0 20rpx;
+}
+.ce__tab {
+  flex: 1;
+  height: 64rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 27rpx;
+  color: var(--text-secondary);
+  background: var(--glass-input);
+}
+.ce__tab--on {
+  color: var(--button-primary-text);
+  background: var(--button-primary);
+  font-weight: 600;
+}
+
+/* 图标库网格 */
+.ce__grid-scroll {
+  height: 360rpx;
+}
+.ce__grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+.ce__cell {
+  width: 14.28%;
+  height: 90rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14rpx;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+}
+.ce__cell--on {
+  background: var(--primary-tint);
+  border-color: var(--primary);
+}
+
+/* Emoji 输入 */
+.ce__emoji-wrap {
+  height: 360rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+}
+.ce__emoji-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  border-radius: 14rpx;
+  background: var(--glass-input);
+  font-size: 40rpx;
+  color: var(--text-primary);
+}
+.ce__emoji-preview {
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .ce__field {
   display: flex;
   align-items: center;
@@ -115,13 +189,6 @@
   font-size: 28rpx;
   color: var(--text-secondary);
   width: 96rpx;
-}
-.ce__emoji {
-  flex: 1;
-  min-width: 0;
-  height: 72rpx;
-  font-size: 40rpx;
-  color: var(--text-primary);
 }
 .ce__name {
   flex: 1;

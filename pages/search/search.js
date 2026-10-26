@@ -71,12 +71,19 @@ Page({
       const ym = currentYM(d);
       recentMonths.push({ ym, label: ymLabel(ym) });
     }
-    // 分类列表（未归档，含全部分类）；emoji 与名称分开，便于 emoji 独立渲染
-    const catList = store.getActiveCategories().map((c) => ({
-      id: c.id,
-      emoji: c.emoji,
-      name: c.name,
-    }));
+    // 分类筛选：active 在前、已归档在后（归档项弱化标注），让历史账单仍可按原分类筛选。
+    const allCats = store.getCategories();
+    const catList = allCats
+      .slice()
+      .sort((a, b) => (a.archived === b.archived ? 0 : a.archived ? 1 : -1))
+      .map((c) => ({
+        id: c.id,
+        emoji: c.emoji,
+        iconType: c.iconType,
+        iconValue: c.iconValue,
+        name: c.name,
+        archived: c.archived === true,
+      }));
 
     // 进入页面先建立一次会话快照（全部账单 + 分类解析器），后续输入只在内存筛选
     this.refreshSnapshot();
@@ -298,6 +305,13 @@ Page({
   // （筛选不丢、结果立即更新、不返回首页、不依赖重启）
   onBillSaved() {
     this.setData({ sheetShow: false });
+    this.refreshSnapshot();
+    this.applyFilters();
+  },
+
+  // 外部数据变化（回前台周期补账可能生成新账单）后：刷新会话快照并保持当前筛选，
+  // 不重建页面、不丢关键词。由 app.refreshTimeSensitiveViews 在当前页是搜索页时调用。
+  refreshAfterExternalDataChange() {
     this.refreshSnapshot();
     this.applyFilters();
   },
