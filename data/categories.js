@@ -326,13 +326,21 @@ function updateCategory(id, patch) {
   if (!cat) return { ok: false, reason: 'not-found' };
 
   if (patch.name !== undefined) {
-    if (cat.builtin) return { ok: false, reason: 'builtin' };
     const v = validateName(patch.name);
-    if (!v) return { ok: false, reason: 'invalid-name' };
-    if (all.some((c) => c.id !== id && c.name.trim() === v.name)) {
-      return { ok: false, reason: 'duplicate' };
+    if (cat.builtin) {
+      // 核心分类名称不可改：仅允许「名称保持原值」（配合图标更新）；
+      // 传入不同名称（或非法名称）即视为真正改名，拒绝。
+      if (!v.ok || v.name !== cat.name.trim()) {
+        return { ok: false, reason: 'builtin' };
+      }
+      // 名称相同：保持原值不修改，继续后续图标更新。
+    } else {
+      if (!v.ok) return { ok: false, reason: 'invalid-name' };
+      if (all.some((c) => c.id !== id && c.name.trim() === v.name)) {
+        return { ok: false, reason: 'duplicate' };
+      }
+      cat.name = v.name;
     }
-    cat.name = v.name;
   }
 
   // 图标更新（显式 iconType/iconValue）。

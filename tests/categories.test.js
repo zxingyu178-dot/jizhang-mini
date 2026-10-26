@@ -282,6 +282,45 @@ console.log('F. 分类解析单次快照');
   eq(resolver3(undefined).id, 'c-other', '空 id 回退其他');
 }
 
+/* ================= G. v1.2.1 分类视觉正确性：名称校验 + 核心分类只改图标 ================= */
+console.log('G. v1.2.1 分类视觉正确性');
+{
+  const s = freshStore();
+  const C = s.categories;
+
+  // G1 非核心分类非法名称 fail-closed：空白名称
+  const drinkName = C.getCategory('c-drink').name;
+  const g1 = C.updateCategory('c-drink', { name: '   ' });
+  eq(g1.ok, false, 'G1 空白名称拒绝');
+  eq(g1.reason, 'invalid-name', 'G1 返回 invalid-name');
+  eq(C.getCategory('c-drink').name, drinkName, 'G1 原名称保留，未写入 undefined');
+
+  // G2 超长名称 fail-closed
+  const g2 = C.updateCategory('c-drink', { name: '一二三四五六七八九' });
+  eq(g2.ok, false, 'G2 超长名称拒绝');
+  eq(C.getCategory('c-drink').name, drinkName, 'G2 原名称保留');
+
+  // G3 核心分类只改图标（不传 name）→ 成功，名称不变
+  const g3 = C.updateCategory('c-food', { iconType: 'builtin', iconValue: 'coffee' });
+  eq(g3.ok, true, 'G3 核心分类只改图标成功');
+  eq(C.getCategory('c-food').name, '餐饮', 'G3 名称保持不变');
+  eq(C.getCategory('c-food').iconValue, 'coffee', 'G3 图标已更新');
+
+  // G4 核心分类「原名称 + 新图标」（前端保存路径）→ 成功，名称保持原值
+  const g4 = C.updateCategory('c-food', { name: '餐饮', iconType: 'emoji', iconValue: '🍜' });
+  eq(g4.ok, true, 'G4 原名称+改图标成功');
+  eq(C.getCategory('c-food').name, '餐饮', 'G4 名称保持原值');
+  eq(C.getCategory('c-food').iconType, 'emoji', 'G4 图标已切 emoji');
+  eq(C.getCategory('c-food').iconValue, '🍜', 'G4 emoji 值更新');
+
+  // G5 核心分类「不同名称 + 图标」→ 拒绝真正改名，图标也不变
+  const g5 = C.updateCategory('c-food', { name: '吃饭', iconType: 'builtin', iconValue: 'dining' });
+  eq(g5.ok, false, 'G5 核心分类改名被拒');
+  eq(g5.reason, 'builtin', 'G5 返回 builtin');
+  eq(C.getCategory('c-food').name, '餐饮', 'G5 名称未变');
+  eq(C.getCategory('c-food').iconValue, '🍜', 'G5 被拒后图标也未变');
+}
+
 /* ================= 汇总 ================= */
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

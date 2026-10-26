@@ -182,6 +182,7 @@
 .ce__field {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   padding: 18rpx 8rpx;
   border-bottom: 1rpx solid var(--divider);
 }
@@ -197,6 +198,15 @@
   line-height: 72rpx;
   font-size: 30rpx;
   color: var(--text-primary);
+}
+.ce__name--locked {
+  opacity: 0.55;
+}
+.ce__lock-hint {
+  flex-basis: 100%;
+  font-size: 23rpx;
+  color: var(--text-faint);
+  padding: 4rpx 0 2rpx 96rpx;
 }
 .ce-ph {
   color: var(--text-faint);

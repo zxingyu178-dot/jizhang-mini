@@ -24,6 +24,7 @@ Page({
     // 编辑器 Sheet
     editorShow: false,
     editingId: null, // null=新增，否则编辑
+    editingBuiltin: false, // 编辑的是否为系统核心分类（名称不可改，只可改图标）
     editorTitle: '添加分类',
     editorTab: 'builtin', // builtin | emoji
     iconType: 'builtin', // 当前编辑选中的图标类型
@@ -76,6 +77,7 @@ Page({
     this.setData({
       editorShow: true,
       editingId: null,
+      editingBuiltin: false,
       editorTitle: '添加分类',
       editorTab: 'builtin',
       iconType: 'builtin',
@@ -96,6 +98,7 @@ Page({
     this.setData({
       editorShow: true,
       editingId: id,
+      editingBuiltin: cat.builtin === true,
       editorTitle: '编辑分类',
       editorTab: iconType === 'builtin' ? 'builtin' : 'emoji',
       iconType,
@@ -183,10 +186,15 @@ Page({
     this.setData({ name: e.detail.value }, this.recheck);
   },
   recheck() {
-    const n = this.data.name.trim();
     const hasIcon = this.data.iconType === 'builtin'
       ? categoryIcons.isBuiltinId(this.data.iconValue)
       : !!String(this.data.iconValue || '').trim();
+    if (this.data.editingBuiltin) {
+      // 系统核心分类名称不可改，能否保存只看图标。
+      this.setData({ canSave: hasIcon });
+      return;
+    }
+    const n = this.data.name.trim();
     this.setData({ canSave: !!n && n.length <= NAME_MAX && hasIcon });
   },
   onSaveEditor() {

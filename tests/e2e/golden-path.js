@@ -165,7 +165,7 @@ module.exports = async function goldenPath(ctx) {
   });
 
   // ---------------- T03 分类管理 ----------------
-  await ctx.test('T03 分类：系统核心 5 类只读 + 自定义分类可归档', async () => {
+  await ctx.test('T03 分类：系统核心 5 类可改图标（名称禁用）+ 自定义分类可归档', async () => {
     const page = await ctx.goto('/pages/category-manage/category-manage', '.cm-add');
     const d = await page.data();
     ctx.eq(d.system.length, 5, '系统核心分类数量');
@@ -177,6 +177,42 @@ module.exports = async function goldenPath(ctx) {
     // 系统分类行没有归档按钮；自定义分类每行恰好一个归档按钮
     const archiveBtns = await page.$$('.cm-row__archive');
     ctx.eq(archiveBtns.length, d.custom.length, '归档按钮数 = 自定义分类数');
+
+    // ---- v1.2.1：系统分类可点进编辑器，只改图标、名称禁用 ----
+    const mainRows = await page.$$('.cm-row__main');
+    await mainRows[0].tap(); // 第一个系统分类（餐饮 c-food）
+    await sleep(700);
+    let ed = await page.data();
+    ctx.eq(ed.editorShow, true, '系统分类编辑器打开');
+    ctx.eq(ed.editingBuiltin, true, '标记为系统核心分类');
+    ctx.eq(ed.name, '餐饮', '名称回填为原名称');
+    // 名称字段禁用
+    const disabledAttr = await (await page.$('.ce__name')).attribute('disabled');
+    ctx.ok(disabledAttr !== null && disabledAttr !== 'false', '名称字段已禁用');
+
+    // 记录原图标，改选一个不同的内置图标
+    const originalIcon = ed.iconValue;
+    await page.callMethod('onPickBuiltin', { currentTarget: { dataset: { id: 'coffee' } } });
+    await sleep(200);
+    ed = await page.data();
+    ctx.eq(ed.iconValue, 'coffee', '已选中新图标 coffee');
+    await page.callMethod('onSaveEditor');
+    await sleep(1000);
+    ctx.eq((await page.data()).editorShow, false, '保存后编辑器关闭');
+    let food = (await page.data()).system.find((c) => c.id === 'c-food');
+    ctx.eq(food.name, '餐饮', '保存后名称保持不变');
+    ctx.eq(food.iconValue, 'coffee', '图标已更新为 coffee');
+
+    // ---- 恢复原图标（幂等，避免污染用户数据）----
+    const rowsAgain = await page.$$('.cm-row__main');
+    await rowsAgain[0].tap();
+    await sleep(700);
+    await page.callMethod('onPickBuiltin', { currentTarget: { dataset: { id: originalIcon } } });
+    await sleep(200);
+    await page.callMethod('onSaveEditor');
+    await sleep(1000);
+    food = (await page.data()).system.find((c) => c.id === 'c-food');
+    ctx.eq(food.iconValue, originalIcon, '已恢复原图标');
 
     await ctx.shot('e2e_category_manage');
   });

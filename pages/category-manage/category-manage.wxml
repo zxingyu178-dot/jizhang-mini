@@ -7,14 +7,16 @@
   <page-header title="分类管理"></page-header>
 
   <scroll-view scroll-y class="cm-scroll" style="top:{{headerHeight}}px;" enhanced show-scrollbar="{{false}}">
-    <!-- 系统分类（只读） -->
+    <!-- 系统分类（名称/归档只读，图标可改） -->
     <view class="sec-label">系统分类</view>
     <view class="glass-card sec">
       <view class="cm-row" wx:for="{{system}}" wx:key="id">
-        <view class="cm-row__icon">
-          <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="22"/>
+        <view class="cm-row__main" data-id="{{item.id}}" bindtap="onEdit">
+          <view class="cm-row__icon">
+            <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="22"/>
+          </view>
+          <text class="cm-row__name">{{item.name}}</text>
         </view>
-        <text class="cm-row__name">{{item.name}}</text>
       </view>
     </view>
 
@@ -90,11 +92,12 @@
         </view>
       </view>
 
-      <!-- 名称 -->
+      <!-- 名称（系统核心分类禁用） -->
       <view class="ce__field">
         <text class="ce__label">名称</text>
-        <input class="ce__name" type="text" placeholder="分类名称，1-8 个字"
-          placeholder-class="ce-ph" value="{{name}}" bindinput="onName" maxlength="8"/>
+        <input class="ce__name {{editingBuiltin?'ce__name--locked':''}}" type="text" placeholder="分类名称，1-8 个字"
+          placeholder-class="ce-ph" value="{{name}}" bindinput="onName" maxlength="8" disabled="{{editingBuiltin}}"/>
+        <text wx:if="{{editingBuiltin}}" class="ce__lock-hint">系统分类名称不可修改，仅可更换图标</text>
       </view>
 
       <view class="ce__save {{canSave?'':'ce__save--disabled'}}" bindtap="onSaveEditor">保存</view>
