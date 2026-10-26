@@ -92,6 +92,7 @@ const A = require(path.join(ROOT, 'data', 'accounting'));
 const M = require(path.join(ROOT, 'data', 'statistics', 'month'));
 const Y = require(path.join(ROOT, 'data', 'statistics', 'year'));
 const DV = require(path.join(ROOT, 'data', 'daily-value', 'index'));
+const dateUtil = require(path.join(ROOT, 'data', 'date'));
 
 function freshStore() {
   const env = buildWx();
@@ -201,17 +202,43 @@ function runScale(n) {
   const budget = timed('预算日历', () => s.buildBudgetCalendar(year, Number(ym.split('-')[1]), A.todayKey()));
   check(Array.isArray(budget.value.days) || !!budget.value, '预算日历正常返回');
 
-  // 6) 全量关键字搜索
-  const search = timed('全量搜索「咖啡」', () => {
-    const resolver = s.getCategoryResolver();
-    const key = '咖啡';
-    return s.rangeBills().filter((b) => {
-      if (b.ledgerImpact === 'daily-value-only') return false;
-      const cat = resolver(b.categoryId);
-      return [b.merchant || '', b.note || '', b.title || '', cat.name, cat.id].some((f) => f.indexOf(key) >= 0);
+  // 6) 正式 Search Core 组合搜索（v1.1.1：替换旧手写 .filter()，真正调用上线的 searchBills）
+  // 范围取过去约一年（账单均匀分布在过去 12 个月），保证有命中
+  const perfStart = dateUtil.startOfLocalDay(2025, 10, 1);
+  const perfEnd = dateUtil.endOfLocalDay(2026, 10, 31);
+  const search = timed('正式 searchBills「咖啡+支出+餐饮+范围」', () => {
+    return s.searchBills({
+      keyword: '咖啡',
+      type: 'expense',
+      categoryId: 'c-food',
+      dateFrom: perfStart,
+      dateTo: perfEnd,
     });
   });
-  check(search.value.length > 0, '搜索命中（' + search.value.length + ' 条）');
+  check(search.value.length > 0, '正式组合搜索命中（' + search.value.length + ' 条）');
+  // 口径核对：正式 searchBills 结果与直接对全量账单过滤完全一致
+  const manualHit = s
+    .rangeBills()
+    .filter((b) => b.ledgerImpact !== 'daily-value-only')
+    .filter((b) => b.type === 'expense' && b.categoryId === 'c-food')
+    .filter((b) => b.occurredAt >= perfStart && b.occurredAt <= perfEnd)
+    .filter((b) => [b.merchant || '', b.note || '', b.title || ''].some((f) => f.indexOf('咖啡') >= 0));
+  check(search.value.length === manualHit.length,
+    '正式 searchBills 与手写过滤口径一致（' + search.value.length + ' === ' + manualHit.length + '）');
+
+  // 6.1) 连续键入模拟：'咖' → '咖啡' → '咖啡店'，每次都走正式 searchBills
+  // 不设苛刻毫秒指标，验证不崩、数量正确、子串单调（不超线性）
+  const typing = timed('连续键入 3 次（咖/咖啡/咖啡店）', () => {
+    const r1 = s.searchBills({ keyword: '咖' });
+    const r2 = s.searchBills({ keyword: '咖啡' });
+    const r3 = s.searchBills({ keyword: '咖啡店' });
+    return { r1, r2, r3 };
+  });
+  const t = typing.value;
+  check(Array.isArray(t.r1) && Array.isArray(t.r2) && Array.isArray(t.r3), '连续键入每次均返回数组、不崩');
+  check(t.r1.length >= t.r2.length && t.r2.length >= t.r3.length,
+    '连续键入子串单调（' + t.r1.length + ' ≥ ' + t.r2.length + ' ≥ ' + t.r3.length + '）');
+  check(t.r3.length === 0, '无「咖啡店」数据时正确返回 0 条（口径正确）');
 
   // 7) 日价列表
   const dv = timed('日价列表', () => DV.computeDailyValueList(all, A.todayKey(), s.getCategoryResolver()));
@@ -226,7 +253,8 @@ function runScale(n) {
   console.log(row('统计月全套', monthStat));
   console.log(row('年度统计', yearStat));
   console.log(row('预算日历', budget));
-  console.log(row('全量搜索', search));
+  console.log(row('正式搜索', search));
+  console.log(row('连续键入', typing));
   console.log(row('日价列表', dv));
 
   // 性能上限（宽松）

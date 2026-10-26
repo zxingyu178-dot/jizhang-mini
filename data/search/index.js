@@ -8,6 +8,7 @@ const filters = require('./filters');
 const core = require('./core');
 const group = require('./group');
 const range = require('./range');
+const dateUtil = require('../date');
 
 /**
  * 从 URL 参数 / 页面状态构造规范化搜索 Contract（供页面与统计钻取 query 复用）。
@@ -51,4 +52,11 @@ module.exports = {
   dayLabel: group.dayLabel,
   monthRange: range.monthRange,
   yearRange: range.yearRange,
+  // v1.1.1 共享日期工具（统一 999ms 边界与稳定 dateKey）
+  daysInMonth: dateUtil.daysInMonth,
+  startOfLocalDay: dateUtil.startOfLocalDay,
+  endOfLocalDay: dateUtil.endOfLocalDay,
+  dateKeyOf: dateUtil.dateKeyOf,
+  dayLabelOf: dateUtil.dayLabelOf,
+  describeRange: dateUtil.describeRange,
 };

@@ -171,14 +171,21 @@ if (nodeFs.existsSync(fixtureDir)) {
 
 /* ---------- 5.5 发布文档 ---------- */
 section('5.5 发布文档（Release Closure）');
+// 当前版本 Handoff：按 APP_VERSION 动态检查，不再硬编码某个版本
+const versionHandoff = 'docs/HANDOFF_v' + APP_VERSION + '.md';
+if (nodeFs.existsSync(nodePath.join(ROOT, versionHandoff))) {
+  pass('当前版本 Handoff 存在：' + versionHandoff);
+} else {
+  fail('当前版本 Handoff 缺失：' + versionHandoff);
+}
+// 发布流程 / 隐私文档（跨版本沿用，持续有效）
 [
-  { f: 'docs/HANDOFF_v1.0.0.md', required: true },
-  { f: 'docs/RELEASE_CHECKLIST_v1.0.0.md', required: true },
-  { f: 'docs/DEVICE_GATE_v1.0.0.md', required: true },
-  { f: 'docs/PRIVACY_SETUP_v0.8.0.md', required: true },
-].forEach((item) => {
-  if (nodeFs.existsSync(nodePath.join(ROOT, item.f))) pass('发布文档存在：' + item.f);
-  else fail('发布文档缺失：' + item.f);
+  'docs/RELEASE_CHECKLIST_v1.0.0.md',
+  'docs/DEVICE_GATE_v1.0.0.md',
+  'docs/PRIVACY_SETUP_v0.8.0.md',
+].forEach((f) => {
+  if (nodeFs.existsSync(nodePath.join(ROOT, f))) pass('发布文档存在：' + f);
+  else fail('发布文档缺失：' + f);
 });
 
 /* ---------- 6. 包体估算 ---------- */

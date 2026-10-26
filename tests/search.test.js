@@ -119,18 +119,18 @@ eq(search.isEmptyQuery(search.buildSearchQuery({ keyword: '' })), true, '空 key
 /* ---------- J. Gate 3 时间范围纯函数 monthRange / yearRange ---------- */
 const oct = search.monthRange('2026-10');
 eq(oct.dateFrom, ts(2026, 10, 1, 0, 0), 'monthRange 10 月起点');
-eq(oct.dateTo, ts(2026, 10, 31, 23, 59, 59), 'monthRange 10 月终点（含 31 日 23:59:59）');
+eq(oct.dateTo, ts(2026, 10, 31, 23, 59, 59) + 999, 'monthRange 10 月终点（23:59:59.999，含最后 999ms）');
 const feb = search.monthRange('2026-02'); // 2026 非闰年
-eq(feb.dateTo, ts(2026, 2, 28, 23, 59, 59), 'monthRange 2 月（非闰年 28 天）');
+eq(feb.dateTo, ts(2026, 2, 28, 23, 59, 59) + 999, 'monthRange 2 月（非闰年 28 天，含 999ms）');
 const febLeap = search.monthRange('2024-02'); // 2024 闰年
-eq(febLeap.dateTo, ts(2024, 2, 29, 23, 59, 59), 'monthRange 2 月（闰年 29 天）');
+eq(febLeap.dateTo, ts(2024, 2, 29, 23, 59, 59) + 999, 'monthRange 2 月（闰年 29 天，含 999ms）');
 eq(search.monthRange('2026-13'), null, 'monthRange 月份 13 非法');
 eq(search.monthRange('2026-1'), null, 'monthRange 月份未补零非法');
 eq(search.monthRange('abc'), null, 'monthRange 非日期字符串非法');
 eq(search.monthRange(null), null, 'monthRange null 非法');
 const yr = search.yearRange('2026');
 eq(yr.dateFrom, ts(2026, 1, 1, 0, 0), 'yearRange 起点');
-eq(yr.dateTo, ts(2026, 12, 31, 23, 59, 59), 'yearRange 终点');
+eq(yr.dateTo, ts(2026, 12, 31, 23, 59, 59) + 999, 'yearRange 终点（23:59:59.999，含 999ms）');
 eq(search.yearRange('abc'), null, 'yearRange 非数字非法');
 eq(search.yearRange('1800'), null, 'yearRange 年份过小非法');
 eq(search.yearRange(null), null, 'yearRange null 非法');
@@ -140,10 +140,10 @@ const dMonth = search.buildSearchQuery({ month: '2026-10', category: 'c-food', t
 eq(dMonth.type, 'expense', '月度钻取 type 透传');
 eq(dMonth.categoryId, 'c-food', '月度钻取 category(URL) → categoryId');
 eq(dMonth.dateFrom, ts(2026, 10, 1, 0, 0), '月度钻取 dateFrom 换算');
-eq(dMonth.dateTo, ts(2026, 10, 31, 23, 59, 59), '月度钻取 dateTo 换算');
+eq(dMonth.dateTo, ts(2026, 10, 31, 23, 59, 59) + 999, '月度钻取 dateTo 换算（含 999ms）');
 const dYear = search.buildSearchQuery({ year: '2026', category: 'c-shopping', type: 'expense' });
 eq(dYear.dateFrom, ts(2026, 1, 1, 0, 0), '年度钻取 dateFrom 换算');
-eq(dYear.dateTo, ts(2026, 12, 31, 23, 59, 59), '年度钻取 dateTo 换算');
+eq(dYear.dateTo, ts(2026, 12, 31, 23, 59, 59) + 999, '年度钻取 dateTo 换算（含 999ms）');
 eq(dYear.categoryId, 'c-shopping', '年度钻取 categoryId');
 const dBad = search.buildSearchQuery({ month: 'bad', category: 'c-food' });
 eq(dBad.dateFrom, null, '非法 month 不设置 range');
@@ -167,6 +167,49 @@ eq(
   'b4',
   '仅月度钻取（点年度月柱）→ 该月全部账单'
 );
+
+/* ---------- M. v1.1.1 跨年同日分组不合并 ---------- */
+// 按 occurredAt 降序（与真实 searchBills 输出一致）
+const crossBills = [
+  { id: 'x2', type: 'expense', amountCents: 2000, categoryId: 'c-food', merchant: '新店', occurredAt: ts(2026, 10, 1, 9, 0) },
+  { id: 'x1', type: 'expense', amountCents: 1000, categoryId: 'c-food', merchant: '老店', occurredAt: ts(2025, 10, 1, 9, 0) },
+];
+const crossGroups = search.groupSearchResults(crossBills, resolver, 2026);
+eq(crossGroups.length, 2, '跨年同一天得到两个独立分组（不再合并）');
+eq(crossGroups[0].dateKey, '2026-10-01', '当前年分组 dateKey');
+eq(crossGroups[1].dateKey, '2025-10-01', '历史年分组 dateKey');
+eq(crossGroups[0].label, '10月1日', '当前年 label 省略年份');
+eq(crossGroups[1].label, '2025年10月1日', '历史年 label 显示年份');
+eq(crossGroups[0].records[0].id, 'x2', '当前年分组记录正确（降序）');
+eq(crossGroups[1].records[0].id, 'x1', '历史年分组记录正确');
+
+/* ---------- N. v1.1.1 结束边界覆盖最后 999ms ---------- */
+const octR = search.monthRange('2026-10');
+const yearR = search.yearRange(2026);
+// 23:59:59.500（导入账单可能带毫秒）
+const edge500 = { id: 'e1', type: 'expense', amountCents: 500, categoryId: 'c-food', merchant: '边界', occurredAt: new Date(2026, 9, 31, 23, 59, 59, 500).getTime() };
+eq(search.searchBills([edge500], { dateFrom: octR.dateFrom, dateTo: octR.dateTo }, resolver).length, 1, '月范围包含 23:59:59.500 账单（不漏最后 999ms）');
+eq(search.searchBills([edge500], { dateFrom: yearR.dateFrom, dateTo: yearR.dateTo }, resolver).length, 1, '年范围包含 23:59:59.500 账单');
+// 恰好落在结束端点 23:59:59.999
+const edge999 = { id: 'e2', type: 'expense', amountCents: 500, categoryId: 'c-food', occurredAt: octR.dateTo };
+eq(search.searchBills([edge999], { dateFrom: octR.dateFrom, dateTo: octR.dateTo }, resolver).length, 1, '月范围含端点 23:59:59.999');
+// 超出 1ms（下月 1 日 00:00）不包含
+const beyond = { id: 'e3', type: 'expense', amountCents: 500, categoryId: 'c-food', occurredAt: octR.dateTo + 1 };
+eq(search.searchBills([beyond], { dateFrom: octR.dateFrom, dateTo: octR.dateTo }, resolver).length, 0, '下月 1 日 00:00 不包含在 10 月范围');
+
+/* ---------- O. v1.1.1 时间 Chip 严格同年/同月（describeRange） ---------- */
+eq(search.describeRange(yearR.dateFrom, yearR.dateTo).kind, 'year', '同年 1/1~12/31 判定为全年');
+eq(search.describeRange(yearR.dateFrom, yearR.dateTo).label, '2026年', '全年 Chip 文案');
+eq(search.describeRange(octR.dateFrom, octR.dateTo).kind, 'month', '同年同月首日~末日判定为整月');
+eq(search.describeRange(octR.dateFrom, octR.dateTo).label, '2026年10月', '整月 Chip 文案');
+// 跨年「全年」陷阱：2025-01-01 ~ 2026-12-31 不能显示成单年
+const crossYearStart = search.startOfLocalDay(2025, 1, 1);
+eq(search.describeRange(crossYearStart, yearR.dateTo).kind, 'custom', '跨年范围不冒充单年 → 自定义');
+eq(search.describeRange(crossYearStart, yearR.dateTo).label, '自定义', '跨年范围 Chip 文案为自定义');
+// 跨月「整月」陷阱：2025-01-01 ~ 2026-01-31 不能显示成单月
+const crossMonthEnd = search.endOfLocalDay(2026, 1, 31);
+eq(search.describeRange(crossYearStart, crossMonthEnd).kind, 'custom', '跨月范围不冒充单月 → 自定义');
+eq(search.describeRange(null, null).kind, 'none', '无范围返回 none');
 
 /* ---------- 汇总 ---------- */
 console.log('search tests: ' + pass + ' passed, ' + fail + ' failed');

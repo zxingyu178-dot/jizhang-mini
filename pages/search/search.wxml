@@ -52,7 +52,7 @@
       desc="调整一下关键词或筛选条件"
     />
 
-    <block wx:for="{{groups}}" wx:key="label">
+    <block wx:for="{{groups}}" wx:key="dateKey">
       <view class="day-head">
         <text class="day-head__label">{{item.label}}</text>
       </view>

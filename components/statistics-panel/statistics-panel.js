@@ -7,6 +7,7 @@ const util = require('../../utils/util');
 const M = require('../../data/statistics/month');
 const Y = require('../../data/statistics/year');
 const R = require('../../data/statistics/range');
+const dateUtil = require('../../data/date');
 
 function currentYM() {
   const d = new Date();
@@ -17,15 +18,14 @@ function shiftYM(ym, delta) {
   const d = new Date(y, m - 1 + delta, 1);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
-/** 'YYYY-MM-DD' → 当日 00:00:00 时间戳 */
+/** 'YYYY-MM-DD' → 当日起始/结束时间戳（v1.1.1 起复用 data/date，结束含 999ms） */
 function dayStart(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d, 0, 0, 0).getTime();
+  return dateUtil.startOfLocalDay(y, m, d);
 }
-/** 'YYYY-MM-DD' → 当日 23:59:59 时间戳 */
 function dayEnd(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d, 23, 59, 59).getTime();
+  return dateUtil.endOfLocalDay(y, m, d);
 }
 
 // 柱区可用高度（rpx）：容器高 - 标签高 - 少量顶部间隙。固定值，避免 height:% 解析问题。

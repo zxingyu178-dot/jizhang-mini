@@ -3,6 +3,26 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.1.1] — 2026-10-26
+
+Explorer Correctness & Performance Closure（账单浏览正确性与性能收口）。不新增业务功能、不升级数据合同，修复 Bill Explorer 三个真实日期边界 / 分组 / 文案问题并消除真机输入卡顿隐患。
+
+### 修复
+- **跨年同日分组被合并**：旧分组用「N月D日」做 key，导致 2025-10-01 与 2026-10-01 在「全部时间」搜索被塞进同一组、WXML key 冲突。改为 `YYYY-MM-DD` 稳定 key（`dateKeyOf`），显示层当前年省略年份、历史年显示年份（`dayLabelOf`），WXML 改用 `wx:key="dateKey"`。
+- **结束边界少最后 999ms**：旧月 / 年 / 自定义范围结束于 23:59:59.000，23:59:59.500 这类带毫秒导入账单被错误排除。统一 `startOfLocalDay` / `endOfLocalDay`（后者＝下一天 00:00 − 1ms），Bill Explorer、自定义日期搜索、自定义日期统计、统计钻取全部复用。
+- **时间 Chip 跨年误判**：跨年范围不再被显示成单年、跨月范围不再被显示成单月。新增纯函数 `describeRange`，只有真正同年 / 同月才显示快捷标签，否则统一「自定义」。
+
+### 性能
+- **页面会话快照**：进入搜索页一次读取账单与分类解析器，后续输入只在内存筛选，不再每次键入重读全部月份 JSON；账单保存 / 删除后刷新快照。
+- **输入 debounce 120ms**：Chip / 清除 / 时间 / 分类选择仍立即响应；离开页面清理 Timer。
+- **Perf Gate 改用正式 Search Core**：正式调用 `searchBills` 并与手写过滤核对口径，新增连续键入（咖 / 咖啡 / 咖啡店）测试，验证不崩、子串单调、数量正确。
+
+### 文档
+- 新增 `docs/HANDOFF_v1.1.1.md`；`release:check` 发布文档检查改为按当前版本动态判定，不再硬编码 v1.0.0；README 同步 Bill Explorer 真实能力。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1。
+
 ## [1.1.0] — 2026-10-21
 
 Bill Explorer & Analytics（账单浏览与分析）。新增高级搜索、统计钻取、自定义日期统计、年度回顾、CSV 导出；内部前置完成存储可靠性加固。
