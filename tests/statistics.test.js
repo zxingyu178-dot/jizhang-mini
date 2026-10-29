@@ -407,7 +407,15 @@ console.log('环形图圆弧 buildDonutArcs / buildDonutSVG');
   eq(arcs[0].dashOffset, 0, '第一段 dashOffset=0（从 12 点开始）');
   const expectedOffset1 = -share.segments[0].ratio * D.CIRCUMFERENCE;
   assert(Math.abs(arcs[1].dashOffset - expectedOffset1) < 1e-6, '第二段累计 dashOffset');
-  eq(arcs[0].color, D.DONUT_PALETTE[0], '第一段颜色取调色板');
+  // 颜色按 categoryId 稳定映射（不再按排行索引）
+  const firstId = share.segments[0].categoryId;
+  eq(arcs[0].color, D.getCategoryColor(firstId, new Set()).color, '第一段颜色 = 该分类稳定色');
+  eq(arcs[0].color, D.resolveSegmentColors(share.segments)[0].color, '圆弧与统一颜色解析一致');
+  eq(
+    D.getCategoryColor(firstId, new Set()).color,
+    D.getCategoryColor(firstId, new Set()).color,
+    '同分类跨两次解析颜色稳定'
+  );
   eq(arcs[0].aggregate, false, '真实段 aggregate=false');
   assert(Math.abs(arcs[0].ratio - share.segments[0].ratio) < 1e-9, '圆弧 ratio 透传');
 

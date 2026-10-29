@@ -9,6 +9,7 @@ const Y = require('../../data/statistics/year');
 const R = require('../../data/statistics/range');
 const dateUtil = require('../../data/date');
 const statCfg = require('../../data/statistics/config');
+const donut = require('../../data/statistics/donut');
 const { pickCategoryVisual } = require('../../data/category-icons');
 
 /** 模块 ID → 中文展示名（管理 Bottom Sheet 用） */
@@ -95,6 +96,8 @@ Component({
     shareAggregated: false,
     shareExpanded: false,
     fullShareList: [],
+    shareSelectedId: '', // 圆环 / 图例选中的分类 id（聚合为 AGGREGATE id）
+    shareAggCount: 0, // 聚合「其他」包含的真实分类数
     daily: [],
     // 累计消费趋势（cumulative-trend，默认关闭）
     cumPoints: [],
@@ -123,6 +126,8 @@ Component({
     yearShareAggregated: false,
     yearShareExpanded: false,
     yearFullShareList: [],
+    yearShareSelectedId: '',
+    yearShareAggCount: 0,
     // 自定义日期统计（月度区域）
     crStart: '',
     crEnd: '',
@@ -226,13 +231,18 @@ Component({
       };
 
       // —— 分类占比（category-share） ——
+      patch.shareSelectedId = ''; // 切月重置选中
       if (on('category-share')) {
         const share = M.computeCategoryShare(bills, resolveCategory);
-        patch.shareSegments = share.segments;
-        patch.shareList = share.segments.map(toShareRow);
+        // 圆环与图例同一套颜色解析，保证颜色完全一致
+        const colored = donut.resolveSegmentColors(share.segments);
+        const fullColored = donut.resolveSegmentColors(share.all);
+        patch.shareSegments = colored;
+        patch.shareList = colored.map(toShareRow);
         patch.shareAggregated = share.aggregated;
         patch.shareExpanded = false;
-        patch.fullShareList = share.all.map(toShareRow);
+        patch.fullShareList = fullColored.map(toShareRow);
+        patch.shareAggCount = share.aggregated ? share.all.length - M.TOP_N_WHEN_AGGREGATED : 0;
       } else {
         // 关闭：清空，避免显示上次旧结果
         patch.shareSegments = [];
@@ -240,6 +250,7 @@ Component({
         patch.fullShareList = [];
         patch.shareAggregated = false;
         patch.shareExpanded = false;
+        patch.shareAggCount = 0;
       }
 
       // —— 每日花费趋势（daily-expense-trend） ——
@@ -425,13 +436,19 @@ Component({
       }
 
       // —— 全年分类占比（固定模块：复用 category-donut，使用完整年度分类列表） ——
+      patch.yearShareSelectedId = ''; // 切年重置选中
       const yearShare = M.computeCategoryShare(bills, resolveCategory);
       const toYearShareRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
-      patch.yearShareSegments = yearShare.segments;
-      patch.yearShareList = yearShare.segments.map(toYearShareRow);
+      const yColored = donut.resolveSegmentColors(yearShare.segments);
+      const yFullColored = donut.resolveSegmentColors(yearShare.all);
+      patch.yearShareSegments = yColored;
+      patch.yearShareList = yColored.map(toYearShareRow);
       patch.yearShareAggregated = yearShare.aggregated;
       patch.yearShareExpanded = false;
-      patch.yearFullShareList = yearShare.all.map(toYearShareRow);
+      patch.yearFullShareList = yFullColored.map(toYearShareRow);
+      patch.yearShareAggCount = yearShare.aggregated
+        ? yearShare.all.length - M.TOP_N_WHEN_AGGREGATED
+        : 0;
 
       this.setData(patch);
     },
@@ -530,16 +547,33 @@ Component({
         title, items, scope: 'year', categoryId: catId, year: this.data.year,
       });
     },
-    /** 全年分类占比行：真实分类 → Bill Explorer 该年该分类支出；聚合「其他」→ 展开完整列表 */
-    onTapYearShareRow(e) {
-      const id = e.currentTarget.dataset.id;
-      if (e.currentTarget.dataset.agg || id === M.AGGREGATE_OTHER_ID) {
+    /** 年度钻取公共逻辑：真实分类 → Bill Explorer 该年该分类支出；聚合 → 展开列表 */
+    drillYearShare(segment) {
+      if (!segment) return;
+      if (segment.aggregate || segment.categoryId === M.AGGREGATE_OTHER_ID) {
         this.setData({ yearShareExpanded: true });
         return;
       }
       wx.navigateTo({
-        url: '/pages/search/search?year=' + this.data.year + '&category=' + id + '&type=expense',
+        url: '/pages/search/search?year=' + this.data.year + '&category=' + segment.categoryId + '&type=expense',
       });
+    },
+    /** 全年分类占比行点击 */
+    onTapYearShareRow(e) {
+      this.drillYearShare({
+        categoryId: e.currentTarget.dataset.id,
+        aggregate: !!e.currentTarget.dataset.agg,
+      });
+    },
+    /** 年度圆环选中分段：同步图例高亮（不跳转） */
+    onYearDonutSelect(e) {
+      const seg = e.detail.segment;
+      if (!seg) return;
+      this.setData({ yearShareSelectedId: seg.categoryId });
+    },
+    /** 年度圆环中心点击：执行钻取 */
+    onYearDonutDrill(e) {
+      this.drillYearShare(e.detail.segment);
     },
     /** 全年分类占比：查看全部 / 收起 */
     onToggleYearShareExpand() {
@@ -557,16 +591,33 @@ Component({
       if (!this.data.mLargestId) return;
       this.triggerEvent('openbill', { id: this.data.mLargestId });
     },
-    /** 分类占比行：真实分类 → Bill Explorer 当月该分类支出；聚合「其他」→ 展开完整列表 */
-    onTapShareRow(e) {
-      const id = e.currentTarget.dataset.id;
-      if (e.currentTarget.dataset.agg || id === M.AGGREGATE_OTHER_ID) {
+    /** 月度钻取公共逻辑：真实分类 → Bill Explorer 当月该分类支出；聚合 → 展开列表 */
+    drillMonthShare(segment) {
+      if (!segment) return;
+      if (segment.aggregate || segment.categoryId === M.AGGREGATE_OTHER_ID) {
         this.setData({ shareExpanded: true });
         return;
       }
       wx.navigateTo({
-        url: '/pages/search/search?month=' + this.data.ym + '&category=' + id + '&type=expense',
+        url: '/pages/search/search?month=' + this.data.ym + '&category=' + segment.categoryId + '&type=expense',
       });
+    },
+    /** 分类占比行点击 */
+    onTapShareRow(e) {
+      this.drillMonthShare({
+        categoryId: e.currentTarget.dataset.id,
+        aggregate: !!e.currentTarget.dataset.agg,
+      });
+    },
+    /** 月度圆环选中分段：同步图例高亮（不跳转） */
+    onDonutSelect(e) {
+      const seg = e.detail.segment;
+      if (!seg) return;
+      this.setData({ shareSelectedId: seg.categoryId });
+    },
+    /** 月度圆环中心点击：执行钻取 */
+    onDonutDrill(e) {
+      this.drillMonthShare(e.detail.segment);
     },
     /** 查看全部 / 收起完整分类列表 */
     onToggleShareExpand() {

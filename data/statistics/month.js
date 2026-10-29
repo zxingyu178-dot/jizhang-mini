@@ -301,6 +301,7 @@ module.exports = {
   computeIncomeExpenseCompare,
   AGGREGATE_OTHER_ID,
   MAX_DIRECT_SEGMENTS,
+  TOP_N_WHEN_AGGREGATED,
   computeCategoryShare,
   findTopExpenseDay,
   computeDailyAverageExpense,

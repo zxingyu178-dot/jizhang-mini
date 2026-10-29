@@ -5,26 +5,43 @@
 .cd__img {
   display: block;
 }
+/* 中心点击区只覆盖中心孔（环带点击不会落到这里），尺寸对应内半径比例 */
 .cd__center {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 50%;
+  left: 50%;
+  width: 68%;
+  height: 68%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
+}
+.cd__center--tap {
+  /* 选中态：中心可点击钻取，给克制的轻提示 */
+  background: rgba(124, 134, 255, 0.10);
 }
 .cd__amount {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
 }
 .cd__label {
-  margin-top: 4rpx;
+  margin-top: 2rpx;
   font-size: 20rpx;
+  color: var(--text-secondary);
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cd__sub {
+  margin-top: 2rpx;
+  font-size: 18rpx;
   color: var(--text-secondary);
   line-height: 1.2;
 }

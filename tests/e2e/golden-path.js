@@ -695,4 +695,129 @@ module.exports = async function goldenPath(ctx) {
     await sleep(1000);
     ctx.eq((await panel.data()).mode, 'month', '已切回月度模式');
   });
+
+  // ---------------- T20 月度圆环：触摸选中、中心切换、图例同步、钻取 ----------------
+  await ctx.test('T20 月度圆环触摸选中、中心切换与钻取', async () => {
+    const page = await ctx.home();
+    await page.callMethod('__e2eClearDonut');
+    await page.callMethod('__e2eSeedDonut');
+    await ensureTab(page, 0);
+    await sleep(400);
+    const panel = await page.$('#statisticsPanel');
+    await panel.callMethod('refresh');
+    await sleep(1000);
+    let pd = await panel.data();
+    ctx.truthy(pd.shareSegments.length >= 5, '注入后圆环分段数 >=5（actual=' + pd.shareSegments.length + '）');
+    ctx.eq(pd.shareSelectedId, '', '初始无选中');
+
+    await panel.setData({ scrollInto: 'monthShareCard' });
+    await sleep(900);
+    const donutEl = await panel.$('#monthDonut');
+    const rootEl = await donutEl.$('.cd');
+    const off = await rootEl.offset();
+    const sz = await rootEl.size();
+    const rect = { left: off.left, top: off.top, width: sz.width, height: sz.height };
+    const segs = pd.shareSegments;
+    const midFrac = segs[0].ratio / 2; // 第一段中点
+    const theta = midFrac * 2 * Math.PI;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const ringR = (rect.width / 100) * 40;
+    const tx = cx + ringR * Math.sin(theta);
+    const ty = cy - ringR * Math.cos(theta);
+    await donutEl.callMethod('onTouchStart', { touches: [{ clientX: tx, clientY: ty }] });
+    await sleep(600);
+    const dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '选中第一段');
+    ctx.eq(dd.hasSelection, true, 'hasSelection=true');
+    ctx.eq(dd.dispLabel, segs[0].name, '中心切换为分类名');
+    ctx.truthy(String(dd.dispAmount).indexOf('¥') === 0, '中心显示分类金额');
+    ctx.truthy(String(dd.dispSub).indexOf('%') > 0, '中心显示占比');
+    pd = await panel.data();
+    ctx.eq(pd.shareSelectedId, segs[0].categoryId, '面板同步选中 id（图例高亮）');
+
+    await mp.mockWxMethod('navigateTo', function (options) {
+      globalThis.__e2eNavUrl = options.url;
+      return { errMsg: 'navigateTo:ok' };
+    });
+    const centerEl = await donutEl.$('.cd__center');
+    await centerEl.tap();
+    await sleep(500);
+    const captured = await mp.evaluate(() => globalThis.__e2eNavUrl);
+    ctx.truthy(captured.indexOf('category=' + segs[0].categoryId) >= 0, '钻取带真实 categoryId');
+    ctx.truthy(captured.indexOf('type=expense') >= 0, '钻取带 expense 筛选');
+    ctx.truthy(captured.indexOf('month=') >= 0, '月度钻取带 month');
+    await mp.restoreWxMethod('navigateTo');
+
+    await panel.callMethod('refresh');
+    await sleep(900);
+    const ddReset = await (await panel.$('#monthDonut')).data();
+    ctx.eq(ddReset.selectedIndex, -1, '重新加载后选中重置');
+
+    await panel.setData({ scrollInto: '' });
+    await page.callMethod('__e2eClearDonut');
+    await panel.callMethod('refresh');
+    await sleep(800);
+  });
+
+  // ---------------- T21 年度圆环：触摸选中、中心切换、图例同步、钻取 ----------------
+  await ctx.test('T21 年度圆环触摸选中、中心切换与钻取', async () => {
+    const page = await ctx.home();
+    await page.callMethod('__e2eClearDonut');
+    await page.callMethod('__e2eSeedDonut');
+    await ensureTab(page, 0);
+    await sleep(400);
+    const panel = await page.$('#statisticsPanel');
+    await panel.callMethod('onModeYear');
+    await sleep(1200);
+    let pd = await panel.data();
+    ctx.eq(pd.mode, 'year', '已切年度模式');
+    ctx.truthy(pd.yearShareSegments.length >= 5, '年度圆环分段 >=5（actual=' + pd.yearShareSegments.length + '）');
+    ctx.eq(pd.yearShareSelectedId, '', '年度初始无选中');
+
+    await panel.setData({ scrollInto: 'yearShareCard' });
+    await sleep(900);
+    const donutEl = await panel.$('#yearDonut');
+    const rootEl = await donutEl.$('.cd');
+    const off = await rootEl.offset();
+    const sz = await rootEl.size();
+    const rect = { left: off.left, top: off.top, width: sz.width, height: sz.height };
+    const segs = pd.yearShareSegments;
+    const midFrac = segs[0].ratio / 2;
+    const theta = midFrac * 2 * Math.PI;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const ringR = (rect.width / 100) * 40;
+    const tx = cx + ringR * Math.sin(theta);
+    const ty = cy - ringR * Math.cos(theta);
+    await donutEl.callMethod('onTouchStart', { touches: [{ clientX: tx, clientY: ty }] });
+    await sleep(600);
+    const dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '年度选中第一段');
+    ctx.eq(dd.hasSelection, true, '年度 hasSelection=true');
+    ctx.eq(dd.dispLabel, segs[0].name, '年度中心切换为分类名');
+    ctx.truthy(String(dd.dispSub).indexOf('%') > 0, '年度中心显示占比');
+    pd = await panel.data();
+    ctx.eq(pd.yearShareSelectedId, segs[0].categoryId, '年度面板同步选中 id');
+
+    await mp.mockWxMethod('navigateTo', function (options) {
+      globalThis.__e2eNavUrl2 = options.url;
+      return { errMsg: 'navigateTo:ok' };
+    });
+    const centerEl = await donutEl.$('.cd__center');
+    await centerEl.tap();
+    await sleep(500);
+    const captured = await mp.evaluate(() => globalThis.__e2eNavUrl2);
+    ctx.truthy(captured.indexOf('year=') >= 0, '年度钻取带 year');
+    ctx.truthy(captured.indexOf('category=' + segs[0].categoryId) >= 0, '年度钻取带 categoryId');
+    ctx.truthy(captured.indexOf('type=expense') >= 0, '年度钻取带 expense');
+    await mp.restoreWxMethod('navigateTo');
+
+    await panel.setData({ scrollInto: '' });
+    await panel.callMethod('onModeMonth');
+    await sleep(1000);
+    await page.callMethod('__e2eClearDonut');
+    await (await page.$('#statisticsPanel')).callMethod('refresh');
+    await sleep(800);
+  });
 };

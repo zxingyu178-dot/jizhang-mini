@@ -63,23 +63,28 @@
       </view>
 
       <!-- 分类占比（环形图 + 分类列表，点击真实分类钻取 Bill Explorer） -->
-      <view class="glass-card chart share" wx:if="{{modMap['category-share']}}">
+      <view class="glass-card chart share" id="monthShareCard" wx:if="{{modMap['category-share']}}">
         <text class="chart__title">分类占比</text>
         <category-donut
+          id="monthDonut"
           segments="{{shareSegments}}"
           center-text="¥{{mExpense}}"
           center-label="总支出"
+          agg-count="{{shareAggCount}}"
           size="150"
+          bind:select="onDonutSelect"
+          bind:drill="onDonutDrill"
         />
         <view class="share-list">
           <view
-            class="share-row"
+            class="share-row {{shareSelectedId === item.categoryId ? 'share-row--active' : ''}}"
             wx:for="{{shareExpanded ? fullShareList : shareList}}"
             wx:key="categoryId"
             data-id="{{item.categoryId}}"
             data-agg="{{item.aggregate}}"
             bindtap="onTapShareRow"
           >
+            <view class="share-row__dot" style="background:{{item.color}};"></view>
             <view class="share-row__icon">
               <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="19"/>
             </view>
@@ -316,20 +321,25 @@
         <text class="chart__title">全年分类占比</text>
         <block wx:if="{{yearShareList.length}}">
           <category-donut
+            id="yearDonut"
             segments="{{yearShareSegments}}"
             center-text="¥{{yExpense}}"
             center-label="全年支出"
+            agg-count="{{yearShareAggCount}}"
             size="150"
+            bind:select="onYearDonutSelect"
+            bind:drill="onYearDonutDrill"
           />
           <view class="share-list">
             <view
-              class="share-row"
+              class="share-row {{yearShareSelectedId === item.categoryId ? 'share-row--active' : ''}}"
               wx:for="{{yearShareExpanded ? yearFullShareList : yearShareList}}"
               wx:key="categoryId"
               data-id="{{item.categoryId}}"
               data-agg="{{item.aggregate}}"
               bindtap="onTapYearShareRow"
             >
+              <view class="share-row__dot" style="background:{{item.color}};"></view>
               <view class="share-row__icon">
                 <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="19"/>
               </view>

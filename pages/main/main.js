@@ -401,4 +401,45 @@ Page({
 
     return result;
   },
+  /**
+   * E2E 圆环交互测试专用：在当前月份注入固定多分类支出账单（无 UI 入口，
+   * 自动化 page.callMethod('__e2eSeedDonut') 调用）。用固定 note 标记，便于幂等清理。
+   */
+  __e2eSeedDonut() {
+    const store = require('../../data/index');
+    const now = new Date();
+    const ym = store.ledger.ymOf(now.getTime());
+    const seed = [
+      { categoryId: 'c-food', amount: 375.64 },
+      { categoryId: 'c-shopping', amount: 204.04 },
+      { categoryId: 'c-life', amount: 140.00 },
+      { categoryId: 'c-transport', amount: 90.00 },
+      { categoryId: 'c-fun', amount: 50.00 },
+    ];
+    const ids = [];
+    seed.forEach((s, i) => {
+      const at = new Date(now.getFullYear(), now.getMonth(), Math.min(i + 1, 27), 12, 0).getTime();
+      const b = store.addBill({
+        type: 'expense',
+        amount: s.amount,
+        categoryId: s.categoryId,
+        note: 'E2E_DONUT',
+        occurredAt: at,
+      });
+      ids.push(b.id);
+    });
+    return { ym, ids };
+  },
+  /** E2E 清理：删除当前月份所有 note=E2E_DONUT 的账单 */
+  __e2eClearDonut() {
+    const store = require('../../data/index');
+    const now = new Date();
+    const ym = store.ledger.ymOf(now.getTime());
+    const bills = store.rangeBills(ym, ym);
+    let removed = 0;
+    bills.forEach((b) => {
+      if (b.note === 'E2E_DONUT') { store.deleteBill(b.id); removed++; }
+    });
+    return { ym, removed };
+  },
 });

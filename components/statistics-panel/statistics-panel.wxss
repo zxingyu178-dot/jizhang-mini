@@ -169,6 +169,17 @@
   align-items: center;
   padding: 12rpx 0;
 }
+.share-row__dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+.share-row--active {
+  background: rgba(124, 134, 255, 0.12);
+  border-radius: 12rpx;
+}
 .share-row__icon {
   width: 44rpx;
   display: flex;

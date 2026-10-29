@@ -3,6 +3,25 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.3.1] — 2026-10-29
+
+Interactive Statistics & OSS Review（统计图表交互与开源方案评估）。让 v1.3.0 的静态分类占比圆环变成可真实触摸交互，并先完成开源图表方案评估。不升级数据合同、不新增业务功能、不把分类颜色持久化。
+
+### 新增
+- **圆环分段真实点击**：`components/category-donut/` 从静态 `<image>` 升级为可触摸交互；点击彩色分段准确识别 categoryId，当前分段高亮（stroke-width 增大、其余分段降透明度），中心切换为分类名称 / 金额 / 占比，图例同步高亮；点击中心孔在已选中时执行钻取。
+- **纯函数命中检测**：`data/statistics/donut.js` 新增 `localToViewBox()` 与 `hitSegment()`，先按内外半径判定环带（中心孔 / 圆环外部返回 -1），再以从 12 点顺时针角度按 ratio 累计区间定位；不依赖 wx，可确定性单测。
+- **稳定颜色映射**：`hashId()` 对 categoryId 做确定性哈希，`getCategoryColor()` 使同一真实分类跨月 / 跨年颜色稳定，同图撞色时借用空闲色；`resolveSegmentColors()` 成为圆环与图例唯一颜色来源；聚合「其他」使用独立中性色 `AGGREGATE_COLOR`。
+- **聚合「其他」交互**：点击聚合分段显示聚合金额、占比与包含分类数，可展开被聚合分类列表；不把 `__aggregate_other__` 当真实分类查询账单。
+
+### 评估
+- **开源图表方案评估**：新增 `docs/OSS_CHART_EVALUATION_v1.3.1.md`，核实 echarts-for-weixin（BSD-3-Clause）、AntV F2 / f-wx（MIT）、uCharts（Apache-2.0）等候选；三者均基于 Canvas，会重新引入 Canvas 生命周期与 Skyline 同层不确定点，且存在包体 / 构建链侵入，最终选型保留并增强自研动态 SVG，本版不新增第三方依赖。
+
+### 测试
+- 新增命中检测与颜色专项 `tests/donut-hit.test.js`（44 项），覆盖空 / 单 / 多分类、各方向角度、中心孔与外部、分段交界、小占比、聚合其他、颜色稳定与图例一致；E2E 新增 T20（月度）/ T21（年度）圆环交互用例并纳入默认 `npm run e2e`。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1，均不升级；不新增分类颜色持久化字段。
+
 ## [1.3.0] — 2026-10-29
 
 Statistics Dashboard & Scale Lab（统计仪表盘与真实规模压测）。一半提升统计可读性与可定制性，一半建立真实风格大账本压测长期使用能力。不升级数据合同、不新增业务功能。
