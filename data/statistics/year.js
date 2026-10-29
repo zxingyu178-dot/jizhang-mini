@@ -90,24 +90,7 @@ function computeExpenseExtremes(bills, year) {
   return { highest, lowest };
 }
 
-/**
- * 最大单笔支出：金额最大的支出账单；同金额取 occurredAt 最早（确定性）。
- * @returns {Object|null} 原始账单
- */
-function findLargestExpense(bills) {
-  let largest = null;
-  (bills || []).forEach((b) => {
-    if (!month.inLedger(b) || b.type === 'income') return;
-    if (
-      !largest ||
-      b.amountCents > largest.amountCents ||
-      (b.amountCents === largest.amountCents && b.occurredAt < largest.occurredAt)
-    ) {
-      largest = b;
-    }
-  });
-  return largest;
-}
+// 最大单笔支出复用 month.findLargestExpense（v1.3.0 起统一口径，不再重复定义）。
 
 /**
  * 记录最多的分类：按所有计入账本记录（含收入）的笔数；
@@ -160,7 +143,7 @@ module.exports = {
   computeMonthlyTrend,
   computeYearCategoryRanking,
   computeExpenseExtremes,
-  findLargestExpense,
+  findLargestExpense: month.findLargestExpense,
   findMostRecordedCategory,
   findMostActiveMonth,
 };

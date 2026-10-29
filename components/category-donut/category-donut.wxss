@@ -1,0 +1,30 @@
+.cd {
+  position: relative;
+  margin: 0 auto;
+}
+.cd__img {
+  display: block;
+}
+.cd__center {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.cd__amount {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.cd__label {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}

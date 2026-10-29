@@ -22,6 +22,8 @@ function eq(actual, expected, msg) {
 const M = require('../data/statistics/month');
 const Y = require('../data/statistics/year');
 const R = require('../data/statistics/range');
+const D = require('../data/statistics/donut');
+const C = require('../data/statistics/cumulative');
 
 /** 虚构账单（amount 为元，内部转分） */
 function bill(type, amount, y, mo, d, cat, ledger) {
@@ -176,6 +178,19 @@ console.log('全年分类排行');
   eq(r.top[2].categoryId, 'c-transport', '交通第3（5.00）');
 }
 
+console.log('全年分类占比（复用 computeCategoryShare，完整列表）');
+{
+  const s = M.computeCategoryShare(yearBills, resolveCat);
+  eq(s.total, 12500, '全年占比总额 125.00');
+  eq(s.segments.length, 3, '3 个分类全部显示，不截断');
+  eq(s.aggregated, false, '分类 ≤8 不聚合');
+  eq(s.segments[0].categoryId, 'c-food', '第 1 餐饮');
+  eq(s.segments[0].percentText, '64.0', '餐饮占比 64.0%（80/125）');
+  assert(Math.abs(s.segments[0].ratio - 8000 / 12500) < 1e-9, '餐饮 ratio 精确（弧长用它）');
+  const sum = s.all.reduce((acc, x) => acc + x.cents, 0);
+  eq(sum, 12500, '占比金额合计 = 全年支出');
+}
+
 console.log('最高/最低消费月');
 {
   const e = Y.computeExpenseExtremes(yearBills, 2026);
@@ -273,6 +288,21 @@ console.log('年度回顾三项（Gate 5）');
   ];
   eq(Y.findMostRecordedCategory(tieC, null).categoryId, 'c-a', '同笔数取 categoryId 最小');
 
+  // 视觉字段透传：带 builtin 的 resolver 必须输出 iconType/iconValue（年度回顾不回退 Emoji）
+  const visualResolver = (id) => ({
+    name: '餐饮',
+    emoji: '🍚',
+    iconType: 'builtin',
+    iconValue: 'dining',
+  });
+  const vtc = Y.findMostRecordedCategory(
+    [bill('expense', 1, 2026, 1, 1, 'c-food')],
+    visualResolver
+  );
+  eq(vtc.iconType, 'builtin', '记录最多分类透传 iconType');
+  eq(vtc.iconValue, 'dining', '记录最多分类透传 iconValue');
+  eq(vtc.emoji, '🍚', '记录最多分类保留 emoji 兜底');
+
   // 最常消费月份：10 月 5 笔（含收入）；9 月 1 笔
   const tm = Y.findMostActiveMonth(yearBills);
   assert(tm !== null, '最常消费月份非 null');
@@ -285,6 +315,147 @@ console.log('年度回顾三项（Gate 5）');
     bill('expense', 1, 2026, 5, 1, 'c-a'),
   ];
   eq(Y.findMostActiveMonth(tieM).month, 3, '同笔数取月份最小（3 月）');
+}
+
+/* ===================== Statistics Core V2（v1.3.0） ===================== */
+console.log('\n分类占比 computeCategoryShare');
+{
+  const share = M.computeCategoryShare(oct, resolveCat);
+  eq(share.total, 7500, '占比总支出 75.00');
+  eq(share.segments.length, 3, '3 个分类（收入与日价单不计）');
+  eq(share.aggregated, false, '分类 ≤8 不聚合');
+  eq(share.all.length, 3, 'all 含全部真实分类');
+  // 降序：shopping 4000 / food 3000 / transport 500
+  eq(share.segments[0].categoryId, 'c-shopping', '第一分类 shopping');
+  eq(share.segments[0].cents, 4000, 'shopping 金额');
+  // 一位小数百分比
+  eq(share.segments[0].percentText, '53.3', 'shopping 占比 53.3%');
+  eq(share.segments[1].percentText, '40.0', 'food 占比 40.0%');
+  eq(share.segments[2].percentText, '6.7', 'transport 占比 6.7%');
+  // ratio 为精确比例（圆环画图用，不四舍五入）
+  assert(Math.abs(share.segments[0].ratio - 4000 / 7500) < 1e-9, 'shopping ratio 精确');
+  eq(share.segments[0].aggregate, false, '真实分类 aggregate=false');
+  // 空账本
+  const emptyShare = M.computeCategoryShare([], resolveCat);
+  eq(emptyShare.total, 0, '空账本 total=0');
+  eq(emptyShare.segments.length, 0, '空账本无 segment');
+  eq(emptyShare.segments.length === 0 ? '0.0' : 'x', '0.0', '空账本安全');
+}
+
+console.log('分类聚合 Top7 + 其他');
+{
+  const manyBills = [];
+  for (let i = 1; i <= 9; i++) {
+    manyBills.push(bill('expense', 10, 2026, 10, i, 'c-cat' + i));
+  }
+  const share = M.computeCategoryShare(manyBills, resolveCat);
+  eq(share.aggregated, true, '9 分类 >8 触发聚合');
+  eq(share.all.length, 9, 'all 仍含 9 个真实分类');
+  eq(share.segments.length, 8, 'segments = 7 真实 + 1 聚合');
+  const agg = share.segments[7];
+  eq(agg.categoryId, M.AGGREGATE_OTHER_ID, '聚合项 id 为 __aggregate_other__');
+  eq(agg.aggregate, true, '聚合项 aggregate=true');
+  eq(agg.cents, 2000, '聚合项 = 剩余 2 分类之和 20.00');
+  eq(agg.count, 2, '聚合项笔数 2');
+  eq(agg.percentText, '22.2', '聚合项占比 22.2%');
+  assert(Math.abs(agg.ratio - 2000 / 9000) < 1e-9, '聚合 ratio 精确');
+}
+
+console.log('最高消费日 / 日均 / 最大单笔');
+{
+  // 最高消费日：oct 中 day20 shopping 4000
+  const td = M.findTopExpenseDay(oct, 2026, 10);
+  eq(td.day, 20, '最高消费日 = 20 日');
+  eq(td.cents, 4000, '最高消费日金额 40.00');
+  eq(M.findTopExpenseDay([], 2026, 10), null, '空账单无最高消费日');
+
+  // 日均支出：历史月按整月 31 天
+  const histAvg = M.computeDailyAverageExpense(oct, 2026, 10);
+  eq(histAvg, Math.round(7500 / 31), '历史月日均（整月 31 天）');
+  // 当前月：today=2026-10-20，分母 20
+  const today = new Date(2026, 9, 20);
+  const curAvg = M.computeDailyAverageExpense(oct, 2026, 10, today);
+  eq(curAvg, Math.round(7500 / 20), '当前月日均（截至今天 20 天）');
+  eq(curAvg, 375, '当前月日均 = 375 分');
+
+  // 最大单笔：日价单 999 不计，最大为 shopping 4000
+  const largest = M.findLargestExpense(oct);
+  eq(largest.id, oct[4].id, '最大单笔 = day20 shopping');
+  eq(M.findLargestExpense([]), null, '空账单无最大单笔');
+
+  // 非法 / 缺失年月：不得抛 RangeError（回归 T12：new Array(NaN)）
+  eq(M.findTopExpenseDay(oct, undefined, 10), null, '缺年时最高消费日安全返回 null');
+  eq(M.findTopExpenseDay(oct, 2026, NaN), null, '非法月时最高消费日安全返回 null');
+  eq(M.findTopExpenseDay(oct, NaN, undefined), null, '年月全缺时不抛错');
+  eq(M.computeDailyAverageExpense(oct, undefined, 10), 0, '缺年时日均安全返回 0');
+  eq(M.computeDailyAverageExpense(oct, 2026, NaN), 0, '非法月时日均安全返回 0');
+  const badCum = M.computeCumulativeTrend(oct, undefined, 10);
+  eq(badCum.points.length, 0, '非法年月累计趋势返回空点');
+  eq(badCum.total, 0, '非法年月累计趋势 total=0');
+  eq(badCum.max, 0, '非法年月累计趋势 max=0');
+  // 兜底辅助：非法输入返回 NaN，正常输入返回正确天数
+  eq(M.monthDays(2026, 10), 31, 'monthDays 正常月 31 天');
+  eq(M.monthDays(2024, 2), 29, 'monthDays 闰年 2 月 29 天');
+  eq(Number.isNaN(M.monthDays(undefined, 10)), true, 'monthDays 非法输入返回 NaN');
+}
+
+console.log('环形图圆弧 buildDonutArcs / buildDonutSVG');
+{
+  const share = M.computeCategoryShare(oct, resolveCat);
+  const arcs = D.buildDonutArcs(share.segments);
+  eq(arcs.length, 3, '圆弧段数 = 分类数');
+  eq(arcs[0].dashOffset, 0, '第一段 dashOffset=0（从 12 点开始）');
+  const expectedOffset1 = -share.segments[0].ratio * D.CIRCUMFERENCE;
+  assert(Math.abs(arcs[1].dashOffset - expectedOffset1) < 1e-6, '第二段累计 dashOffset');
+  eq(arcs[0].color, D.DONUT_PALETTE[0], '第一段颜色取调色板');
+  eq(arcs[0].aggregate, false, '真实段 aggregate=false');
+  assert(Math.abs(arcs[0].ratio - share.segments[0].ratio) < 1e-9, '圆弧 ratio 透传');
+
+  // 聚合场景：末段为聚合项
+  const manyBills = [];
+  for (let i = 1; i <= 9; i++) manyBills.push(bill('expense', 10, 2026, 10, i, 'c-cat' + i));
+  const aggShare = M.computeCategoryShare(manyBills, resolveCat);
+  const aggArcs = D.buildDonutArcs(aggShare.segments);
+  eq(aggArcs.length, 8, '聚合后 8 段（7+1）');
+  eq(aggArcs[7].aggregate, true, '末段为聚合项');
+  eq(aggArcs[7].categoryId, M.AGGREGATE_OTHER_ID, '聚合段 categoryId');
+
+  // buildDonutSVG 结构
+  const svg = D.buildDonutSVG(share.segments, 'rgba(0,0,0,0.1)');
+  eq(svg.indexOf('<svg'), 0, 'SVG 以 <svg 开头');
+  eq(svg.indexOf('</svg>'), svg.length - 6, 'SVG 以 </svg> 结尾');
+  eq((svg.match(/<circle/g) || []).length, 4, 'SVG 含 1 轨道 + 3 分段 circle');
+  assert(svg.indexOf('rgba(0,0,0,0.1)') >= 0, 'SVG 含轨道颜色');
+
+  // 空 segments
+  eq(D.buildDonutArcs([]).length, 0, '空 segments 无圆弧');
+  eq((D.buildDonutSVG([], '#track').match(/<circle/g) || []).length, 1, '空 SVG 仅轨道');
+}
+
+console.log('累计消费趋势 computeCumulativeTrend / buildCumulativeSVG');
+{
+  const cum = M.computeCumulativeTrend(oct, 2026, 10);
+  eq(cum.points.length, 31, '10 月 31 天，每天一个累计点');
+  eq(cum.total, 7500, '累计总额 = 总支出（不含收入 / daily-value-only）');
+  eq(cum.max, 7500, 'max = total');
+  let mono = true;
+  for (let i = 1; i < cum.points.length; i++) {
+    if (cum.points[i].cumCents < cum.points[i - 1].cumCents) mono = false;
+  }
+  assert(mono, '累计值单调不减');
+  eq(cum.points[0].cumCents, 1000, '1 日累计 10.00');
+  eq(cum.points[4].cumCents, 3000, '5 日累计 30.00');
+  eq(cum.points[9].cumCents, 3500, '10 日累计 35.00');
+  eq(cum.points[19].cumCents, 7500, '20 日累计 75.00');
+  eq(cum.points[30].cumCents, 7500, '月末累计保持 75.00');
+
+  // SVG 结构
+  const svg = C.buildCumulativeSVG(cum.points, cum.max, 'rgba(255,255,255,0.12)');
+  eq(svg.indexOf('<svg'), 0, '累计 SVG 以 <svg 开头');
+  eq((svg.match(/<path/g) || []).length, 2, 'SVG 含面积 + 折线两个 path');
+  assert(svg.indexOf(C.LINE_COLOR) >= 0, 'SVG 使用品牌线色');
+  const emptySvg = C.buildCumulativeSVG([], 0, '#g');
+  eq((emptySvg.match(/<path/g) || []).length, 0, '空数据无 path');
 }
 
 console.log('\nstatistics tests: ' + pass + ' passed, ' + fail + ' failed');

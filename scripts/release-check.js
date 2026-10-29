@@ -58,6 +58,20 @@ try {
 } catch (e) {
   fail('package-lock.json 解析失败：' + e.message);
 }
+// README 版本：提取「当前版本：x.y.z」并与 APP_VERSION 比对，防止 README 版本漂移。
+try {
+  const readmeText = nodeFs.readFileSync(nodePath.join(ROOT, 'README.md'), 'utf8');
+  const readmeMatch = readmeText.match(/当前版本：\s*(\d+\.\d+\.\d+)/);
+  if (!readmeMatch) {
+    fail('README.md 未找到「当前版本：x.y.z」声明');
+  } else if (readmeMatch[1] === APP_VERSION) {
+    pass('README.md 当前版本一致：' + APP_VERSION);
+  } else {
+    fail('README.md 版本不一致：README=' + readmeMatch[1] + '，APP_VERSION=' + APP_VERSION);
+  }
+} catch (e) {
+  fail('README.md 读取失败：' + e.message);
+}
 
 /* ---------- 2. 配置文件 ---------- */
 section('2. 配置文件');

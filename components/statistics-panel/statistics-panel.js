@@ -8,6 +8,20 @@ const M = require('../../data/statistics/month');
 const Y = require('../../data/statistics/year');
 const R = require('../../data/statistics/range');
 const dateUtil = require('../../data/date');
+const statCfg = require('../../data/statistics/config');
+const { pickCategoryVisual } = require('../../data/category-icons');
+
+/** 模块 ID → 中文展示名（管理 Bottom Sheet 用） */
+const MODULE_LABELS = {
+  'category-share': '分类占比',
+  'daily-expense-trend': '每日花费趋势',
+  'cumulative-trend': '累计消费趋势',
+  'budget-analysis': '预算分析',
+  'income-expense-compare': '收入 / 支出对比',
+  'custom-range': '自定义日期统计',
+  'year-monthly-trend': '12 个月支出趋势',
+  'year-review': '年度回顾',
+};
 
 function currentYM() {
   const d = new Date();
@@ -26,6 +40,12 @@ function dayStart(dateStr) {
 function dayEnd(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   return dateUtil.endOfLocalDay(y, m, d);
+}
+/** 'YYYY-MM' → 该月最后一天 'YYYY-MM-DD'（处理闰年 / 大小月） */
+function lastDateOfYM(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return ym + '-' + String(last).padStart(2, '0');
 }
 
 // 柱区可用高度（rpx）：容器高 - 标签高 - 少量顶部间隙。固定值，避免 height:% 解析问题。
@@ -61,7 +81,24 @@ Component({
     mExpense: '0.00',
     mIncome: '0.00',
     mBalance: '0.00',
+    // Hero V2 摘要（v1.3.0）：记录数 / 最高消费日 / 日均支出
+    mCount: 0,
+    mTopDay: '—',
+    mTopDayAmount: '—',
+    mDailyAvg: '—',
+    // 月度最大单笔（独立卡，点击打开账单编辑）
+    mLargest: null,
+    mLargestId: '',
+    // 分类占比（category-donut + 列表；列表点击钻取 Bill Explorer）
+    shareSegments: [],
+    shareList: [],
+    shareAggregated: false,
+    shareExpanded: false,
+    fullShareList: [],
     daily: [],
+    // 累计消费趋势（cumulative-trend，默认关闭）
+    cumPoints: [],
+    cumMax: 0,
     rank: [],
     cmp: { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 },
     // 预算日历 + 节奏摘要（无任何预算规则时显示轻空态）
@@ -80,6 +117,12 @@ Component({
     lowest: '',
     monthly: [],
     yearRank: [],
+    // 全年分类占比（复用 category-donut，使用完整年度分类列表）
+    yearShareSegments: [],
+    yearShareList: [],
+    yearShareAggregated: false,
+    yearShareExpanded: false,
+    yearFullShareList: [],
     // 自定义日期统计（月度区域）
     crStart: '',
     crEnd: '',
@@ -92,6 +135,12 @@ Component({
     yrLargestId: '',
     yrTopCat: null, // {name, emoji, count}
     yrTopMonth: null, // {label, count}
+    // 模块定制（Gate 3）
+    showManage: false,
+    enabledModules: [], // 当前启用模块 ID
+    modMap: {}, // 模块 ID → 是否启用（WXML 条件用）
+    moduleRows: [], // 管理弹层行 {id,label,checked,scope}
+    scrollInto: '', // 临时滚动定位（GUI 验证用）
   },
   lifetimes: {
     attached() {
@@ -111,8 +160,10 @@ Component({
       }, 220);
     },
     refresh() {
-      if (this.data.mode === 'year') this.loadYear(this.data.year);
-      else this.loadMonth(this.data.ym);
+      // 与 activate 一致地兜底：组件可能尚未激活（data.ym 仍为空串），
+      // 直接 loadMonth('') 会解析出 NaN 年月，需回退到当前月 / 当前年。
+      if (this.data.mode === 'year') this.loadYear(this.data.year || new Date().getFullYear());
+      else this.loadMonth(this.data.ym || currentYM());
     },
     /* ---------- 模式切换 ---------- */
     onModeMonth() {
@@ -125,70 +176,140 @@ Component({
       this.setData({ mode: 'year' });
       this.loadYear(this.data.year || new Date().getFullYear());
     },
-    /* ---------- 月度取数 ---------- */
+    /* ---------- 月度取数（Lazy Compute：关闭的可选模块不计算） ---------- */
     loadMonth(ym) {
       const bills = store.rangeBills(ym, ym);
       const resolveCategory = store.getCategoryResolver(); // 单次渲染快照
       const [y, m] = ym.split('-').map(Number);
+      const config = store.getSettings().statistics;
+      const on = (id) => statCfg.isEnabled(config, id);
+      const toShareRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
+
+      // —— 强制保留：Hero 概览 ——
       const ov = M.computeMonthOverview(bills);
-      const daily = withBarHeight(M.computeDailyExpenseTrend(bills, y, m).points, BAR_ZONE_DAILY_RPX);
-      const rank = M.computeCategoryRanking(bills, resolveCategory).top.map((x) => ({
-        ...x,
-        centsText: money.formatCents(x.cents),
-      }));
-      const cmp = M.computeIncomeExpenseCompare(bills);
-
-      // 预算日历地图 + 节奏摘要：
-      //  从未设置过预算规则 → 轻空态（不再显示整页灰色日历）；
-      //  存在过规则 → 规则历史逐天取数（无预算日格子灰色）。
-      const today = util.formatDate(new Date());
-      const hasBudgetRules = store.getBudgetState().rules.length > 0;
-      // 自定义日期统计：首次默认当月 1 日 ~ 今天，之后保留用户选择
-      let crStart = this.data.crStart;
-      let crEnd = this.data.crEnd;
-      if (!crStart || !crEnd) {
-        crStart = ym + '-01';
-        crEnd = today;
-      }
-      const cr = this.buildCustomRange(crStart, crEnd);
-      let budgetCalendar = null;
-      let pace = [];
-      if (hasBudgetRules) {
-        budgetCalendar = store.buildBudgetCalendar(y, m, today);
-        // 节奏摘要随所选月份走：当前月=本周/本月截至今日+上周/上月；
-        // 历史月=本月/上月最终结果（不再错误显示今天的「截至今日」数据）。
-        const paceCtx = store.buildBudgetMonthPace(y, m, today);
-        pace = paceCtx.items.map((p) => ({
-          label: p.label,
-          text: (p.delta >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(p.delta)),
-          positive: p.delta >= 0,
-          hasBudget: p.hasBudget,
-        }));
+      // Hero V2 摘要：最高消费日 / 日均支出（均从当月 normal 账单现算，不新增存储）
+      const topDay = M.findTopExpenseDay(bills, y, m);
+      const dailyAvgCents = M.computeDailyAverageExpense(bills, y, m, new Date());
+      // —— 强制保留：月度最大单笔（独立卡，点击 triggerEvent openbill） ——
+      const largestBill = M.findLargestExpense(bills);
+      let mLargest = null;
+      let mLargestId = '';
+      if (largestBill) {
+        const lcat = resolveCategory(largestBill.categoryId);
+        const ld = new Date(largestBill.occurredAt);
+        mLargest = Object.assign(
+          {
+            title: largestBill.title || largestBill.merchant || lcat.name || '支出',
+            dateLabel: ld.getMonth() + 1 + '-' + ld.getDate(),
+            amountText: '¥' + money.formatCents(largestBill.amountCents),
+          },
+          pickCategoryVisual(lcat)
+        );
+        mLargestId = largestBill.id;
       }
 
-      this.setData({
+      const patch = {
         ym,
         monthLabel: y + '年' + m + '月',
         canNextMonth: ym < currentYM(),
         mExpense: money.formatCents(ov.expense),
         mIncome: money.formatCents(ov.income),
         mBalance: money.formatCents(ov.balance),
-        daily,
-        rank,
-        cmp: {
+        mCount: ov.count,
+        mTopDay: topDay ? topDay.day + '日' : '—',
+        mTopDayAmount: topDay ? '¥' + money.formatCents(topDay.cents) : '—',
+        mDailyAvg: '¥' + money.formatCents(dailyAvgCents),
+        mLargest,
+        mLargestId,
+        enabledModules: config.modules.slice(),
+        modMap: config.modules.reduce((acc, id) => { acc[id] = true; return acc; }, {}),
+      };
+
+      // —— 分类占比（category-share） ——
+      if (on('category-share')) {
+        const share = M.computeCategoryShare(bills, resolveCategory);
+        patch.shareSegments = share.segments;
+        patch.shareList = share.segments.map(toShareRow);
+        patch.shareAggregated = share.aggregated;
+        patch.shareExpanded = false;
+        patch.fullShareList = share.all.map(toShareRow);
+      } else {
+        // 关闭：清空，避免显示上次旧结果
+        patch.shareSegments = [];
+        patch.shareList = [];
+        patch.fullShareList = [];
+        patch.shareAggregated = false;
+        patch.shareExpanded = false;
+      }
+
+      // —— 每日花费趋势（daily-expense-trend） ——
+      patch.daily = on('daily-expense-trend')
+        ? withBarHeight(M.computeDailyExpenseTrend(bills, y, m).points, BAR_ZONE_DAILY_RPX)
+        : [];
+
+      // —— 累计消费趋势（cumulative-trend，默认关闭） ——
+      if (on('cumulative-trend')) {
+        const cum = M.computeCumulativeTrend(bills, y, m);
+        patch.cumPoints = cum.points;
+        patch.cumMax = cum.max;
+      } else {
+        patch.cumPoints = [];
+        patch.cumMax = 0;
+      }
+
+      // —— 收入 / 支出对比（income-expense-compare） ——
+      if (on('income-expense-compare')) {
+        const cmp = M.computeIncomeExpenseCompare(bills);
+        patch.cmp = {
           income: money.formatCents(cmp.income),
           expense: money.formatCents(cmp.expense),
           incomeBar: cmp.incomeBar,
           expenseBar: cmp.expenseBar,
-        },
-        budgetCalendar,
-        budgetEmpty: !hasBudgetRules,
-        pace,
-        crStart,
-        crEnd,
-        crStats: cr.crStats,
-        crInvalid: cr.crInvalid,
-      });
+        };
+      } else {
+        patch.cmp = { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 };
+      }
+
+      // —— 预算分析（budget-analysis） ——
+      const today = util.formatDate(new Date());
+      const hasBudgetRules = store.getBudgetState().rules.length > 0;
+      patch.budgetEmpty = !hasBudgetRules;
+      if (on('budget-analysis') && hasBudgetRules) {
+        patch.budgetCalendar = store.buildBudgetCalendar(y, m, today);
+        // 节奏摘要随所选月份走：当前月=本周/本月截至今日+上周/上月；历史月=本月/上月最终。
+        const paceCtx = store.buildBudgetMonthPace(y, m, today);
+        patch.pace = paceCtx.items.map((p) => ({
+          label: p.label,
+          text: (p.delta >= 0 ? '+' : '-') + '¥' + money.formatCents(Math.abs(p.delta)),
+          positive: p.delta >= 0,
+          hasBudget: p.hasBudget,
+        }));
+      } else {
+        patch.budgetCalendar = null;
+        patch.pace = [];
+      }
+
+      // —— 自定义日期统计（custom-range，默认关闭） ——
+      if (on('custom-range')) {
+        let crStart = this.data.crStart;
+        let crEnd = this.data.crEnd;
+        if (!crStart || !crEnd) {
+          // 首次：当前月=1 日~今天；历史月=1 日~该月最后一天
+          crStart = ym + '-01';
+          crEnd = ym === today.slice(0, 7) ? today : lastDateOfYM(ym);
+        }
+        const cr = this.buildCustomRange(crStart, crEnd);
+        patch.crStart = crStart;
+        patch.crEnd = crEnd;
+        patch.crStats = cr.crStats;
+        patch.crInvalid = cr.crInvalid;
+      } else {
+        // 关闭：清空统计结果（保留已选日期，重新开启时恢复）
+        patch.crStats = null;
+        patch.crInvalid = false;
+      }
+
+      this.setData(patch);
     },
     /* ---------- 自定义日期统计 ---------- */
     /** 由起止日期字符串计算范围统计；开始晚于结束 → 无效（不偷偷交换） */
@@ -196,7 +317,10 @@ Component({
       if (!crStart || !crEnd) return { crStats: null, crInvalid: false };
       // 'YYYY-MM-DD' 字典序即时间序，可直接比较
       if (crStart > crEnd) return { crStats: null, crInvalid: true };
-      const stats = R.computeRangeStats(store.rangeBills(), dayStart(crStart), dayEnd(crEnd));
+      // 只读取覆盖该日期范围的月份分片（crStart/crEnd 所在月），不再全历史读取
+      const ymStart = crStart.slice(0, 7);
+      const ymEnd = crEnd.slice(0, 7);
+      const stats = R.computeRangeStats(store.rangeBills(ymStart, ymEnd), dayStart(crStart), dayEnd(crEnd));
       return {
         crStats: {
           expense: money.formatCents(stats.expense),
@@ -224,38 +348,22 @@ Component({
       if (!this.data.canNextMonth) return;
       this.loadMonth(shiftYM(this.data.ym, 1));
     },
-    /* ---------- 年度取数 ---------- */
+    /* ---------- 年度取数（Lazy Compute：年度可选模块按开关计算） ---------- */
     loadYear(year) {
       const bills = store.rangeBills(year + '-01', year + '-12');
       const resolveCategory = store.getCategoryResolver(); // 单次渲染快照
+      const config = store.getSettings().statistics;
+      const on = (id) => statCfg.isEnabled(config, id);
+
+      // —— 强制保留：年度 Hero ——
       const ov = Y.computeYearOverview(bills, year);
-      const monthly = withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX);
       const ext = Y.computeExpenseExtremes(bills, year);
       const yearRank = Y.computeYearCategoryRanking(bills, resolveCategory).top.map((x) => ({
         ...x,
         centsText: money.formatCents(x.cents),
       }));
-      // 年度回顾再补三项（Gate 5）
-      const largestBill = Y.findLargestExpense(bills);
-      let yrLargest = null;
-      let yrLargestId = '';
-      if (largestBill) {
-        const ld = new Date(largestBill.occurredAt);
-        const lcat = resolveCategory(largestBill.categoryId);
-        yrLargest = {
-          dateLabel: ld.getMonth() + 1 + '月' + ld.getDate() + '日',
-          title: largestBill.title || largestBill.merchant || lcat.name || '支出',
-          amountText: '¥' + money.formatCents(largestBill.amountCents),
-        };
-        yrLargestId = largestBill.id;
-      }
-      const topCat = Y.findMostRecordedCategory(bills, resolveCategory);
-      const yrTopCat = topCat
-        ? { categoryId: topCat.categoryId, name: topCat.name, emoji: topCat.emoji, count: topCat.count }
-        : null;
-      const topMonth = Y.findMostActiveMonth(bills);
-      const yrTopMonth = topMonth ? { label: topMonth.month + '月', month: topMonth.month, count: topMonth.count } : null;
-      this.setData({
+
+      const patch = {
         year,
         canNextYear: year < new Date().getFullYear(),
         yExpense: money.formatCents(ov.expense),
@@ -265,13 +373,67 @@ Component({
         yAvg: money.formatCents(ov.monthlyAvg),
         highest: ext.highest ? ext.highest.month + '月 · ¥' + money.formatCents(ext.highest.expense) : '—',
         lowest: ext.lowest ? ext.lowest.month + '月 · ¥' + money.formatCents(ext.lowest.expense) : '—',
-        monthly,
         yearRank,
-        yrLargest,
-        yrLargestId,
-        yrTopCat,
-        yrTopMonth,
-      });
+        enabledModules: config.modules.slice(),
+        modMap: config.modules.reduce((acc, id) => { acc[id] = true; return acc; }, {}),
+      };
+
+      // —— 12 个月支出趋势（year-monthly-trend） ——
+      patch.monthly = on('year-monthly-trend')
+        ? withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX)
+        : [];
+
+      // —— 年度回顾（year-review）：最大单笔 / 记录最多分类 / 最常消费月 ——
+      if (on('year-review')) {
+        const largestBill = Y.findLargestExpense(bills);
+        let yrLargest = null;
+        let yrLargestId = '';
+        if (largestBill) {
+          const ld = new Date(largestBill.occurredAt);
+          const lcat = resolveCategory(largestBill.categoryId);
+          yrLargest = {
+            dateLabel: ld.getMonth() + 1 + '月' + ld.getDate() + '日',
+            title: largestBill.title || largestBill.merchant || lcat.name || '支出',
+            amountText: '¥' + money.formatCents(largestBill.amountCents),
+          };
+          yrLargestId = largestBill.id;
+        }
+        const topCat = Y.findMostRecordedCategory(bills, resolveCategory);
+        const yrTopCat = topCat
+          ? {
+              categoryId: topCat.categoryId,
+              name: topCat.name,
+              emoji: topCat.emoji,
+              iconType: topCat.iconType,
+              iconValue: topCat.iconValue,
+              count: topCat.count,
+            }
+          : null;
+        const topMonth = Y.findMostActiveMonth(bills);
+        const yrTopMonth = topMonth
+          ? { label: topMonth.month + '月', month: topMonth.month, count: topMonth.count }
+          : null;
+        patch.yrLargest = yrLargest;
+        patch.yrLargestId = yrLargestId;
+        patch.yrTopCat = yrTopCat;
+        patch.yrTopMonth = yrTopMonth;
+      } else {
+        patch.yrLargest = null;
+        patch.yrLargestId = '';
+        patch.yrTopCat = null;
+        patch.yrTopMonth = null;
+      }
+
+      // —— 全年分类占比（固定模块：复用 category-donut，使用完整年度分类列表） ——
+      const yearShare = M.computeCategoryShare(bills, resolveCategory);
+      const toYearShareRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
+      patch.yearShareSegments = yearShare.segments;
+      patch.yearShareList = yearShare.segments.map(toYearShareRow);
+      patch.yearShareAggregated = yearShare.aggregated;
+      patch.yearShareExpanded = false;
+      patch.yearFullShareList = yearShare.all.map(toYearShareRow);
+
+      this.setData(patch);
     },
     onPrevYear() {
       this.loadYear(this.data.year - 1);
@@ -331,6 +493,8 @@ Component({
           categoryId: c.categoryId,
           name: c.name,
           emoji: c.emoji,
+          iconType: c.iconType,
+          iconValue: c.iconValue,
           centsText: '¥' + money.formatCents(c.cents),
         })),
         bills: d.bills.map((b) => {
@@ -366,12 +530,93 @@ Component({
         title, items, scope: 'year', categoryId: catId, year: this.data.year,
       });
     },
+    /** 全年分类占比行：真实分类 → Bill Explorer 该年该分类支出；聚合「其他」→ 展开完整列表 */
+    onTapYearShareRow(e) {
+      const id = e.currentTarget.dataset.id;
+      if (e.currentTarget.dataset.agg || id === M.AGGREGATE_OTHER_ID) {
+        this.setData({ yearShareExpanded: true });
+        return;
+      }
+      wx.navigateTo({
+        url: '/pages/search/search?year=' + this.data.year + '&category=' + id + '&type=expense',
+      });
+    },
+    /** 全年分类占比：查看全部 / 收起 */
+    onToggleYearShareExpand() {
+      this.setData({ yearShareExpanded: !this.data.yearShareExpanded });
+    },
     /** 年度 12 月趋势：点某个月柱 → Bill Explorer 该月全部账单 */
     onTapMonthBar(e) {
       const m = Number(e.currentTarget.dataset.month);
       if (!m) return;
       const ym = this.data.year + '-' + String(m).padStart(2, '0');
       wx.navigateTo({ url: '/pages/search/search?month=' + ym });
+    },
+    /** 月度最大单笔：直接打开该账单编辑（main 已绑定 openbill 复用 bill-form） */
+    onTapMonthLargest() {
+      if (!this.data.mLargestId) return;
+      this.triggerEvent('openbill', { id: this.data.mLargestId });
+    },
+    /** 分类占比行：真实分类 → Bill Explorer 当月该分类支出；聚合「其他」→ 展开完整列表 */
+    onTapShareRow(e) {
+      const id = e.currentTarget.dataset.id;
+      if (e.currentTarget.dataset.agg || id === M.AGGREGATE_OTHER_ID) {
+        this.setData({ shareExpanded: true });
+        return;
+      }
+      wx.navigateTo({
+        url: '/pages/search/search?month=' + this.data.ym + '&category=' + id + '&type=expense',
+      });
+    },
+    /** 查看全部 / 收起完整分类列表 */
+    onToggleShareExpand() {
+      this.setData({ shareExpanded: !this.data.shareExpanded });
+    },
+    /* ---------- 统计模块管理（Gate 3） ---------- */
+    /** 打开管理弹层：按当前模式组装模块行（月度 / 年度各一组） */
+    onOpenManage() {
+      const config = store.getSettings().statistics;
+      const scope = this.data.mode === 'year' ? statCfg.YEARLY_MODULES : statCfg.MONTHLY_MODULES;
+      const moduleRows = scope.map((id) => ({
+        id,
+        label: MODULE_LABELS[id] || id,
+        checked: statCfg.isEnabled(config, id),
+      }));
+      this.setData({ showManage: true, moduleRows });
+    },
+    /** 关闭管理弹层 */
+    onCloseManage() {
+      this.setData({ showManage: false });
+    },
+    /** 开关某模块：更新配置 → 原子持久化 → 立即重新加载（真 Lazy Compute） */
+    onToggleModule(e) {
+      const id = e.currentTarget.dataset.id;
+      const value = e.detail.value;
+      const current = store.getSettings().statistics;
+      const set = new Set(current.modules);
+      if (value) set.add(id);
+      else set.delete(id);
+      // 按 VALID_MODULES 标准顺序输出，避免顺序漂移
+      const ordered = statCfg.VALID_MODULES.filter((mid) => set.has(mid));
+      const next = statCfg.withModules(ordered);
+      store.updateSettings({ statistics: next });
+      const moduleRows = this.data.moduleRows.map((r) =>
+        r.id === id ? Object.assign({}, r, { checked: value }) : r
+      );
+      this.setData({ moduleRows, enabledModules: next.modules });
+      if (this.data.mode === 'year') this.loadYear(this.data.year);
+      else this.loadMonth(this.data.ym);
+    },
+    /** 恢复默认：持久化默认配置 → 刷新弹层行并重新加载 */
+    onResetModules() {
+      const def = statCfg.defaultConfig();
+      store.updateSettings({ statistics: def });
+      const moduleRows = this.data.moduleRows.map((r) =>
+        Object.assign({}, r, { checked: statCfg.isEnabled(def, r.id) })
+      );
+      this.setData({ moduleRows, enabledModules: def.modules });
+      if (this.data.mode === 'year') this.loadYear(this.data.year);
+      else this.loadMonth(this.data.ym);
     },
   },
 });

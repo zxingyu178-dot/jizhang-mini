@@ -334,13 +334,20 @@ console.log('D. 日历地图');
   eq(c9.state, 'no-budget', '9-15 无预算灰');
 
   /* ---------- 日详情 ---------- */
-  const dd = B.buildDayDetail(bills, state, '2026-10-15', (id) => ({ name: '餐饮', emoji: '🍜' }));
+  const dd = B.buildDayDetail(
+    bills,
+    state,
+    '2026-10-15',
+    (id) => ({ name: '餐饮', emoji: '🍜', iconType: 'builtin', iconValue: 'dining' })
+  );
   eq(dd.budgetCents, 3000, '日详情预算 3000');
   eq(dd.actualCents, 4228, '日详情实际 4228');
   eq(dd.deltaCents, -1228, '日详情超支 1228');
   eq(dd.billCount, 1, '日详情 1 笔账单');
   eq(dd.categories[0].cents, 4228, '日详情分类金额');
   eq(dd.categories[0].name, '餐饮', '日详情分类名（注入解析）');
+  eq(dd.categories[0].iconType, 'builtin', '日详情分类透传 iconType（不回退 Emoji）');
+  eq(dd.categories[0].iconValue, 'dining', '日详情分类透传 iconValue');
 }
 
 /* ================= E. 备份 V2 往返预算规则 ================= */

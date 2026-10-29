@@ -3,6 +3,31 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.3.0] — 2026-10-29
+
+Statistics Dashboard & Scale Lab（统计仪表盘与真实规模压测）。一半提升统计可读性与可定制性，一半建立真实风格大账本压测长期使用能力。不升级数据合同、不新增业务功能。
+
+### 新增
+- **分类占比环形图**：新增 `components/category-donut/`，采用动态 SVG → Base64 data-URI → `<image>`，不引入 ECharts / Canvas；中心展示总支出，下方分类列表含彩色点 + category-icon + 名称 + 金额 + 百分比，深浅主题均可辨。
+- **分类占比纯函数**：`computeCategoryShare()` 复用现有 `computeCategoryRanking()` 聚合，不另建分类统计；弧长按真实整数分金额计算，百分比显示一位小数；≤8 类全显示，>8 类聚合 Top7 + 「其他」（内部 id `__aggregate_other__`，纯展示层、不写入 categories）。
+- **统计 Hero 重做**：在总支出 / 收入 / 结余基础上增加记录数、最高消费日（按全天支出合计）、日均支出（当前月按已过日历天数、历史月按当月实际天数，不除消费天数）；月度新增「最大单笔支出」独立卡，点击复用账单编辑入口。
+- **统计模块定制**：新增 `data/statistics/config.js`，配置写入 `settings.statistics`（version 1）；统计页「管理」Bottom Sheet 可开关模块、恢复默认，本版不做拖拽；Hero 与最大单笔始终保留。
+- **Lazy Compute**：关闭的模块不再计算且清空展示数据，而非仅隐藏 WXML；自定义日期、预算、趋势、收支对比等按需执行。
+- **累计消费趋势**：新增 `components/cumulative-trend/`（动态 SVG 面积 + 折线），逐日累计普通支出，默认关闭，回答「钱花得有多快」。
+- **年度统一**：年度「分类 Top5」升级为同款全年分类占比，复用 category-donut，保留年度钻取；年度回顾保留。
+
+### 优化
+- **统计读取范围收口**：自定义日期从无参 `rangeBills()`（读全历史）改为按覆盖月份 `rangeBills(ymStart, ymEnd)`；五个预算包装方法（日历 / 日详情 / 节奏等）全部按所选月份或周期限定，跨月周覆盖相邻两月；复用已加载月度快照，避免重复读取。
+- **分类视觉漏点**：年度回顾「记录最多分类」与预算日详情分类补透传 iconType / iconValue，不再回退 Emoji。
+- **餐饮图标重设计**：`dining` 图标 id 不变，由小尺寸辨识度低的刀叉改为「碗 + 蒸汽」，数据合同不变。
+
+### 工程能力
+- **Realistic Ledger Generator**：新增 `scripts/generate-realistic-ledger.js`，固定 seed 可复现，模拟工资 / 房租 / 周期 / 高频餐饮 / 工作日交通 / 季节旅游 / 双11 / 混合来源 / SVG+Emoji+自定义+归档分类 / 多阶段预算 / 日价，覆盖闰年 2-29、月末、跨年、23:59:59.999、周日周期；输出 Backup V3 标准备份与 expected 摘要。
+- **真实规模性能 Gate**：新增 `npm run perf:realistic`，覆盖 Typical 5k / Heavy 20k / Stress 50k 真实用户路径与一致性对账、分片读取次数；生成文件放 `tests/generated/`（gitignore），不提交大 JSON；保留快速 `npm run perf`。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1，均不升级。
+
 ## [1.2.1] — 2026-10-26
 
 Category Visual Correctness（分类视觉正确性收口）。不新增业务功能、不升级数据合同，修复 v1.2.0 两个分类回归并补回归测试。

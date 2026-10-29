@@ -9,3 +9,6 @@ project.private.config.json
 .DS_Store
 Thumbs.db
 *.log
+
+# Realistic Ledger 生成的大账本（仅本地，不提交大 JSON）
+tests/generated/

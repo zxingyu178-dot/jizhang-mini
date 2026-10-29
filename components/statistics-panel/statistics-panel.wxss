@@ -1,5 +1,16 @@
-.panel-scroll {
+/* flex 列布局：外层包裹 view 撑满 swiper-item，内层 scroll-view 用 flex:1 + min-height:0
+   才能在 Skyline 下正确识别内容溢出并滚动（直接让 scroll-view height:100% 会导致
+   scrollHeight 被算成 clientHeight，长页面无法滚动）。 */
+.sta-wrap {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 .sta {
   padding: 12rpx 28rpx 48rpx;
@@ -94,6 +105,104 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-top: 6rpx;
+}
+/* Hero 第二行：记录 / 最高消费日 / 日均（3 列，字号略小防溢出） */
+.hero__foot--three {
+  margin-top: 22rpx;
+}
+.hero__third {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-right: 10rpx;
+}
+.hero__third .hero__sub {
+  font-size: 26rpx;
+}
+
+/* ---- 最大单笔支出卡（v1.3.0） ---- */
+.largest {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  margin-bottom: 28rpx;
+}
+.largest__icon {
+  width: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.largest__main {
+  flex: 1;
+  min-width: 0;
+  margin: 0 16rpx;
+  display: flex;
+  flex-direction: column;
+}
+.largest__label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.largest__sub {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  margin-top: 6rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.largest__amount {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+/* ---- 分类占比列表（v1.3.0） ---- */
+.share-list {
+  margin-top: 12rpx;
+}
+.share-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12rpx 0;
+}
+.share-row__icon {
+  width: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.share-row__name {
+  flex: 1;
+  min-width: 0;
+  margin: 0 12rpx;
+  font-size: 26rpx;
+  color: var(--text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.share-row__amount {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.share-row__percent {
+  width: 80rpx;
+  text-align: right;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.share-toggle {
+  margin-top: 12rpx;
+  padding: 12rpx 0;
+  text-align: center;
+}
+.share-toggle__text {
+  font-size: 24rpx;
+  color: var(--primary);
 }
 
 /* ---- 图表卡 ---- */
@@ -526,4 +635,71 @@
   font-size: 27rpx;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* ================= 模块管理（Gate 3） ================= */
+/* 顶部一行：分段控件 + 管理按钮 */
+.seg-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 8rpx 0 20rpx;
+}
+.seg-row .seg {
+  flex: 1;
+  margin: 0;
+}
+.manage-btn {
+  margin-left: 16rpx;
+  padding: 14rpx 28rpx;
+  border-radius: 999rpx;
+  background: var(--surface);
+}
+.manage-btn:active {
+  opacity: 0.6;
+}
+.manage-btn__text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Bottom Sheet 内模块行 */
+.mgr-list {
+  margin-top: 8rpx;
+}
+.mgr-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 4rpx;
+}
+.mgr-row__label {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}
+.mgr-row__switch {
+  flex-shrink: 0;
+  transform: scale(0.9);
+}
+
+/* 恢复默认按钮 */
+.mgr-reset {
+  margin-top: 16rpx;
+  padding: 22rpx 0;
+  border-radius: 18rpx;
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+  text-align: center;
+}
+.mgr-reset:active {
+  opacity: 0.6;
+}
+.mgr-reset__text {
+  font-size: 28rpx;
+  color: var(--primary);
+  font-weight: 600;
 }

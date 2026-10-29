@@ -1,9 +1,15 @@
-<scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}">
+<view class="sta-wrap">
+<scroll-view scroll-y class="panel-scroll" enhanced show-scrollbar="{{false}}" scroll-into-view="{{scrollInto}}">
   <view class="sta">
-    <!-- 月度 / 年度切换 -->
-    <view class="seg">
-      <view class="seg__item {{mode==='month'?'seg__item--active':''}}" bindtap="onModeMonth">月度</view>
-      <view class="seg__item {{mode==='year'?'seg__item--active':''}}" bindtap="onModeYear">年度</view>
+    <!-- 月度 / 年度切换 + 模块管理入口 -->
+    <view class="seg-row">
+      <view class="seg">
+        <view class="seg__item {{mode==='month'?'seg__item--active':''}}" bindtap="onModeMonth">月度</view>
+        <view class="seg__item {{mode==='year'?'seg__item--active':''}}" bindtap="onModeYear">年度</view>
+      </view>
+      <view class="manage-btn" bindtap="onOpenManage">
+        <text class="manage-btn__text">管理</text>
+      </view>
     </view>
 
     <!-- ================= 月度 ================= -->
@@ -28,10 +34,84 @@
             <text class="hero__sub">¥{{mBalance}}</text>
           </view>
         </view>
+        <view class="hero__foot hero__foot--three">
+          <view class="hero__third">
+            <text class="hero__sub-label">记录</text>
+            <text class="hero__sub">{{mCount}} 笔</text>
+          </view>
+          <view class="hero__third">
+            <text class="hero__sub-label">最高消费日</text>
+            <text class="hero__sub">{{mTopDay}} {{mTopDayAmount}}</text>
+          </view>
+          <view class="hero__third">
+            <text class="hero__sub-label">日均支出</text>
+            <text class="hero__sub">{{mDailyAvg}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 最大单笔支出（点击打开账单编辑） -->
+      <view class="glass-card largest" wx:if="{{mLargest}}" bindtap="onTapMonthLargest">
+        <view class="largest__icon">
+          <category-icon icon-type="{{mLargest.iconType}}" icon-value="{{mLargest.iconValue}}" emoji="{{mLargest.emoji}}" size="22"/>
+        </view>
+        <view class="largest__main">
+          <text class="largest__label">最大单笔支出</text>
+          <text class="largest__sub">{{mLargest.dateLabel}} · {{mLargest.title}}</text>
+        </view>
+        <text class="largest__amount money-expense">{{mLargest.amountText}}</text>
+      </view>
+
+      <!-- 分类占比（环形图 + 分类列表，点击真实分类钻取 Bill Explorer） -->
+      <view class="glass-card chart share" wx:if="{{modMap['category-share']}}">
+        <text class="chart__title">分类占比</text>
+        <category-donut
+          segments="{{shareSegments}}"
+          center-text="¥{{mExpense}}"
+          center-label="总支出"
+          size="150"
+        />
+        <view class="share-list">
+          <view
+            class="share-row"
+            wx:for="{{shareExpanded ? fullShareList : shareList}}"
+            wx:key="categoryId"
+            data-id="{{item.categoryId}}"
+            data-agg="{{item.aggregate}}"
+            bindtap="onTapShareRow"
+          >
+            <view class="share-row__icon">
+              <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="19"/>
+            </view>
+            <text class="share-row__name">{{item.name}}</text>
+            <text class="share-row__amount money-expense">¥{{item.centsText}}</text>
+            <text class="share-row__percent">{{item.percentText}}%</text>
+          </view>
+        </view>
+        <view class="share-toggle" wx:if="{{shareAggregated}}" bindtap="onToggleShareExpand">
+          <text class="share-toggle__text">{{shareExpanded ? '收起' : '查看全部分类'}}</text>
+        </view>
+      </view>
+
+      <!-- 每日花费趋势 -->
+      <view class="glass-card chart" wx:if="{{modMap['daily-expense-trend']}}">
+        <text class="chart__title">每日花费趋势</text>
+        <view class="chart__bars chart__bars--daily">
+          <view class="bar-col" wx:for="{{daily}}" wx:key="day">
+            <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
+            <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 累计消费趋势（默认关闭，在管理中开启） -->
+      <view class="glass-card chart" id="cumCard" wx:if="{{modMap['cumulative-trend']}}">
+        <text class="chart__title">累计消费趋势</text>
+        <cumulative-trend points="{{cumPoints}}" max="{{cumMax}}" width="320" height="180"/>
       </view>
 
       <!-- 预算空态：从未设置过预算规则（不显示整页灰色日历） -->
-      <view class="glass-card chart bcal-empty" wx:if="{{budgetEmpty}}">
+      <view class="glass-card chart bcal-empty" wx:if="{{modMap['budget-analysis'] && budgetEmpty}}">
         <text class="chart__title">预算分析</text>
         <empty-state
           compact
@@ -44,7 +124,7 @@
       </view>
 
       <!-- 预算日历地图（绿盈余 / 红超支 / 灰无预算或未来 / 紫描边今天） -->
-      <view class="glass-card chart bcal" wx:if="{{budgetCalendar}}">
+      <view class="glass-card chart bcal" wx:if="{{modMap['budget-analysis'] && budgetCalendar}}">
         <text class="chart__title">{{monthLabel}}预算日历</text>
         <view class="bcal__heads">
           <text class="bcal__head" wx:for="{{budgetCalendar.weekHeaders}}" wx:key="*this">{{item}}</text>
@@ -82,46 +162,8 @@
         </view>
       </view>
 
-      <!-- 每日花费趋势 -->
-      <view class="glass-card chart">
-        <text class="chart__title">每日花费趋势</text>
-        <view class="chart__bars chart__bars--daily">
-          <view class="bar-col" wx:for="{{daily}}" wx:key="day">
-            <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
-            <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 分类支出排行 -->
-      <view class="glass-card chart">
-        <text class="chart__title">分类支出排行 Top 5</text>
-        <block wx:if="{{rank.length}}">
-          <view
-            class="rank-item"
-            wx:for="{{rank}}"
-            wx:key="categoryId"
-            data-id="{{item.categoryId}}"
-            bindtap="onTapMonthCat"
-          >
-            <view class="rank-emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
-            <view class="rank-main">
-              <view class="rank-line">
-                <text class="rank-name">{{item.name}}</text>
-                <text class="rank-amount money-expense">¥{{item.centsText}}</text>
-              </view>
-              <view class="rank-bar">
-                <view class="rank-bar__fill" style="width:{{item.barPercent}}%;"></view>
-              </view>
-            </view>
-            <text class="rank-percent">{{item.percent}}%</text>
-          </view>
-        </block>
-        <view class="chart__empty" wx:else>本月还没有支出</view>
-      </view>
-
       <!-- 收入 / 支出对比 -->
-      <view class="glass-card chart">
+      <view class="glass-card chart" wx:if="{{modMap['income-expense-compare']}}">
         <text class="chart__title">收入 / 支出对比</text>
         <view class="cmp-row">
           <text class="cmp-label">支出</text>
@@ -136,7 +178,7 @@
       </view>
 
       <!-- 自定义日期统计 -->
-      <view class="glass-card chart">
+      <view class="glass-card chart" wx:if="{{modMap['custom-range']}}">
         <text class="chart__title">自定义日期统计</text>
         <view class="cr-pickers">
           <picker mode="date" value="{{crStart}}" end="{{crMaxStart}}" bindchange="onCrStart" class="cr-picker">
@@ -226,7 +268,7 @@
       </view>
 
       <!-- 年度回顾：最大单笔 / 记录最多分类 / 最常消费月份（可点击钻取） -->
-      <view class="glass-card chart" wx:if="{{yrLargest || yrTopCat || yrTopMonth}}">
+      <view class="glass-card chart" wx:if="{{modMap['year-review'] && (yrLargest || yrTopCat || yrTopMonth)}}">
         <text class="chart__title">年度回顾</text>
         <view class="yr-row" wx:if="{{yrLargest}}" bindtap="onTapYrLargest">
           <view class="yr-row__main">
@@ -259,7 +301,7 @@
       </view>
 
       <!-- 12 个月趋势 -->
-      <view class="glass-card chart">
+      <view class="glass-card chart" wx:if="{{modMap['year-monthly-trend']}}">
         <text class="chart__title">12 个月支出趋势</text>
         <view class="chart__bars chart__bars--month">
           <view class="bar-col bar-col--tap" wx:for="{{monthly}}" wx:key="month" data-month="{{item.month}}" bindtap="onTapMonthBar">
@@ -269,28 +311,35 @@
         </view>
       </view>
 
-      <!-- 全年 Top 分类 -->
-      <view class="glass-card chart">
-        <text class="chart__title">全年分类 Top 5</text>
-        <block wx:if="{{yearRank.length}}">
-          <view
-            class="rank-item"
-            wx:for="{{yearRank}}"
-            wx:key="categoryId"
-            data-id="{{item.categoryId}}"
-            bindtap="onTapYearCat"
-          >
-            <view class="rank-emoji"><category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="20"/></view>
-            <view class="rank-main">
-              <view class="rank-line">
-                <text class="rank-name">{{item.name}}</text>
-                <text class="rank-amount money-expense">¥{{item.centsText}}</text>
+      <!-- 全年分类占比（复用 category-donut，使用完整年度分类列表） -->
+      <view class="glass-card chart share" id="yearShareCard">
+        <text class="chart__title">全年分类占比</text>
+        <block wx:if="{{yearShareList.length}}">
+          <category-donut
+            segments="{{yearShareSegments}}"
+            center-text="¥{{yExpense}}"
+            center-label="全年支出"
+            size="150"
+          />
+          <view class="share-list">
+            <view
+              class="share-row"
+              wx:for="{{yearShareExpanded ? yearFullShareList : yearShareList}}"
+              wx:key="categoryId"
+              data-id="{{item.categoryId}}"
+              data-agg="{{item.aggregate}}"
+              bindtap="onTapYearShareRow"
+            >
+              <view class="share-row__icon">
+                <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="19"/>
               </view>
-              <view class="rank-bar">
-                <view class="rank-bar__fill" style="width:{{item.barPercent}}%;"></view>
-              </view>
+              <text class="share-row__name">{{item.name}}</text>
+              <text class="share-row__amount money-expense">¥{{item.centsText}}</text>
+              <text class="share-row__percent">{{item.percentText}}%</text>
             </view>
-            <text class="rank-percent">{{item.percent}}%</text>
+          </view>
+          <view class="share-toggle" wx:if="{{yearShareAggregated}}" bindtap="onToggleYearShareExpand">
+            <text class="share-toggle__text">{{yearShareExpanded ? '收起' : '查看全部分类'}}</text>
           </view>
         </block>
         <view class="chart__empty" wx:else>这一年还没有支出</view>
@@ -300,3 +349,23 @@
     <view class="sta__bottom"></view>
   </view>
 </scroll-view>
+
+  <!-- 模块管理 Bottom Sheet（放在 scroll-view 外，避免内部 fixed 定位异常） -->
+  <bottom-sheet show="{{showManage}}" title="我的统计" bind:close="onCloseManage">
+    <view class="mgr-list">
+      <view class="mgr-row" wx:for="{{moduleRows}}" wx:key="id">
+        <text class="mgr-row__label">{{item.label}}</text>
+        <switch
+          class="mgr-row__switch"
+          checked="{{item.checked}}"
+          data-id="{{item.id}}"
+          color="#7c86ff"
+          bindchange="onToggleModule"
+        />
+      </view>
+    </view>
+    <view class="mgr-reset" bindtap="onResetModules">
+      <text class="mgr-reset__text">恢复默认</text>
+    </view>
+  </bottom-sheet>
+</view>

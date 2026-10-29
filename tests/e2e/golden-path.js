@@ -6,7 +6,7 @@
 //
 //   T01 主界面：标题 / 三 Tab / 记账 FAB / 面板已渲染
 //   T02 设置：版本号与 utils/version.js 一致、每日预算提示
-//   T03 分类：系统核心 5 类只读、自定义分类行带归档按钮
+//   T03 分类：系统核心 5 类可改图标（名称禁用）、自定义分类行带归档按钮
 //   T04 周期新建：每周·周日 ¥28（P0 覆盖 Android 周日 day=0 的等价 UI）、下次=下一个周日
 //   T05 停用 / 重启用：停用显示「已停用」、重启用重算下次
 //   T06 编辑只影响未来（改金额）+ 删除规则并恢复数据
@@ -666,5 +666,33 @@ module.exports = async function goldenPath(ctx) {
     await sleep(600);
     ctx.eq((await ap.data()).themeMode, 'dark', '结尾恢复深色');
     ctx.eq((await ap.data()).effectiveTheme, 'dark', '结尾生效深色');
+  });
+
+  // ---------------- T19 统计视觉：年度回顾分类图标不回退 Emoji ----------------
+  await ctx.test('T19 统计视觉：年度回顾记录最多分类透传图标字段', async () => {
+    const page = await ctx.home();
+    await ensureTab(page, 0); // 统计 Tab
+    await sleep(500);
+    const panel = await page.$('#statisticsPanel');
+
+    // 切年度模式并等 loadYear 完成
+    await panel.callMethod('onModeYear');
+    await sleep(1200);
+    const pd = await panel.data();
+    // 契约：要么无数据 yrTopCat=null，要么必须带 iconType/iconValue（不被裁剪回退 Emoji）
+    if (pd.yrTopCat) {
+      ctx.truthy(pd.yrTopCat.iconType, '年度回顾记录最多分类带 iconType');
+      ctx.ok(pd.yrTopCat.iconValue !== undefined, '年度回顾记录最多分类带 iconValue');
+      // 年度回顾行内 category-icon 已渲染（在组件内部查找，page.$$ 跨组件返回 0）
+      const icons = await panel.$$('.yr-row__emoji');
+      ctx.ok(icons.length >= 1, '年度回顾分类 category-icon 容器渲染');
+    } else {
+      ctx.eq(pd.yrTopCat, null, '无年度数据时 yrTopCat=null（契约一致）');
+    }
+
+    // 切回月度模式，恢复默认
+    await panel.callMethod('onModeMonth');
+    await sleep(1000);
+    ctx.eq((await panel.data()).mode, 'month', '已切回月度模式');
   });
 };

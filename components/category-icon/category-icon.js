@@ -5,8 +5,8 @@
 
 const theme = require('../../utils/theme');
 const categoryIcons = require('../../data/category-icons');
-
-const B64CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const { b64encodeAscii } = require('../../utils/b64');
+const { normalizeBody } = require('../../utils/path-normalize');
 
 // tone → 实际颜色（与 components/icon 保持一致；base64 SVG 需具体颜色字符串）
 const TONE_COLORS = {
@@ -27,22 +27,6 @@ const TONE_COLORS = {
     danger: '#dc4a55',
   },
 };
-
-function b64encodeAscii(str) {
-  let out = '';
-  for (let i = 0; i < str.length; i += 3) {
-    const c1 = str.charCodeAt(i);
-    const has2 = i + 1 < str.length;
-    const has3 = i + 2 < str.length;
-    const c2 = has2 ? str.charCodeAt(i + 1) : 0;
-    const c3 = has3 ? str.charCodeAt(i + 2) : 0;
-    out += B64CHARS[c1 >> 2];
-    out += B64CHARS[((c1 & 3) << 4) | (c2 >> 4)];
-    out += has2 ? B64CHARS[((c2 & 15) << 2) | (c3 >> 6)] : '=';
-    out += has3 ? B64CHARS[c3 & 63] : '=';
-  }
-  return out;
-}
 
 Component({
   properties: {
@@ -101,10 +85,12 @@ Component({
         mode = 'builtin';
         const def = categoryIcons.builtinIconById(d.iconValue);
         const color = this.resolveColor();
+        // 离散化：曲线转 L 直线段，规避微信 image 对复杂 path 的解析缺陷。
+        const safeBody = normalizeBody(def.body);
         const svg =
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
           'stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" ' +
-          'stroke-linejoin="round">' + def.body + '</svg>';
+          'stroke-linejoin="round">' + safeBody + '</svg>';
         uri = 'data:image/svg+xml;base64,' + b64encodeAscii(svg);
       } else if (d.iconType === 'emoji') {
         // 显式 emoji 模式。

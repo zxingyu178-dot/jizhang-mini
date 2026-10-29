@@ -1,0 +1,3 @@
+<view class="ct" style="width:{{width}}px;height:{{height}}px;">
+  <image class="ct__img" src="{{uri}}" style="width:{{width}}px;height:{{height}}px;" mode="aspectFit"/>
+</view>

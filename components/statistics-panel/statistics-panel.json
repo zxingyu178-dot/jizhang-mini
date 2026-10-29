@@ -2,6 +2,9 @@
   "component": true,
   "usingComponents": {
     "empty-state": "../empty-state/empty-state",
-    "category-icon": "../category-icon/category-icon"
+    "category-icon": "../category-icon/category-icon",
+    "category-donut": "../category-donut/category-donut",
+    "cumulative-trend": "../cumulative-trend/cumulative-trend",
+    "bottom-sheet": "../bottom-sheet/bottom-sheet"
   }
 }

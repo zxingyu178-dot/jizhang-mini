@@ -19,6 +19,7 @@ const backup = require('./backup');
 const importHistory = require('./import-history');
 const dailyValue = require('./daily-value/index');
 const budget = require('./budget/index');
+const budgetPeriod = require('./budget/period');
 const recurring = require('./recurring/index');
 const search = require('./search/index');
 const csvExport = require('./export/csv');
@@ -58,6 +59,18 @@ function getStatus() {
   };
 }
 
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+/** 日期闭区间 [startStr, endStr]（均含）→ 只读取覆盖月份的账单分片 */
+function rangeBillsForDays(startStr, endStr) {
+  return ledger.rangeBills(startStr.slice(0, 7), endStr.slice(0, 7));
+}
+/** 'YYYY-MM' 减一个月 → 'YYYY-MM'（处理跨年） */
+function prevYM(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+}
+
 module.exports = {
   init,
   isInitialized,
@@ -94,25 +107,51 @@ module.exports = {
   getBudgetState: budget.getBudgetState,
   saveBudgetRule: budget.saveBudgetRule,
   computeBudgetByKind: function (kind, today) {
-    return budget.computeByKind(ledger.rangeBills(), budget.getBudgetState(), kind, today);
+    const state = budget.getBudgetState();
+    const todayStr = today || dailyValue.localDateKey();
+    const p = budgetPeriod.buildPeriod(kind, todayStr, state.weekStartsOn);
+    const lastDay = budgetPeriod.addDays(p.end, -1);
+    return budget.computeByKind(rangeBillsForDays(p.start, lastDay), state, kind, todayStr);
   },
   buildBudgetCalendar: function (year, month, today) {
-    return budget.buildMonthCalendar(ledger.rangeBills(), budget.getBudgetState(), year, month, today);
+    const ym = year + '-' + pad2(month);
+    return budget.buildMonthCalendar(ledger.rangeBills(ym, ym), budget.getBudgetState(), year, month, today);
   },
   buildBudgetDayDetail: function (dateStr) {
+    const ym = dateStr.slice(0, 7);
     return budget.buildDayDetail(
-      ledger.rangeBills(),
+      ledger.rangeBills(ym, ym),
       budget.getBudgetState(),
       dateStr,
       categories.getCategoryResolver()
     );
   },
   buildBudgetPaceSummary: function (today) {
-    return budget.buildPaceSummary(ledger.rangeBills(), budget.getBudgetState(), today);
+    const state = budget.getBudgetState();
+    const todayStr = today || dailyValue.localDateKey();
+    // 覆盖「上周（最早）→ 本月（最晚）」：上周一到本月最后一天，最多两个月
+    const curMonday = budgetPeriod.mondayOf(todayStr);
+    const lastWeekStart = budgetPeriod.addDays(curMonday, -7);
+    const monthLastDay = budgetPeriod.addDays(budgetPeriod.firstOfNextMonth(todayStr), -1);
+    return budget.buildPaceSummary(rangeBillsForDays(lastWeekStart, monthLastDay), state, todayStr);
   },
   // 统计页所选月份的预算节奏上下文（当前月=截至今日；历史月=本月/上月最终）
   buildBudgetMonthPace: function (year, month, today) {
-    return budget.buildMonthPaceContext(ledger.rangeBills(), budget.getBudgetState(), year, month, today);
+    const state = budget.getBudgetState();
+    const todayStr = today || dailyValue.localDateKey();
+    const ym = year + '-' + pad2(month);
+    let bills;
+    if (ym === todayStr.slice(0, 7)) {
+      // 当前月：同 buildPaceSummary 的覆盖范围（上周一 → 本月最后一天）
+      const curMonday = budgetPeriod.mondayOf(todayStr);
+      const lastWeekStart = budgetPeriod.addDays(curMonday, -7);
+      const monthLastDay = budgetPeriod.addDays(budgetPeriod.firstOfNextMonth(todayStr), -1);
+      bills = rangeBillsForDays(lastWeekStart, monthLastDay);
+    } else {
+      // 历史月：该月 + 上月（lastmonth 口径需要上月数据）
+      bills = ledger.rangeBills(prevYM(ym), ym);
+    }
+    return budget.buildMonthPaceContext(bills, state, year, month, todayStr);
   },
   // 设置
   getSettings: settings.getSettings,

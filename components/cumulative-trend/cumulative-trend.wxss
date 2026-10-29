@@ -1,0 +1,6 @@
+.ct {
+  margin: 0 auto;
+}
+.ct__img {
+  display: block;
+}
