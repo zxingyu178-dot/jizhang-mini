@@ -282,6 +282,41 @@ if (contrastR.status === 0) {
   });
 }
 
+/* ---------- 6.7 背景常量同步防护（app.wxss ↔ contrast.js） ---------- */
+section('6.7 背景常量同步防护（app.wxss ↔ contrast.js）');
+const contrastMod = require(nodePath.join(ROOT, 'data', 'statistics', 'contrast'));
+try {
+  const wxss = nodeFs.readFileSync(nodePath.join(ROOT, 'app.wxss'), 'utf8');
+  // 1) 页面背景 hex：每个主题的 PAGE_BG 必须在 app.wxss 中出现
+  Object.keys(contrastMod.PAGE_BG).forEach((theme) => {
+    const bg = contrastMod.PAGE_BG[theme];
+    if (wxss.indexOf(bg) >= 0) pass(theme + ' 页面背景 ' + bg + ' 与 app.wxss 一致');
+    else fail(theme + ' 页面背景 ' + bg + ' 在 app.wxss 未找到，contrast.PAGE_BG 需同步');
+  });
+  // 2) 卡片渐变两端 alpha：仅取 --card-bg 行内的 rgba(255,255,255,A)
+  const cardLines = wxss.split('\n').filter((l) => l.indexOf('--card-bg:') >= 0);
+  const wxssAlphas = [];
+  const alphaRe = /rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*([0-9]*\.?[0-9]+)\s*\)/g;
+  cardLines.forEach((l) => {
+    let m;
+    while ((m = alphaRe.exec(l)) !== null) wxssAlphas.push(parseFloat(m[1]));
+  });
+  const expectedAlphas = [];
+  Object.keys(contrastMod.CARD_WHITE_ALPHA).forEach((t) => {
+    expectedAlphas.push({ theme: t, end: 'start', value: contrastMod.CARD_WHITE_ALPHA[t].start });
+    expectedAlphas.push({ theme: t, end: 'end', value: contrastMod.CARD_WHITE_ALPHA[t].end });
+  });
+  expectedAlphas.forEach((e) => {
+    if (wxssAlphas.some((a) => Math.abs(a - e.value) < 1e-9)) {
+      pass(e.theme + ' 卡片 ' + e.end + ' alpha ' + e.value + ' 与 app.wxss 一致');
+    } else {
+      fail(e.theme + ' 卡片 ' + e.end + ' alpha ' + e.value + ' 在 app.wxss 未找到，contrast.CARD_WHITE_ALPHA 需同步');
+    }
+  });
+} catch (e) {
+  fail('背景同步检查执行失败：' + e.message);
+}
+
 /* ---------- 7. 单元测试 ---------- */
 const runTests = process.argv.indexOf('--no-tests') < 0;
 if (runTests) {

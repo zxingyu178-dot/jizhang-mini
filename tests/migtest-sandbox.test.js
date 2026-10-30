@@ -94,6 +94,7 @@ function buildMemWx() {
     },
   };
   return {
+    fsm,
     setWx() {
       global.wx = { env: { USER_DATA_PATH: '/usr' }, getFileSystemManager: () => fsm };
     },
@@ -123,38 +124,114 @@ eq(dataFs.exists('/usr/bills'), false, 'B 正式 bills 目录未被沙箱触碰'
 eq(dataFs.exists('/usr/manifest.json'), false, 'B 正式 manifest 未被触碰');
 eq(dataFs.exists('/usr/legacy'), false, 'B 正式 legacy 目录未被触碰');
 
-/* ==================== C：clearDonut 跨月清理 ==================== */
-buildMemWx().setWx();
-const store = require(path.join(ROOT, 'data', 'index'));
-const seed = require(path.join(ROOT, 'utils', 'e2e-donut-seed'));
-store.init();
+/* ==================== C：测试数据清理（运行 ID + 命名空间） ==================== */
+// 关键边界：release 下测试桥接入口 fail-closed、模块不可达，真实用户账本不会被任何
+// 测试清理触碰；以下针对 develop/trial 测试环境，验证按 ID 精确清理 + 命名空间兜底，
+// 普通真实账单（非测试命名空间、非 legacy 标识）绝不被删除。
 
-// 两个月各注入一条带 E2E_DONUT 标识的账单，再加一条不同备注的真实账单
-store.addBill({
-  type: 'expense', amount: 10, categoryId: 'c-food', note: seed.E2E_DONUT_TAG,
-  occurredAt: new Date(2026, 8, 10, 12).getTime(),
-});
-store.addBill({
-  type: 'expense', amount: 20, categoryId: 'c-fun', note: seed.E2E_DONUT_TAG,
-  occurredAt: new Date(2026, 9, 10, 12).getTime(),
-});
-store.addBill({
-  type: 'expense', amount: 30, categoryId: 'c-life', note: '真实账单',
+// C1：全新账本（无测试清单），clearDonut 不凭裸 legacy 标识删除
+buildMemWx().setWx();
+const store1 = require(path.join(ROOT, 'data', 'index'));
+const seed1 = require(path.join(ROOT, 'utils', 'e2e-donut-seed'));
+const reg1 = require(path.join(ROOT, 'utils', 'test-registry'));
+store1.init();
+store1.addBill({
+  type: 'expense', amount: 30, categoryId: 'c-life', note: seed1.E2E_DONUT_TAG,
   occurredAt: new Date(2026, 9, 11, 12).getTime(),
 });
-eq(store.listMonths().length, 2, 'C 已建立两个月分片');
+eq(reg1.registryExists(), false, 'C1 全新账本无测试清单');
+eq(seed1.clearDonut().removed, 0, 'C1 全新账本不凭裸备注删除');
+eq(store1.rangeBills().length, 1, 'C1 备注巧合的账单仍在');
 
-const cr = seed.clearDonut();
-eq(cr.scannedMonthCount, 2, 'C 清理扫描全部 2 个月');
-eq(cr.removed, 2, 'C 跨月删除 2 条测试账单');
-eq(cr.months.join(','), '2026-09,2026-10', 'C 清理覆盖两个月');
-const remaining = store.rangeBills();
-eq(remaining.length, 1, 'C 清理后只剩 1 条真实账单');
-eq(remaining[0].note, '真实账单', 'C 真实账单未被误删');
+// C2：测试环境 seed 注入命名空间账单 + 普通真实账单，clear 按 ID 精确清理、真实账单保留
+buildMemWx().setWx();
+const store2 = require(path.join(ROOT, 'data', 'index'));
+const seed2 = require(path.join(ROOT, 'utils', 'e2e-donut-seed'));
+const reg2 = require(path.join(ROOT, 'utils', 'test-registry'));
+store2.init();
+store2.addBill({
+  type: 'expense', amount: 50, categoryId: 'c-fun', note: '真实消费',
+  occurredAt: new Date(2026, 9, 12, 12).getTime(),
+});
+const seedRes = seed2.seedDonut();
+eq(seedRes.createdIds.length, 5, 'C2 seed 注入 5 条命名空间账单');
+eq(seedRes.runId.indexOf('donut-') === 0, true, 'C2 生成唯一 runId');
+eq(reg2.registryExists(), true, 'C2 已持久化测试清单');
+eq(store2.rangeBills().filter((b) => reg2.isTestNote(b.note)).length, 5, 'C2 5 条账单带命名空间标记');
+eq(store2.rangeBills().length, 6, 'C2 共 6 条（5 测试 + 1 真实）');
 
-// 幂等：再清理一次应 removed=0
-const cr2 = seed.clearDonut();
-eq(cr2.removed, 0, 'C 重复清理幂等（0 条）');
+const c2 = seed2.clearDonut();
+eq(c2.removed, 5, 'C2 清理 5 条测试账单');
+eq(c2.removedIds.length, 5, 'C2 按账单 ID 精确清理');
+const remain2 = store2.rangeBills();
+eq(remain2.length, 1, 'C2 清理后剩 1 条真实账单');
+eq(remain2[0].note, '真实消费', 'C2 普通真实账单保留');
+eq(seed2.clearDonut().removed, 0, 'C3 重复清理幂等');
+
+// C4：清单内容丢失（文件在但 runs 空），靠命名空间兜底扫描清理残留
+store2.addBill({
+  type: 'expense', amount: 10, categoryId: 'c-food',
+  note: reg2.encodeTestNote(reg2.makeRunId('ghost')),
+  occurredAt: new Date(2026, 9, 13, 12).getTime(),
+});
+reg2.writeRegistry({ version: 1, runs: [] }); // 模拟清单内容损坏 / 丢失
+eq(seed2.clearDonut().removed, 1, 'C4 清单丢失时命名空间兜底扫描清理残留');
+eq(store2.rangeBills().length, 1, 'C4 兜底后真实账单仍在');
+
+/* ==================== D：异常路径清理（try/finally 故障注入） ==================== */
+// data/fs 每次动态取 fsm，替换 global.wx 后，缓存的 sandbox 模块也会用新 fsm。
+function withFaulty(setup) {
+  const mem = buildMemWx();
+  mem.setWx();
+  setup(mem.fsm);
+}
+
+// D1：写入失败 → 原始异常向上抛，且 finally 仍清理沙箱
+withFaulty((f) => {
+  f.writeFileSync = function () { throw new Error('WRITE_FAULT_EIO'); };
+});
+let d1 = false;
+try {
+  sandbox.runMigtestSandbox();
+} catch (e) {
+  d1 = true;
+  assert(e.message.indexOf('WRITE_FAULT_EIO') >= 0, 'D1 原始写入异常保留：' + e.message);
+}
+assert(d1, 'D1 写入失败确实抛错');
+eq(dataFs.exists('/usr/__migtest_sandbox__'), false, 'D1 写入失败后沙箱仍被清理');
+
+// D2：读回失败（readJSON 吞读错转空 fallback）→ 条数自检失败抛错，且 finally 仍清理
+withFaulty((f) => {
+  const origRead = f.readFileSync;
+  f.readFileSync = function (p) {
+    if (String(p).indexOf('/bills/') >= 0) throw new Error('READ_FAULT_EIO');
+    return origRead(p);
+  };
+});
+let d2 = false;
+try {
+  sandbox.runMigtestSandbox();
+} catch (e) {
+  d2 = true;
+  assert(e.message.indexOf('迁移沙箱自检失败') >= 0, 'D2 读回失败触发自检异常：' + e.message);
+}
+assert(d2, 'D2 读回失败确实抛错');
+eq(dataFs.exists('/usr/__migtest_sandbox__'), false, 'D2 读回失败后沙箱仍被清理');
+
+// D3：主体异常 + 清理同时失败 → 清理异常不覆盖原始异常
+withFaulty((f) => {
+  f.writeFileSync = function () { throw new Error('ORIGINAL_WRITE_FAULT'); };
+  f.rmdirSync = function () { throw new Error('CLEANUP_RMDIR_FAULT'); };
+});
+let d3 = false;
+try {
+  sandbox.runMigtestSandbox();
+} catch (e) {
+  d3 = true;
+  assert(e.message.indexOf('ORIGINAL_WRITE_FAULT') >= 0, 'D3 原始异常未被清理错误覆盖：' + e.message);
+  eq(e.message.indexOf('CLEANUP_RMDIR_FAULT') < 0, true, 'D3 清理异常未向上抛出');
+}
+assert(d3, 'D3 主体异常确实抛错');
 
 /* ---------- 汇总 ---------- */
 console.log('\nmigtest-sandbox tests: ' + pass + ' passed, ' + fail + ' failed');

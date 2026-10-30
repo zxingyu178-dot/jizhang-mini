@@ -49,82 +49,91 @@ function runMigtestSandbox() {
   removeSandbox();
   fs.ensureDir(SANDBOX);
 
-  // 虚构旧数据（与历史用例一致：跨 2026-09 / 2026-10，覆盖 food/salary/transport）。
-  const legacy = [
-    { id: 'x1', createdAt: 1760000000000, type: 'expense', amount: 25.5, category: 'food', date: '2026-10-15', note: '午餐' },
-    { id: 'x2', createdAt: 1760000001000, type: 'income', amount: 1000, category: 'salary', date: '2026-10-15' },
-    { id: 'x3', createdAt: 1760000002000, type: 'expense', amount: 12, category: 'transport', date: '2026-09-30' },
-  ];
+  // 声明在 try 外，finally 才能回填清理状态。
+  let result;
+  try {
+    // 虚构旧数据（与历史用例一致：跨 2026-09 / 2026-10，覆盖 food/salary/transport）。
+    const legacy = [
+      { id: 'x1', createdAt: 1760000000000, type: 'expense', amount: 25.5, category: 'food', date: '2026-10-15', note: '午餐' },
+      { id: 'x2', createdAt: 1760000001000, type: 'income', amount: 1000, category: 'salary', date: '2026-10-15' },
+      { id: 'x3', createdAt: 1760000002000, type: 'expense', amount: 12, category: 'transport', date: '2026-09-30' },
+    ];
 
-  // 1. 复用真实转换函数（legacyToBill 内部调用 categories.mapLegacyCategory）。
-  const bills = legacy.map(migration.legacyToBill);
+    // 1. 复用真实转换函数（legacyToBill 内部调用 categories.mapLegacyCategory）。
+    const bills = legacy.map(migration.legacyToBill);
 
-  // 期望汇总（金额×100 四舍五入）。
-  let expectedIncome = 0;
-  let expectedExpense = 0;
-  bills.forEach((b) => {
-    if (b.type === 'income') expectedIncome += b.amountCents;
-    else expectedExpense += b.amountCents;
-  });
-
-  // 2. 沙箱内写旧数据备份（对应 runMigration 的 legacyRecordsBackup）。
-  fs.writeJSON(SANDBOX_BACKUP, {
-    backedUpAt: Date.now(),
-    recordCount: legacy.length,
-    records: legacy,
-  });
-
-  // 3. 按月份分组，在沙箱内写分片（结构与正式月份分片一致：{ ym, version, bills }）。
-  const byMonth = {};
-  bills.forEach((b) => {
-    const ym = ledger.ymOf(b.occurredAt);
-    if (!byMonth[ym]) byMonth[ym] = [];
-    byMonth[ym].push(b);
-  });
-  const months = Object.keys(byMonth).sort();
-  months.forEach((ym) => {
-    fs.writeJSON(sandboxBillFile(ym), { ym, version: ledger.SCHEMA_VERSION, bills: byMonth[ym] });
-  });
-
-  // 4. 读回沙箱分片，校验条数与金额。
-  let actualCount = 0;
-  let actualIncome = 0;
-  let actualExpense = 0;
-  months.forEach((ym) => {
-    const mf = fs.readJSON(sandboxBillFile(ym), { bills: [] });
-    (mf.bills || []).forEach((b) => {
-      actualCount += 1;
-      if (b.type === 'income') actualIncome += b.amountCents;
-      else actualExpense += b.amountCents;
+    // 期望汇总（金额×100 四舍五入）。
+    let expectedIncome = 0;
+    let expectedExpense = 0;
+    bills.forEach((b) => {
+      if (b.type === 'income') expectedIncome += b.amountCents;
+      else expectedExpense += b.amountCents;
     });
-  });
 
-  const result = {
-    recordCount: bills.length,
-    actualCount,
-    months,
-    backupExists: fs.exists(SANDBOX_BACKUP),
-    incomeCents: expectedIncome,
-    expenseCents: expectedExpense,
-    foodCategory: (bills.find((b) => b.id === 'mig-x1') || {}).categoryId,
-    sandboxRemoved: false,
-  };
+    // 2. 沙箱内写旧数据备份（对应 runMigration 的 legacyRecordsBackup）。
+    fs.writeJSON(SANDBOX_BACKUP, {
+      backedUpAt: Date.now(),
+      recordCount: legacy.length,
+      records: legacy,
+    });
 
-  // 5. 断言（收集所有错误，再统一抛出）。
-  const errors = [];
-  if (actualCount !== bills.length) errors.push('条数不一致：期望 ' + bills.length + '，实际 ' + actualCount);
-  if (actualIncome !== expectedIncome) errors.push('收入金额不一致：期望 ' + expectedIncome + '，实际 ' + actualIncome);
-  if (actualExpense !== expectedExpense) errors.push('支出金额不一致：期望 ' + expectedExpense + '，实际 ' + actualExpense);
-  if (!result.backupExists) errors.push('旧数据备份未生成');
-  if (result.foodCategory !== 'c-food') errors.push('旧分类 food 映射错误：实际 ' + result.foodCategory);
-  if (months.join(',') !== '2026-09,2026-10') errors.push('迁移月份异常：' + months.join(','));
+    // 3. 按月份分组，在沙箱内写分片（结构与正式月份分片一致：{ ym, version, bills }）。
+    const byMonth = {};
+    bills.forEach((b) => {
+      const ym = ledger.ymOf(b.occurredAt);
+      if (!byMonth[ym]) byMonth[ym] = [];
+      byMonth[ym].push(b);
+    });
+    const months = Object.keys(byMonth).sort();
+    months.forEach((ym) => {
+      fs.writeJSON(sandboxBillFile(ym), { ym, version: ledger.SCHEMA_VERSION, bills: byMonth[ym] });
+    });
 
-  // 6. 无论成功失败，删除整个沙箱（在抛错前也要清理）。
-  removeSandbox();
-  result.sandboxRemoved = !fs.exists(SANDBOX);
+    // 4. 读回沙箱分片，校验条数与金额。
+    let actualCount = 0;
+    let actualIncome = 0;
+    let actualExpense = 0;
+    months.forEach((ym) => {
+      const mf = fs.readJSON(sandboxBillFile(ym), { bills: [] });
+      (mf.bills || []).forEach((b) => {
+        actualCount += 1;
+        if (b.type === 'income') actualIncome += b.amountCents;
+        else actualExpense += b.amountCents;
+      });
+    });
 
-  if (errors.length) throw new Error('迁移沙箱自检失败：' + errors.join('；'));
-  return result;
+    result = {
+      recordCount: bills.length,
+      actualCount,
+      months,
+      backupExists: fs.exists(SANDBOX_BACKUP),
+      incomeCents: expectedIncome,
+      expenseCents: expectedExpense,
+      foodCategory: (bills.find((b) => b.id === 'mig-x1') || {}).categoryId,
+      sandboxRemoved: false,
+    };
+
+    // 5. 断言（收集所有错误，再统一抛出）。
+    const errors = [];
+    if (actualCount !== bills.length) errors.push('条数不一致：期望 ' + bills.length + '，实际 ' + actualCount);
+    if (actualIncome !== expectedIncome) errors.push('收入金额不一致：期望 ' + expectedIncome + '，实际 ' + actualIncome);
+    if (actualExpense !== expectedExpense) errors.push('支出金额不一致：期望 ' + expectedExpense + '，实际 ' + actualExpense);
+    if (!result.backupExists) errors.push('旧数据备份未生成');
+    if (result.foodCategory !== 'c-food') errors.push('旧分类 food 映射错误：实际 ' + result.foodCategory);
+    if (months.join(',') !== '2026-09,2026-10') errors.push('迁移月份异常：' + months.join(','));
+
+    if (errors.length) throw new Error('迁移沙箱自检失败：' + errors.join('；'));
+    return result;
+  } finally {
+    // 6. 无论成功或失败（含中途抛错），都尝试删除整个沙箱。
+    //    清理单独 try/catch：清理失败只标记、不抛出，避免覆盖 try 块的原始异常。
+    try {
+      removeSandbox();
+      if (result) result.sandboxRemoved = !fs.exists(SANDBOX);
+    } catch (cleanupErr) {
+      if (result) result.sandboxRemoved = false;
+    }
+  }
 }
 
 module.exports = { runMigtestSandbox, SANDBOX };

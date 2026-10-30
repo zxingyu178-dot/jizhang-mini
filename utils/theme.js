@@ -50,6 +50,10 @@ let _mode = DEFAULT_MODE;
 let _effective = 'dark';
 let _started = false;
 let _listeners = [];
+// 单调递增的主题变更序号：每次 emit（主题模式 / 生效色变化）+1，
+// 供页面判断「本次回前台是否仅由主题变化引起」，避免 onShow 全量刷新冲掉
+// 已由主题订阅做的局部 recolor（如统计面板展开 / 选中态）。
+let _changeCounter = 0;
 // Native Chrome Guard 监听者（系统主题变化时，手动模式下重守原生窗口颜色）。
 let _chromeListeners = [];
 
@@ -64,6 +68,7 @@ function snapshot() {
 }
 
 function emit() {
+  _changeCounter += 1;
   const s = snapshot();
   _listeners.slice().forEach((cb) => {
     try {
@@ -150,6 +155,10 @@ function getEffectiveTheme() {
 }
 function getThemeClass() {
   return 'theme-' + _effective;
+}
+/** 当前主题变更序号（每次 emit 递增），用于 onShow 识别主题变化 */
+function getChangeCounter() {
+  return _changeCounter;
 }
 
 /**
@@ -249,6 +258,7 @@ function _resetForTest() {
   _effective = 'dark';
   _listeners = [];
   _chromeListeners = [];
+  _changeCounter = 0;
 }
 
 module.exports = {
@@ -262,6 +272,7 @@ module.exports = {
   getThemeMode,
   getEffectiveTheme,
   getThemeClass,
+  getChangeCounter,
   setThemeMode,
   reloadFromStorage,
   refreshSystemTheme,

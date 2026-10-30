@@ -3,28 +3,48 @@
 // 仅在非 release（develop/trial）由 pages/main 的薄委托调用；release 环境 main.js 已先
 // fail-closed 拒绝，不会走到本文件的 require。因此本模块在正式发布环境为不可达死代码。
 //
-// 测试账单用固定专用标识 E2E_DONUT_TAG 精确全等匹配，绝不宽泛匹配误删真实账单。
-// 每次注入前先清理同标识残留：异常退出后重跑也能自愈；返回创建 / 清理记录可追溯。
+// v1.3.4 安全收口：不再仅凭普通备注文本认定测试账单。每次注入生成唯一 runId，
+// 账单 note 写带命名空间前缀的标记（__TEST__:<runId>），runId + 账单 ID 持久化到
+// 独立测试清单（utils/test-registry）。清理优先按清单账单 ID 精确删除，兜底只扫描
+// 命名空间前缀残留，绝不删除 note 不带测试前缀的真实账单。
 
-const E2E_DONUT_TAG = 'E2E_DONUT';
+const testRegistry = require('./test-registry');
 
-/** 注入前先清理同标识残留（幂等 + 异常退出自愈），再注入固定 5 分类支出 */
-function seedDonut() {
-  const store = require('../data/index');
+// 旧版本（≤1.3.3）裸标识：仅用于测试环境升级时一次性清理残留，不再作为新账单标记。
+const LEGACY_DONUT_TAG = 'E2E_DONUT';
+
+/**
+ * 清理旧版本（≤1.3.3）裸标识残留。仅在测试桥接流程内调用（release 不可达），
+ * 用于升级后清掉历史测试账单；新账单一律不再使用该裸标识。
+ */
+function clearLegacyDonut(store) {
+  const removed = [];
+  store.rangeBills().forEach((b) => {
+    if (b.note === LEGACY_DONUT_TAG) {
+      const ym = store.ledger.ymOf(b.occurredAt);
+      try {
+        store.deleteBill(b.id);
+        removed.push({ id: b.id, ym });
+      } catch (e) {
+        /* 忽略 */
+      }
+    }
+  });
+  return removed;
+}
+
+/** 注入公共逻辑：清理 → 生成 runId → 注入命名空间账单 → 持久化 run。 */
+function buildSeed(store, rows, kind) {
   const now = new Date();
   const ym = store.ledger.ymOf(now.getTime());
 
-  const preClean = clearDonut();
+  // 干净起点：先清历史命名空间测试账单，再清旧版本裸标识残留。
+  const preClean = testRegistry.cleanupTestBills(store);
+  const legacyRemoved = clearLegacyDonut(store);
 
-  const seed = [
-    { categoryId: 'c-food', amount: 375.64 },
-    { categoryId: 'c-shopping', amount: 204.04 },
-    { categoryId: 'c-life', amount: 140.00 },
-    { categoryId: 'c-transport', amount: 90.00 },
-    { categoryId: 'c-fun', amount: 50.00 },
-  ];
+  const runId = testRegistry.makeRunId(kind);
   const created = [];
-  seed.forEach((s, i) => {
+  rows.forEach((s, i) => {
     const at = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -36,91 +56,79 @@ function seedDonut() {
       type: 'expense',
       amount: s.amount,
       categoryId: s.categoryId,
-      note: E2E_DONUT_TAG,
+      note: testRegistry.encodeTestNote(runId),
       occurredAt: at,
     });
     created.push({ id: b.id, categoryId: b.categoryId, amountCents: b.amountCents });
   });
 
+  // 持久化本次 run（runId + 账单 ID），供后续按 ID 精确清理。
+  testRegistry.registerRun({
+    runId,
+    kind,
+    billIds: created.map((c) => c.id),
+  });
+
   return {
     ym,
-    tag: E2E_DONUT_TAG,
+    runId,
     preCleaned: preClean.removed,
+    legacyRemoved: legacyRemoved.length,
     created,
     createdIds: created.map((c) => c.id),
   };
+}
+
+/** 注入前先清理残留（幂等 + 异常退出自愈），再注入固定 5 分类支出。 */
+function seedDonut() {
+  const store = require('../data/index');
+  const rows = [
+    { categoryId: 'c-food', amount: 375.64 },
+    { categoryId: 'c-shopping', amount: 204.04 },
+    { categoryId: 'c-life', amount: 140.00 },
+    { categoryId: 'c-transport', amount: 90.00 },
+    { categoryId: 'c-fun', amount: 50.00 },
+  ];
+  return buildSeed(store, rows, 'donut');
 }
 
 /**
  * 注入 10 个分类（>8），用于 Top7+「其他」聚合展开回归（T22/T23）。
- * 同样先清理同标识残留；金额递减保证排序确定，复用同一 tag 与 clearDonut 清理。
+ * 金额递减保证排序确定，复用同一 runId / 命名空间清理机制。
  */
 function seedDonutMany() {
   const store = require('../data/index');
-  const now = new Date();
-  const ym = store.ledger.ymOf(now.getTime());
-
-  const preClean = clearDonut();
-
-  const seed = [
+  const rows = [
     ['c-food', 380], ['c-shopping', 320], ['c-life', 260], ['c-transport', 210],
     ['c-fun', 170], ['c-drink', 130], ['c-bill', 100], ['c-medical', 80],
     ['c-housing', 60], ['c-travel', 40],
-  ];
-  const created = [];
-  seed.forEach((s, i) => {
-    const at = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      Math.min(i + 1, 27),
-      12,
-      0
-    ).getTime();
-    const b = store.addBill({
-      type: 'expense',
-      amount: s[1],
-      categoryId: s[0],
-      note: E2E_DONUT_TAG,
-      occurredAt: at,
-    });
-    created.push({ id: b.id, categoryId: b.categoryId, amountCents: b.amountCents });
-  });
-
-  return {
-    ym,
-    tag: E2E_DONUT_TAG,
-    preCleaned: preClean.removed,
-    created,
-    createdIds: created.map((c) => c.id),
-  };
+  ].map((r) => ({ categoryId: r[0], amount: r[1] }));
+  return buildSeed(store, rows, 'donutMany');
 }
 
 /**
- * 跨全部月份清理 note 精确等于 E2E_DONUT_TAG 的账单（不触碰真实账单）。
- * 无参 rangeBills 扫描所有月份分片：即使测试异常退出、账单残留在旧月份，
- * 跨月后重跑也能发现并清理，不再只看当前月。每条记录带所属月份，清理结果可追溯；
- * 仍只认精确的 E2E_DONUT_TAG，绝不宽泛匹配误删真实账单。
+ * 跨全部月份清理测试账单：
+ *   先按持久化清单的账单 ID 精确删除 + 命名空间前缀兜底；仅当测试清单本就存在
+ *   （测试框架运行过的环境）时，再清旧版本裸标识残留，全新 / 真实账本不凭普通备注删除。
+ * 不触碰 note 不带测试前缀的真实账单；每条记录可追溯。
  */
 function clearDonut() {
   const store = require('../data/index');
-  const bills = store.rangeBills(); // 无参：读取全部月份分片
-  const removedRecords = [];
-  const touchedMonths = {};
-  bills.forEach((b) => {
-    if (b.note === E2E_DONUT_TAG) {
-      const ym = store.ledger.ymOf(b.occurredAt);
-      store.deleteBill(b.id);
-      removedRecords.push({ id: b.id, categoryId: b.categoryId, ym });
-      touchedMonths[ym] = true;
-    }
-  });
+  const hadRegistry = testRegistry.registryExists(); // 调用前状态，避免被本次 cleanup 改写
+  const cr = testRegistry.cleanupTestBills(store);
+  const legacyRemoved = hadRegistry ? clearLegacyDonut(store) : [];
   return {
     scannedMonthCount: store.listMonths().length,
-    months: Object.keys(touchedMonths).sort(),
-    tag: E2E_DONUT_TAG,
-    removed: removedRecords.length,
-    removedRecords,
+    months: cr.months,
+    removed: cr.removed + legacyRemoved.length,
+    removedIds: cr.removedById.concat(cr.removedByScan),
+    legacyRemoved: legacyRemoved.map((r) => r.id),
   };
 }
 
-module.exports = { E2E_DONUT_TAG, seedDonut, seedDonutMany, clearDonut };
+module.exports = {
+  E2E_DONUT_TAG: LEGACY_DONUT_TAG, // 保留导出名兼容引用；语义为旧版本裸标识
+  seedDonut,
+  seedDonutMany,
+  clearDonut,
+};

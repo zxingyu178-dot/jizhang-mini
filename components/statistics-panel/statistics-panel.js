@@ -156,7 +156,8 @@ Component({
       // shareList / fullShareList（年度同理）的颜色需重新取色，否则会停留在旧主题。
       this._offTheme = theme.subscribe(() => {
         // 未激活时不提前取数（保持「激活才加载」的设计）；首次 activate 会用当前主题取色。
-        if (this._activated) this.refresh();
+        // 只做局部颜色刷新：不重读账本、不重置选中 / 展开态，避免打断用户当前操作。
+        if (this._activated) this.recolorForTheme();
       });
     },
     detached() {
@@ -179,6 +180,32 @@ Component({
       // 直接 loadMonth('') 会解析出 NaN 年月，需回退到当前月 / 当前年。
       if (this.data.mode === 'year') this.loadYear(this.data.year || new Date().getFullYear());
       else this.loadMonth(this.data.ym || currentYM());
+    },
+
+    /**
+     * 主题切换的局部颜色刷新（不重读账本、不重置选中 / 展开态）。
+     * 仅用缓存的原始占比（_monthShare / _yearShare）重新解析圆环、列表、展开行颜色，
+     * 当前年月、选中 id、展开态与其他统计数据原样保留，避免大账本下的无谓重读重算。
+     */
+    recolorForTheme() {
+      const patch = {};
+      const toCentsRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
+      const themeKey = this.shareThemeKey();
+
+      if (this._monthShare) {
+        const monthColored = donut.resolveSegmentColors(this._monthShare.segments, themeKey);
+        patch.shareSegments = monthColored;
+        patch.shareList = monthColored.map(toCentsRow);
+        // buildExpandedShareRows 内部读当前主题，传缓存 share 即可重建展开行颜色
+        patch.fullShareList = this.buildExpandedShareRows(this._monthShare);
+      }
+      if (this._yearShare) {
+        const yearColored = donut.resolveSegmentColors(this._yearShare.segments, themeKey);
+        patch.yearShareSegments = yearColored;
+        patch.yearShareList = yearColored.map(toCentsRow);
+        patch.yearFullShareList = this.buildExpandedShareRows(this._yearShare);
+      }
+      if (Object.keys(patch).length) this.setData(patch);
     },
     /* ---------- 模式切换 ---------- */
     onModeMonth() {
@@ -298,6 +325,8 @@ Component({
       patch.shareSelectedId = ''; // 切月重置选中
       if (on('category-share')) {
         const share = M.computeCategoryShare(bills, resolveCategory);
+        // 缓存原始占比（无颜色）：切主题时复用它仅重新取色，不重读账本。
+        this._monthShare = share;
         const themeKey = this.shareThemeKey();
         // 圆环与默认图例同一套颜色解析（主题透传），保证颜色完全一致
         const colored = donut.resolveSegmentColors(share.segments, themeKey);
@@ -503,6 +532,8 @@ Component({
       // —— 全年分类占比（固定模块：复用 category-donut，使用完整年度分类列表） ——
       patch.yearShareSelectedId = ''; // 切年重置选中
       const yearShare = M.computeCategoryShare(bills, resolveCategory);
+      // 缓存原始占比（无颜色）：切主题时复用它仅重新取色，不重读账本。
+      this._yearShare = yearShare;
       const toYearShareRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
       const yThemeKey = this.shareThemeKey();
       const yColored = donut.resolveSegmentColors(yearShare.segments, yThemeKey);

@@ -24,9 +24,11 @@ const AGGREGATE_COLOR = '#8D94A8';
 const GOLDEN_ANGLE = 137.50776405003785;
 const COLOR_SATURATION = 62; // 百分比：中等饱和，两主题不刺眼
 // 明度随主题微调（色相不变）：深色背景略提亮、浅色背景压暗，保证两边可读。
-// v1.3.3：浅色明度 45 → 34，使全色相相对浅色背景的 WCAG 非文本对比度 worst≈3.25（≥3:1）；
-// 深色 56 保持（worst≈3.07，已达标）。色相 / 饱和度不变，视觉身份保持。
-const LIGHT_BY_THEME = { dark: 56, light: 34 };
+// v1.3.3：浅色明度 45 → 34，使全色相相对浅色背景的 WCAG 非文本对比度 worst≈3.25（≥3:1）。
+// v1.3.4：深色明度 56 → 60。圆环实际落在比页面更亮的 glass-card（半透明白叠加）上，
+//   旧口径只对页面背景取色，真实卡片最亮端 worst 仅 2.578（不达标）；提到 60 后，
+//   在页面 + 卡片两端全部候选背景上 worst≈3.145（@hue240，≥3:1）。色相 / 饱和度不变。
+const LIGHT_BY_THEME = { dark: 60, light: 34 };
 const DEFAULT_THEME = 'dark';
 
 /** 对字符串做确定性 32 位哈希（非加密，仅用于稳定选色），返回非负整数 */
@@ -175,6 +177,7 @@ module.exports = {
   GOLDEN_ANGLE,
   COLOR_SATURATION,
   LIGHT_BY_THEME,
+  DEFAULT_THEME,
   hashId,
   categoryHue,
   getCategoryColor,

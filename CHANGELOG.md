@@ -3,6 +3,24 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.3.4] — 2026-10-30
+
+Review Fix & Final Reliability Closure（独立代码审查修复与最终可靠性收口）。针对 v1.3.3 交付后的独立审查所指出的 2 个 P1、3 个 P2 实现问题逐项核实并修复，不新增业务功能、不升级数据合同（Bill/Backup V3 等）、不引入第三方依赖、不重写统计模块。审查暂定名 v1.3.3.1，因现有工具链强制三段式语义化版本（npm semver 不接受四段纯数字），定名 1.3.4。
+
+### 修复
+- **切主题不再重置统计页状态（P1）**：`statistics-panel` 主题回调原先调用完整 `refresh()`，经 `loadMonth`/`loadYear` 重新读取账本、重算并重置 `shareExpanded`/`shareSelectedId`（年度对应字段）。现改为新增的 `recolorForTheme()`：`loadMonth`/`loadYear` 把 `computeCategoryShare` 的原始（无颜色）结果缓存到 `_monthShare`/`_yearShare`，切主题时仅用缓存重新解析圆环、列表与展开行颜色，当前年月、选中分类、展开态与其他统计数据原样保留，不读账本、不重算。
+- **主题切换返回的 onShow 冲突（P1 收口）**：`pages/main` 的 `onShow` 原先无条件 `refreshPanels()`，从外观页返回时统计面板的完整重载会再次冲掉 `recolorForTheme` 已保留的状态。现 `theme.js` 新增单调递增的主题变更序号（`getChangeCounter`），`onShow` 识别本次回前台是否仅由主题变化引起：是则跳过统计面板完整重载（颜色已由订阅刷新），其他面板与非主题返回路径行为不变。
+- **对比度按真实玻璃卡片背景建模（P1）**：`contrast.js` 旧口径只取页面背景 `--bg`，并假设「更白 surface 上对比度只会更高」；实际圆环落在 `.glass-card`，深色 `--card-bg` 为白色半透明渐变（0.09→0.03），深色圆环本身比背景亮，卡片叠白变亮反而降低对比度。重写为页面 + 卡片起 / 止端三候选背景模型，枚举全色相在全部候选背景上取全局最差。深色圆环明度 56% → 60%（S=62），最不利卡片端 worst 由 2.578 升至 3.145；浅色明度 34% 保持（worst 3.249，最不利背景为页面）。
+- **迁移沙箱异常清理保障（P2）**：`migtest-sandbox` 主体原先无 try/finally，异常时末尾清理不执行、与「无论成败都删沙箱」承诺不符。现主体整体包进 try、清理移到 finally，且 finally 内清理再单独 try/catch，清理失败只标记 `sandboxRemoved=false`、不覆盖 try 块原始异常。
+- **测试数据清理改运行 ID 精确删除（P2）**：新增共享模块 `utils/test-registry.js`，每次测试生成独立运行 ID（`__TEST__:<runId>`）并持久化到专用清单文件；清理优先按清单中的账单 ID 精确删除，再以命名空间前缀兜底扫描。重写 `e2e-donut-seed` 与 `main` 的自检 / 清理，旧裸标识（`E2E_DONUT`/`__SELFTEST__`）仅在测试框架运行过的环境（清单存在）作受控 legacy 清理，全新 / 真实账本不再凭普通备注删除，避免误删用户真实账单。
+
+### 测试
+- E2E T24 重写为真正覆盖展开与选中态：改用 10 分类（触发聚合，含子分类与中性色），月度 + 年度均真实展开、真实选中圆环分段后再切主题，断言展开 / 选中状态保持、前七项颜色与色相身份、子分类中性色、圆环与图例一致；旧 T24 全程未展开、无法暴露状态问题。
+- 新增 `tests/test-registry.test.js`（44 项），`contrast.test.js` 重写为 30 项，`migtest-sandbox.test.js` 新增故障注入（现 36 项），`lazy-compute.test.js` 新增局部刷新专项（现 52 项），`theme.test.js` 新增变更序号专项（现 71 项）。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1，均不升级；不新增依赖、不新增分类颜色持久化字段、不重新设计圆环、不改变黄金角稳定配色基本原则。
+
 ## [1.3.3] — 2026-10-30
 
 Reliability Closure & Theme Consistency（可靠性收口与主题一致性）。针对外部静态审查指出的 5 类遗留问题逐项修复，不新增业务功能，数据合同与依赖全部冻结。

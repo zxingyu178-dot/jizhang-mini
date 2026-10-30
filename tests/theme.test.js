@@ -422,6 +422,28 @@ async function run() {
   eq(callsR2, 0, 'RESUME-02 手动模式不 emit');
   sysTheme = 'dark';
 
+  /* ============================================================
+   * v1.3.4：主题变更计数器（onShow 识别主题变化、跳过统计面板重载）
+   * ============================================================ */
+  freshInit({ theme: 'dark' });
+  eq(theme.getChangeCounter(), 0, 'COUNTER-01 重置后初始序号为 0');
+  theme.setThemeMode('light');
+  eq(theme.getChangeCounter(), 1, 'COUNTER-02 切主题 emit 后序号 +1');
+  theme.setThemeMode('dark');
+  eq(theme.getChangeCounter(), 2, 'COUNTER-02 再次切主题序号继续 +1');
+  // 同 mode 重复设置：无变化不 emit，序号不变
+  theme.setThemeMode('dark');
+  eq(theme.getChangeCounter(), 2, 'COUNTER-03 同模式重复设置不递增');
+  // 写失败：不 emit，序号不变
+  const fsmC = global.wx.getFileSystemManager();
+  const origC = fsmC.writeFileSync;
+  fsmC.writeFileSync = function () { throw new Error('EIO'); };
+  theme.setThemeMode('light');
+  fsmC.writeFileSync = origC;
+  eq(theme.getChangeCounter(), 2, 'COUNTER-04 写失败不 emit 序号保持');
+  theme._resetForTest();
+  eq(theme.getChangeCounter(), 0, 'COUNTER-05 _resetForTest 归零序号');
+
   /* ---- 汇总 ---- */
   console.log('\ntheme tests: ' + pass + ' passed, ' + fail + ' failed');
   if (fail > 0) process.exit(1);

@@ -1077,60 +1077,125 @@ module.exports = async function goldenPath(ctx) {
     await sleep(800);
   });
 
-  // ---------------- T24 统计面板切主题：圆环与列表（含展开态）颜色同步更新 ----------------
-  await ctx.test('T24 统计面板切主题：圆环与列表颜色同步、色相身份不变', async () => {
+  // ---------------- T24 展开/选中态切主题：状态保持 + 颜色同步（月度+年度） ----------------
+  await ctx.test('T24 展开与选中态切主题：状态保持、颜色同步、中性色不变', async () => {
     const homePage = await ctx.home();
     await homePage.callMethod('__e2eClearDonut');
-    await homePage.callMethod('__e2eSeedDonut');
+    await homePage.callMethod('__e2eSeedDonutMany'); // 10 分类触发聚合，含子分类与中性色
     await ensureTab(homePage, 0);
     await sleep(400);
     let panel = await homePage.$('#statisticsPanel');
     await panel.callMethod('refresh');
     await sleep(1000);
-    let pd = await panel.data();
-    ctx.truthy(pd.shareSegments.length >= 5, '注入后分段数 >=5（actual=' + pd.shareSegments.length + '）');
 
-    // dark 基准：圆环分段色 = 列表色，用 dark 明度
-    const darkSegColor = pd.shareSegments[0].color;
-    ctx.eq(darkSegColor, pd.shareList[0].color, 'dark 圆环色=列表色');
-    ctx.includes(darkSegColor, donutData.LIGHT_BY_THEME.dark + '%', 'dark 用深色明度');
     const hueOf = (s) => parseInt(s.slice(4), 10);
-    const darkHue = hueOf(darkSegColor);
+    const darkL = donutData.LIGHT_BY_THEME.dark;
+    const lightL = donutData.LIGHT_BY_THEME.light;
 
-    // 真实路径：去外观页切浅色，再返回主页（主页在栈底不销毁，主题订阅保持有效）
-    const ap = await ctx.goto('/pages/appearance/appearance', '.ap-page');
-    await ctx.tap(ap, '.row[data-value="light"]');
-    await sleep(700);
-    const backPage = await ctx.home();
-    await ensureTab(backPage, 0);
-    await sleep(1000);
-    panel = await backPage.$('#statisticsPanel');
+    // 去外观页切主题再返回主页（主页在栈底不销毁，主题订阅保持有效）。
+    async function switchTheme(mode) {
+      const ap = await ctx.goto('/pages/appearance/appearance', '.ap-page');
+      await ctx.tap(ap, '.row[data-value="' + mode + '"]');
+      await sleep(700);
+      const hp = await ctx.home();
+      await ensureTab(hp, 0);
+      await sleep(1000);
+      return { hp, p: await hp.$('#statisticsPanel') };
+    }
 
-    // 主题订阅触发 refresh：圆环与列表颜色都更新为 light
+    /* ============ 月度：展开 + 真实选中，切 light 后状态保持、颜色同步 ============ */
+    await panel.setData({ scrollInto: 'monthShareCard' });
+    await sleep(900);
+    await (await panel.$('.share-toggle')).tap(); // 真实展开
+    await sleep(600);
+    let pd = await panel.data();
+    ctx.eq(pd.shareExpanded, true, '月度已展开全部分类');
+    ctx.eq(pd.fullShareList.length, 11, '月度展开 11 行（7 top+1 group+3 child）');
+
+    const mDonut = await panel.$('#monthDonut');
+    const mGeo = await donutGeo(mDonut);
+    const mSegs = pd.shareSegments;
+    const mPt = ringPoint(mGeo, mSegs[0].ratio / 2);
+    await realTap(mGeo.rootEl, mPt.x, mPt.y); // 真实点击圆环第一段 → 选中
+    await sleep(500);
     pd = await panel.data();
-    const lightSegColor = pd.shareSegments[0].color;
-    ctx.eq(lightSegColor, pd.shareList[0].color, 'light 圆环色=列表色');
-    ctx.includes(lightSegColor, donutData.LIGHT_BY_THEME.light + '%', 'light 圆环明度更新');
-    ctx.includes(pd.shareList[0].color, donutData.LIGHT_BY_THEME.light + '%', 'light 列表色同步更新（Gate 2 修复点）');
-    ctx.eq(hueOf(lightSegColor), darkHue, '切主题后色相身份不变');
+    const mSelectedId = mSegs[0].categoryId;
+    ctx.eq(pd.shareSelectedId, mSelectedId, '月度已选中第一段');
+    const darkHues = mSegs.slice(0, 7).map((s) => hueOf(s.color));
+    ctx.eq(pd.fullShareList.filter((r) => r.kind === 'child').every((c) => c.color === AGG_COLOR), true, 'dark 子分类中性色');
 
-    // 展开态 fullShareList 的 top 行颜色也跟随当前主题
-    const expandedTop = pd.fullShareList.filter((r) => r.kind === 'top');
-    ctx.truthy(expandedTop.length >= 1, '展开列表含 top 行');
-    ctx.includes(expandedTop[0].color, donutData.LIGHT_BY_THEME.light + '%', '展开列表颜色跟随 light');
-
-    // 切回深色恢复
-    const ap2 = await ctx.goto('/pages/appearance/appearance', '.ap-page');
-    await ctx.tap(ap2, '.row[data-value="dark"]');
-    await sleep(700);
-    const restorePage = await ctx.home();
-    await ensureTab(restorePage, 0);
-    await sleep(1000);
-    panel = await restorePage.$('#statisticsPanel');
+    let r1 = await switchTheme('light');
+    panel = r1.p;
     pd = await panel.data();
-    ctx.includes(pd.shareList[0].color, donutData.LIGHT_BY_THEME.dark + '%', '结尾恢复深色');
+    ctx.eq(pd.shareExpanded, true, '切 light 后月度仍展开（P1-2 修复点）');
+    ctx.eq(pd.shareSelectedId, mSelectedId, '切 light 后选中不丢失（P1-2 修复点）');
+    ctx.eq(pd.fullShareList.length, 11, '切 light 后展开行数不变');
+    const lightSegs = pd.shareSegments;
+    for (let i = 0; i < 7; i++) {
+      ctx.includes(lightSegs[i].color, lightL + '%', 'light 前 7 第 ' + i + ' 项明度更新');
+      ctx.eq(hueOf(lightSegs[i].color), darkHues[i], 'light 前 7 色相身份不变');
+      ctx.eq(pd.shareList[i].color, lightSegs[i].color, 'light 图例色=圆环分段色');
+    }
+    ctx.eq(pd.fullShareList.filter((r) => r.kind === 'top').every((t) => t.color.indexOf(lightL + '%') >= 0), true, 'light 展开 top 行颜色同步');
+    ctx.eq(pd.fullShareList.filter((r) => r.kind === 'child').every((c) => c.color === AGG_COLOR), true, 'light 子分类中性色保持');
+    ctx.eq(pd.fullShareList.filter((r) => r.kind === 'group').every((g) => g.color === AGG_COLOR), true, 'light 分组头中性色保持');
 
-    await restorePage.callMethod('__e2eClearDonut');
+    let r2 = await switchTheme('dark');
+    panel = r2.p;
+    pd = await panel.data();
+    ctx.eq(pd.shareExpanded, true, '切回 dark 后月度仍展开');
+    ctx.eq(pd.shareSelectedId, mSelectedId, '切回 dark 后选中保持');
+    ctx.eq(hueOf(pd.shareSegments[0].color), darkHues[0], '切回 dark 颜色恢复');
+    ctx.eq(pd.fullShareList.filter((r) => r.kind === 'child').every((c) => c.color === AGG_COLOR), true, 'dark 子分类中性色保持');
+
+    /* ============ 年度：展开 + 真实选中，切 light 后状态保持 ============ */
+    await panel.callMethod('onModeYear');
+    await sleep(1200);
+    pd = await panel.data();
+    ctx.eq(pd.mode, 'year', '已切年度模式');
+    await panel.setData({ scrollInto: 'yearShareCard' });
+    await sleep(900);
+    await (await panel.$('.share-toggle')).tap();
+    await sleep(600);
+    pd = await panel.data();
+    ctx.eq(pd.yearShareExpanded, true, '年度已展开');
+    ctx.eq(pd.yearFullShareList.length, 11, '年度展开 11 行');
+
+    const yDonut = await panel.$('#yearDonut');
+    const yGeo = await donutGeo(yDonut);
+    const ySegs = pd.yearShareSegments;
+    const yPt = ringPoint(yGeo, ySegs[0].ratio / 2);
+    await realTap(yGeo.rootEl, yPt.x, yPt.y);
+    await sleep(500);
+    pd = await panel.data();
+    const ySelectedId = ySegs[0].categoryId;
+    ctx.eq(pd.yearShareSelectedId, ySelectedId, '年度已选中第一段');
+    const darkYearHues = ySegs.slice(0, 7).map((s) => hueOf(s.color));
+
+    let r3 = await switchTheme('light');
+    panel = r3.p;
+    pd = await panel.data();
+    ctx.eq(pd.yearShareExpanded, true, '切 light 后年度仍展开');
+    ctx.eq(pd.yearShareSelectedId, ySelectedId, '切 light 后年度选中不丢失');
+    ctx.eq(pd.yearFullShareList.length, 11, '年度展开行数不变');
+    const lightYearSegs = pd.yearShareSegments;
+    for (let i = 0; i < 7; i++) {
+      ctx.includes(lightYearSegs[i].color, lightL + '%', 'light 年度前 7 明度更新');
+      ctx.eq(hueOf(lightYearSegs[i].color), darkYearHues[i], 'light 年度色相身份不变');
+      ctx.eq(pd.yearShareList[i].color, lightYearSegs[i].color, 'light 年度图例=圆环');
+    }
+    ctx.eq(pd.yearFullShareList.filter((r) => r.kind === 'child').every((c) => c.color === AGG_COLOR), true, 'light 年度子分类中性色保持');
+
+    let r4 = await switchTheme('dark');
+    panel = r4.p;
+    pd = await panel.data();
+    ctx.eq(pd.yearShareExpanded, true, '切回 dark 年度仍展开');
+    ctx.eq(pd.yearShareSelectedId, ySelectedId, '切回 dark 年度选中保持');
+
+    await panel.setData({ scrollInto: '' });
+    await panel.callMethod('onModeMonth');
+    await sleep(1000);
+    await r4.hp.callMethod('__e2eClearDonut');
     await panel.callMethod('refresh');
     await sleep(800);
   });

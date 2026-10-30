@@ -240,6 +240,30 @@ const expectedLightL = donut.LIGHT_BY_THEME.light + '%';
 assert(lightColor.indexOf(expectedLightL) > 0, '已激活切 light 后列表色明度 ' + expectedLightL);
 assert(lightColor !== darkColor, '切主题后列表颜色确实更新');
 
+// 局部颜色刷新：选中 / 展开态保留、不重读账本（P1 修复点）
+console.log('== 7. 主题局部刷新：选中 / 展开态保留、不重算占比 ==');
+theme.setThemeMode('dark');
+inst.loadMonth(YM);
+inst.loadYear(now.getFullYear());
+const mSelId = inst.data.shareSegments[0].categoryId;
+const ySelId = inst.data.yearShareSegments[0].categoryId;
+inst.setData({
+  shareExpanded: true, shareSelectedId: mSelId,
+  yearShareExpanded: true, yearShareSelectedId: ySelId,
+});
+const beforeColor = inst.data.shareList[0].color;
+
+resetCalls();
+theme.setThemeMode('light');
+eq(inst.data.shareExpanded, true, '切主题后月度展开态保留');
+eq(inst.data.shareSelectedId, mSelId, '切主题后月度选中 id 保留');
+eq(inst.data.yearShareExpanded, true, '切主题后年度展开态保留');
+eq(inst.data.yearShareSelectedId, ySelId, '切主题后年度选中 id 保留');
+assert(inst.data.shareList[0].color.indexOf(donut.LIGHT_BY_THEME.light + '%') > 0, '状态保留同时月度颜色更新 light');
+assert(inst.data.yearShareList[0].color.indexOf(donut.LIGHT_BY_THEME.light + '%') > 0, '年度颜色同步更新 light');
+assert(inst.data.shareList[0].color !== beforeColor, '切主题颜色确实变化');
+eq(calls.share, 0, '切主题不重新调用 computeCategoryShare（不重读账本）');
+
 // detached：取消订阅，之后切主题不再刷新本面板
 captured.lifetimes.detached.call(inst);
 eq(inst._offTheme, null, 'detached 后取消函数清空');

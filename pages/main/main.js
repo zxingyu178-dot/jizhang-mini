@@ -7,23 +7,15 @@ const viewport = require('../../utils/viewport.js');
 // 顶部 Tabs 导航高度（px）
 const TABS_HEIGHT = 44;
 
-// 数据层自检专用标识：写进 note，与真实备注区分，便于精确清理与残留扫描。
-const SELFTEST_TAG = '__SELFTEST__';
+// 数据层自检账单的清理统一走 utils/test-registry：按持久化账单 ID 精确删除 +
+// 命名空间前缀（__TEST__:<runId>）兜底，不再仅凭裸备注文本认定，避免误删真实账单。
 
 /**
- * 删除数据层自检账单（幂等）：先按已登记 id 删除，再跨全部月份兜底扫描同标识残留。
- * 跨月扫描是关键：即使自检中途异常退出、用户过了一个月才重跑，也能发现并清理残留，
- * 不会只看当前月。绝不使用模糊备注匹配，只认精确的 SELFTEST_TAG。
+ * 删除数据层自检账单（幂等）：委托测试注册表，按账单 ID 精确删 + 命名空间兜底。
+ * 跨全部月份扫描：即使自检中途异常退出、用户过了一个月才重跑，也能发现并清理残留。
  */
-function cleanupSelftestBills(store, ids) {
-  ids.forEach((id) => {
-    try { store.deleteBill(id); } catch (e) { /* 已不存在则忽略 */ }
-  });
-  store.rangeBills().forEach((b) => {
-    if (b.note === SELFTEST_TAG) {
-      try { store.deleteBill(b.id); } catch (e) { /* 忽略 */ }
-    }
-  });
+function cleanupSelftestBills(store) {
+  return require('../../utils/test-registry').cleanupTestBills(store);
 }
 
 Page({
@@ -115,6 +107,7 @@ Page({
   },
   onReady() {
     if (!this.data.protection) {
+      this._lastThemeCounter = theme.getChangeCounter();
       this.activatePanel(this.data.current);
       this._ready = true;
     }
@@ -123,8 +116,14 @@ Page({
     this.checkProtection();
     // 保护模式下不刷新正常面板（组件未渲染）
     if (this.data.protection) return;
-    // 从预算设置 / 其他二级页返回：页面已 ready 则安全刷新全部面板（无需重启小程序）。
-    if (this._ready) this.refreshPanels();
+    if (!this._ready) return;
+    // 从外观页切主题返回：主题订阅已让统计面板做局部 recolor（保留展开 / 选中态），
+    // 这里识别主题序号变化，跳过统计面板的完整重载，避免状态被重置；
+    // 从预算设置 / 其他二级页返回（序号未变）仍安全刷新全部面板。
+    const themeCounter = theme.getChangeCounter();
+    const themeOnly = themeCounter !== this._lastThemeCounter;
+    this._lastThemeCounter = themeCounter;
+    this.refreshPanels({ preserveStatistics: themeOnly });
   },
   /** G6：检测 App 是否进入数据保护模式（启动完整性扫描发现损坏） */
   checkProtection() {
@@ -323,46 +322,60 @@ Page({
   },
   /** 阻止弹层内部点击冒泡到遮罩 */
   noop() {},
-  /** 刷新三个 Panel（数据变化后调用） */
-  refreshPanels() {
+  /**
+   * 刷新三个 Panel（数据变化后调用）。
+   * opts.preserveStatistics=true 时跳过统计面板完整 refresh：主题切换场景下
+   * 其颜色已由主题订阅 recolor、展开 / 选中态需保留，不能被 loadMonth/loadYear 重置。
+   */
+  refreshPanels(opts) {
     const acc = this.selectComponent('#accountingPanel');
     if (acc) acc.refresh();
-    const sta = this.selectComponent('#statisticsPanel');
-    if (sta) sta.refresh();
+    if (!(opts && opts.preserveStatistics)) {
+      const sta = this.selectComponent('#statisticsPanel');
+      if (sta) sta.refresh();
+    }
     const dvPanel = this.selectComponent('#dailyValuePanel');
     if (dvPanel && dvPanel.refresh) dvPanel.refresh();
   },
   /**
    * 开发自检（无 UI 入口，自动化 page.callMethod('__selftest') 调用）。
    * 在真实运行时验证数据层 USER_DATA_PATH 写入 / 读取 / 备份 / 删除。
-   * 安全收口（v1.3.3）：仅 develop 可执行；账单用专用标识 SELFTEST_TAG，
-   * try/finally 保证即使中途抛错也会清理，且清理跨全部月份兜底扫描。
+   * 安全收口（v1.3.4）：仅 develop 可执行；每次生成唯一 runId，账单 note 写命名空间
+   * 标记（__TEST__:<runId>）并持久化到测试清单，try/finally 保证即使中途抛错也会清理，
+   * 清理按账单 ID 精确删 + 命名空间兜底，不凭裸备注误删真实账单。
    */
   __selftest() {
     const env = require('../../utils/env');
     if (!env.isDevEnv()) {
       throw new Error('当前环境禁止数据层自检（仅 develop 允许）');
     }
+    const testRegistry = require('../../utils/test-registry');
     const store = require('../../data/index');
     const now = Date.now();
-    const ids = [];
+    const runId = testRegistry.makeRunId('selftest');
+
+    // 先清历史自检残留，保证干净起点。
+    cleanupSelftestBills(store);
+
     try {
       const bill = store.addBill({
         type: 'expense',
         amount: 18.8,
         categoryId: 'c-food',
         merchant: '瑞幸咖啡',
-        note: SELFTEST_TAG,
+        note: testRegistry.encodeTestNote(runId),
         occurredAt: now,
       });
       const income = store.addBill({
         type: 'income',
         amount: 500,
         categoryId: 'c-salary',
-        note: SELFTEST_TAG,
+        note: testRegistry.encodeTestNote(runId),
         occurredAt: now,
       });
-      ids.push(bill.id, income.id);
+      // 持久化本次 run（runId + 账单 ID），供按 ID 精确清理。
+      testRegistry.registerRun({ runId, kind: 'selftest', billIds: [bill.id, income.id] });
+
       const ym = store.ledger.ymOf(now);
       const s = store.monthSummary(ym);
       const grouped = store.monthGrouped(ym);
@@ -370,11 +383,12 @@ Page({
       const backupValid = store.backup.validateBackup(backup);
 
       // 正常路径清理（finally 再兜底一次，cleanup 幂等，重复调用安全）。
-      cleanupSelftestBills(store, ids);
+      cleanupSelftestBills(store);
       const after = store.monthSummary(ym);
 
       return {
         ym,
+        runId,
         expenseBillCents: bill.amountCents,
         incomeBillCents: income.amountCents,
         summaryBefore: { expense: s.expense, income: s.income, balance: s.balance, count: s.count },
@@ -386,8 +400,8 @@ Page({
         afterClean: { expense: after.expense, income: after.income, count: after.count },
       };
     } finally {
-      // 兜底：try 内任一步抛错时，确保已登记 id 与任何同标识残留都被删除。
-      cleanupSelftestBills(store, ids);
+      // 兜底：try 内任一步抛错时，确保本次 run 与任何命名空间残留都被删除。
+      cleanupSelftestBills(store);
     }
   },
   /**
