@@ -139,4 +139,4 @@ v1.3.4 **未升级 / 未改动**任何核心数据合同：Bill V3、Backup V3�
 - 临时探查脚本（`temp/card-contrast-probe.js`、`temp/probe-stack.js` 等）不进仓库、不提交。
 - 中文消息用 `git commit -F <file>`，推送走显式代理 `http://127.0.0.1:33210`。
 - 最终结果：HEAD == origin/main，ahead=0 / behind=0（核对 `git rev-list --left-right --count origin/main...HEAD`）。
-- 本版本功能主体提交 SHA：`__待提交后回填__`（若 SHA 回填另做仅文档提交，不改动任何代码）。
+- 本版本功能主体提交 SHA：`9278e58e30eb429035ec4d7a82696e18951895189e8a`（本版本全部代码与文档所在提交；本行 SHA 回填随后另做一个仅文档提交，不改动任何代码）。
