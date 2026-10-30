@@ -206,5 +206,45 @@ assert(calls.ymonthly > 0, '全开时年度月趋势被调用');
 assert(calls.topcat > 0, '全开时记录最多分类被调用');
 assert(inst.data.monthly.length > 0, '年度月趋势有数据');
 
+/* ================= 主题订阅：切主题重新取色、未激活不取数、detached 取消 ================= */
+console.log('== 6. 主题订阅：切主题后列表颜色更新、未激活不取数、detached 取消 ==');
+const theme = require(path.join(ROOT, 'utils', 'theme'));
+const donut = require(path.join(ROOT, 'data', 'statistics', 'donut'));
+store.updateSettings({ statistics: { version: 1, modules: allOn } });
+theme._resetForTest();
+theme.init();
+
+// 月度全开，先在 dark 下加载
+inst = makeInstance();
+inst.data.mode = 'month';
+inst.loadMonth(YM);
+const darkColor = inst.data.shareList[0].color;
+assert(darkColor.indexOf(donut.LIGHT_BY_THEME.dark + '%') > 0, '初始 dark 列表色明度 ' + donut.LIGHT_BY_THEME.dark + '%');
+
+// 手动 attached：订阅主题
+captured.lifetimes.attached.call(inst);
+assert(typeof inst._offTheme === 'function', 'attached 后持有取消函数');
+
+// 未激活（_activated 未设置）：切主题不提前取数
+theme.setThemeMode('light');
+eq(inst.data.shareList[0].color, darkColor, '未激活时切主题不提前取数');
+
+// 激活后切回 dark 再切 light：refresh 重新取色
+inst._activated = true;
+theme.setThemeMode('dark');
+inst.loadMonth(YM); // 确保 dark 基准
+eq(inst.data.shareList[0].color, darkColor, 'dark 下颜色一致');
+theme.setThemeMode('light');
+const lightColor = inst.data.shareList[0].color;
+const expectedLightL = donut.LIGHT_BY_THEME.light + '%';
+assert(lightColor.indexOf(expectedLightL) > 0, '已激活切 light 后列表色明度 ' + expectedLightL);
+assert(lightColor !== darkColor, '切主题后列表颜色确实更新');
+
+// detached：取消订阅，之后切主题不再刷新本面板
+captured.lifetimes.detached.call(inst);
+eq(inst._offTheme, null, 'detached 后取消函数清空');
+theme.setThemeMode('dark');
+eq(inst.data.shareList[0].color, lightColor, 'detached 后切主题不再刷新本面板');
+
 console.log('\nlazy-compute tests: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail > 0 ? 1 : 0);

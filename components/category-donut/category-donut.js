@@ -98,9 +98,14 @@ Component({
 
     /* ================= 手势识别（v1.3.2） ================= */
 
-    /** 触摸开始：只记录初始坐标 / 时间 / identifier / 候选态，不做任何选中 */
+    /**
+     * 触摸开始：只记录初始坐标 / 时间 / identifier / 候选态，不做任何选中。
+     * 多指隔离：已有手势在进行时，忽略新加入的其他手指，整个手势只绑定最先落下的
+     * 那根手指；优先取本次新加入的 changedTouches，避免从全量 touches 里错拿别的手指。
+     */
     onTouchStart(e) {
-      const touch = firstTouch(e.touches) || firstTouch(e.changedTouches);
+      if (this._gActive) return; // 第一根手指的手势未结束，新手指一律忽略
+      const touch = firstTouch(e.changedTouches) || firstTouch(e.touches);
       if (!touch) return;
       this._gSeq += 1;
       const seq = this._gSeq;
@@ -135,19 +140,23 @@ Component({
       if (this._gMaxDist > MOVE_TOLERANCE_PX) this._gMoved = true;
     },
 
-    /** 触摸结束：同一手指 + 位移未超阈值 + 时长符合 + 最终坐标落在有效分段，才识别为点击 */
+    /**
+     * 触摸结束：同一手指 + 位移未超阈值 + 时长符合 + 最终坐标落在有效分段，才识别为点击。
+     * 多指隔离：若抬起的不是当前手势的那根手指（其他手指先抬起），保持手势不变，
+     * 不清理状态；只有绑定的手指抬起，才进入点击判定。
+     */
     async onTouchEnd(e) {
       if (!this._gActive) return;
       const seq = this._gSeq;
       const gId = this._gId;
       const touch = this.pickEndTouch(e.changedTouches, gId);
+      if (!touch) return; // 抬起的是其他手指，当前手势继续，不清理
       const duration = Date.now() - this._gStartTime;
       const moved = this._gMoved || this._gMaxDist > MOVE_TOLERANCE_PX;
       const segCount = this.data.segments.length;
       let rect = this._gRect; // 缓存优先
-      this._clearGestureState(); // 无论是否点击，先清当前手势（不递增 seq）
+      this._clearGestureState(); // 确认是绑定手指抬起，再清当前手势（不递增 seq）
 
-      if (!touch) return;
       if (moved) return; // 滑动：不选中，页面滚动不受影响
       if (duration > MAX_TAP_DURATION_MS) return; // 长按：不触发点击
 
@@ -169,22 +178,22 @@ Component({
       this._clearGestureState();
     },
 
-    /* ---------- 手势辅助 ---------- */
+    /* ---------- 手势辅助（严格 identifier 匹配，不拿别的手指顶替） ---------- */
+    /**
+     * 从触摸列表中找出当前手势所属的那根手指。
+     * 原始 identifier 找不到时返回 null，绝不退回 list[0] 拿另一根手指的坐标，
+     * 否则会把别的手指的位置误判成当前手势，造成点击/滑动错位。
+     */
     findGestureTouch(list) {
       if (!list || !list.length) return null;
-      if (this._gId !== null && this._gId !== undefined) {
-        const m = list.find((t) => t.identifier === this._gId);
-        if (m) return m;
-      }
-      return list[0];
+      if (this._gId === null || this._gId === undefined) return null;
+      return list.find((t) => t.identifier === this._gId) || null;
     },
+    /** 结束时同样只认绑定的 gId；找不到（其他手指抬起）返回 null。 */
     pickEndTouch(list, gId) {
       if (!list || !list.length) return null;
-      if (gId !== null && gId !== undefined) {
-        const m = list.find((t) => t.identifier === gId);
-        if (m) return m;
-      }
-      return list[0];
+      if (gId === null || gId === undefined) return null;
+      return list.find((t) => t.identifier === gId) || null;
     },
     /** 发起一次容器 rect 查询（带 seq 守卫），返回 Promise */
     queryRect(seq) {

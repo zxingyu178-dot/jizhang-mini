@@ -95,21 +95,28 @@ function seedDonutMany() {
   };
 }
 
-/** 清理当前月份所有 note 精确等于 E2E_DONUT_TAG 的账单（不触碰真实账单） */
+/**
+ * 跨全部月份清理 note 精确等于 E2E_DONUT_TAG 的账单（不触碰真实账单）。
+ * 无参 rangeBills 扫描所有月份分片：即使测试异常退出、账单残留在旧月份，
+ * 跨月后重跑也能发现并清理，不再只看当前月。每条记录带所属月份，清理结果可追溯；
+ * 仍只认精确的 E2E_DONUT_TAG，绝不宽泛匹配误删真实账单。
+ */
 function clearDonut() {
   const store = require('../data/index');
-  const now = new Date();
-  const ym = store.ledger.ymOf(now.getTime());
-  const bills = store.rangeBills(ym, ym);
+  const bills = store.rangeBills(); // 无参：读取全部月份分片
   const removedRecords = [];
+  const touchedMonths = {};
   bills.forEach((b) => {
     if (b.note === E2E_DONUT_TAG) {
+      const ym = store.ledger.ymOf(b.occurredAt);
       store.deleteBill(b.id);
-      removedRecords.push({ id: b.id, categoryId: b.categoryId });
+      removedRecords.push({ id: b.id, categoryId: b.categoryId, ym });
+      touchedMonths[ym] = true;
     }
   });
   return {
-    ym,
+    scannedMonthCount: store.listMonths().length,
+    months: Object.keys(touchedMonths).sort(),
     tag: E2E_DONUT_TAG,
     removed: removedRecords.length,
     removedRecords,

@@ -1076,4 +1076,62 @@ module.exports = async function goldenPath(ctx) {
     await (await page.$('#statisticsPanel')).callMethod('refresh');
     await sleep(800);
   });
+
+  // ---------------- T24 统计面板切主题：圆环与列表（含展开态）颜色同步更新 ----------------
+  await ctx.test('T24 统计面板切主题：圆环与列表颜色同步、色相身份不变', async () => {
+    const homePage = await ctx.home();
+    await homePage.callMethod('__e2eClearDonut');
+    await homePage.callMethod('__e2eSeedDonut');
+    await ensureTab(homePage, 0);
+    await sleep(400);
+    let panel = await homePage.$('#statisticsPanel');
+    await panel.callMethod('refresh');
+    await sleep(1000);
+    let pd = await panel.data();
+    ctx.truthy(pd.shareSegments.length >= 5, '注入后分段数 >=5（actual=' + pd.shareSegments.length + '）');
+
+    // dark 基准：圆环分段色 = 列表色，用 dark 明度
+    const darkSegColor = pd.shareSegments[0].color;
+    ctx.eq(darkSegColor, pd.shareList[0].color, 'dark 圆环色=列表色');
+    ctx.includes(darkSegColor, donutData.LIGHT_BY_THEME.dark + '%', 'dark 用深色明度');
+    const hueOf = (s) => parseInt(s.slice(4), 10);
+    const darkHue = hueOf(darkSegColor);
+
+    // 真实路径：去外观页切浅色，再返回主页（主页在栈底不销毁，主题订阅保持有效）
+    const ap = await ctx.goto('/pages/appearance/appearance', '.ap-page');
+    await ctx.tap(ap, '.row[data-value="light"]');
+    await sleep(700);
+    const backPage = await ctx.home();
+    await ensureTab(backPage, 0);
+    await sleep(1000);
+    panel = await backPage.$('#statisticsPanel');
+
+    // 主题订阅触发 refresh：圆环与列表颜色都更新为 light
+    pd = await panel.data();
+    const lightSegColor = pd.shareSegments[0].color;
+    ctx.eq(lightSegColor, pd.shareList[0].color, 'light 圆环色=列表色');
+    ctx.includes(lightSegColor, donutData.LIGHT_BY_THEME.light + '%', 'light 圆环明度更新');
+    ctx.includes(pd.shareList[0].color, donutData.LIGHT_BY_THEME.light + '%', 'light 列表色同步更新（Gate 2 修复点）');
+    ctx.eq(hueOf(lightSegColor), darkHue, '切主题后色相身份不变');
+
+    // 展开态 fullShareList 的 top 行颜色也跟随当前主题
+    const expandedTop = pd.fullShareList.filter((r) => r.kind === 'top');
+    ctx.truthy(expandedTop.length >= 1, '展开列表含 top 行');
+    ctx.includes(expandedTop[0].color, donutData.LIGHT_BY_THEME.light + '%', '展开列表颜色跟随 light');
+
+    // 切回深色恢复
+    const ap2 = await ctx.goto('/pages/appearance/appearance', '.ap-page');
+    await ctx.tap(ap2, '.row[data-value="dark"]');
+    await sleep(700);
+    const restorePage = await ctx.home();
+    await ensureTab(restorePage, 0);
+    await sleep(1000);
+    panel = await restorePage.$('#statisticsPanel');
+    pd = await panel.data();
+    ctx.includes(pd.shareList[0].color, donutData.LIGHT_BY_THEME.dark + '%', '结尾恢复深色');
+
+    await restorePage.callMethod('__e2eClearDonut');
+    await panel.callMethod('refresh');
+    await sleep(800);
+  });
 };

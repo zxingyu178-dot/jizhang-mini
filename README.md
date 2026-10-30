@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：1.3.2（Interaction Reliability & Visual Polish）。
+- 当前版本：1.3.3（Reliability Closure & Theme Consistency）。
 - 版本历史与各版变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 测试

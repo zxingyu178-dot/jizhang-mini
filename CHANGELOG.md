@@ -3,6 +3,30 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.3.3] — 2026-10-30
+
+Reliability Closure & Theme Consistency（可靠性收口与主题一致性）。针对外部静态审查指出的 5 类遗留问题逐项修复，不新增业务功能，数据合同与依赖全部冻结。
+
+### 安全
+- **遗留入口加环境守卫**：`pages/main/main.js` 的 `__selftest` / `__migtest` 两个历史入口原先无任何环境守卫，现统一经 `utils/env.js` 的 `isDevEnv()`（仅 develop 为真，trial/release/未知 fail-closed）拦截，非开发环境直接抛错、不执行。
+- **自测账本专用标识 + 幂等清理**：`__selftest` 写入的账单带固定标识 `SELFTEST_TAG`，`cleanupSelftestBills()` 按标识幂等清理，普通备注不再与真实账本混淆；入口整体 try/finally 隔离。
+- **迁移测试独立沙箱**：新增 `utils/migtest-sandbox.js`，所有文件操作限制在 `USER_DATA_PATH/__migtest_sandbox__` 内，复用真实 `migration.legacyToBill` 与 3 条虚构旧数据，递归清理沙箱；正式 manifest / bills / storage 零接触，不再直接 `fs.remove` 真实月份文件。
+
+### 修复
+- **多指触摸严格隔离**：`category-donut` 原先在原始 identifier 找不到时回退 `list[0]` 取另一根手指坐标，违背「仅同一手指可点击」。现 `findGestureTouch` / `pickEndTouch` 严格 identifier 匹配、删除 `list[0]` 兜底（找不到返回 null）；touchstart 开头加 `_gActive` 守卫，第一根手指手势未结束时新手指一律忽略；其他手指先抬起不清理绑定手指的手势。
+- **测试清理跨全部月份**：`utils/e2e-donut-seed.js` 的 `clearDonut` 原先只清当前月，跨月残留无法发现；改为无参 `rangeBills()` 跨全部月份精确清理。
+- **统计面板订阅主题**：`statistics-panel` 原先未订阅主题，切主题后圆环明度更新而面板 `shareList` / `fullShareList`（年度同理）颜色停留旧值。现 attached 内 `theme.subscribe`（未激活不提前取数，保持「激活才加载」）、detached 取消订阅，切主题后列表与展开态颜色同步更新。
+
+### 优化
+- **浅色圆环对比度达标**：`donut.js` 浅色明度 45% → 34%，全色相相对浅色背景（`#f3f4fa`）WCAG 非文本对比度 worst≈3.249（≥3:1）；深色明度 56% 保持（worst≈3.074，已达标）。色相 / 饱和度不变，视觉身份保持。
+- **运行时对比度自动检测**：新增 `data/statistics/contrast.js`（HSL→RGB、WCAG 相对亮度 / 对比度、全色相 worst 纯函数）与 `scripts/contrast-audit.js`，并接入 `release-check`（6.6），补足 `theme-audit` 只查硬编码、不查运行时 HSL 的缺口；新增 `npm run contrast:audit`。
+
+### 测试
+- 新增 `tests/donut-gesture.test.js`（22 项，多指隔离 / 严格匹配 / 点击命中）、`tests/contrast.test.js`（19 项）、`tests/migtest-sandbox.test.js`（19 项）；`env.test` 扩到 18 项，`lazy-compute.test.js` 追加主题订阅专项（现 44 项）。E2E 新增 T24（统计面板切主题，圆环与列表颜色同步、色相身份不变）。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1，均不升级；不新增依赖、不新增分类颜色持久化字段。
+
 ## [1.3.2] — 2026-10-30
 
 Interaction Reliability & Visual Polish（交互可靠性与视觉语义收口）。不增加无关业务功能，只做四件事：测试代码不污染正式账本、圆环触摸区分点击与滑动、颜色只由稳定 categoryId 决定、Top7+其他展开状态不再误导用户。数据合同继续冻结，不升级 Backup、不新增分类颜色持久化字段。

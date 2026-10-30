@@ -270,6 +270,18 @@ if (auditR.status === 0) {
   });
 }
 
+/* ---------- 6.6 运行时对比度审计（圆环 HSL vs 背景，WCAG 3:1） ---------- */
+section('6.6 运行时对比度审计（contrast:audit）');
+const contrastR = spawnSync(process.execPath, [nodePath.join(ROOT, 'scripts', 'contrast-audit.js')], { encoding: 'utf8' });
+if (contrastR.status === 0) {
+  pass('圆环两主题运行时对比度均 ≥3:1');
+} else {
+  fail('圆环运行时对比度未达 3:1：');
+  (contrastR.stdout || '').split('\n').forEach((l) => {
+    if (l.indexOf('[FAIL]') >= 0) console.log('    ' + l.trim());
+  });
+}
+
 /* ---------- 7. 单元测试 ---------- */
 const runTests = process.argv.indexOf('--no-tests') < 0;
 if (runTests) {

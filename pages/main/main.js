@@ -7,6 +7,25 @@ const viewport = require('../../utils/viewport.js');
 // 顶部 Tabs 导航高度（px）
 const TABS_HEIGHT = 44;
 
+// 数据层自检专用标识：写进 note，与真实备注区分，便于精确清理与残留扫描。
+const SELFTEST_TAG = '__SELFTEST__';
+
+/**
+ * 删除数据层自检账单（幂等）：先按已登记 id 删除，再跨全部月份兜底扫描同标识残留。
+ * 跨月扫描是关键：即使自检中途异常退出、用户过了一个月才重跑，也能发现并清理残留，
+ * 不会只看当前月。绝不使用模糊备注匹配，只认精确的 SELFTEST_TAG。
+ */
+function cleanupSelftestBills(store, ids) {
+  ids.forEach((id) => {
+    try { store.deleteBill(id); } catch (e) { /* 已不存在则忽略 */ }
+  });
+  store.rangeBills().forEach((b) => {
+    if (b.note === SELFTEST_TAG) {
+      try { store.deleteBill(b.id); } catch (e) { /* 忽略 */ }
+    }
+  });
+}
+
 Page({
   data: {
     current: 1, // 默认进入「记账」
@@ -316,90 +335,73 @@ Page({
   /**
    * 开发自检（无 UI 入口，自动化 page.callMethod('__selftest') 调用）。
    * 在真实运行时验证数据层 USER_DATA_PATH 写入 / 读取 / 备份 / 删除。
+   * 安全收口（v1.3.3）：仅 develop 可执行；账单用专用标识 SELFTEST_TAG，
+   * try/finally 保证即使中途抛错也会清理，且清理跨全部月份兜底扫描。
    */
   __selftest() {
+    const env = require('../../utils/env');
+    if (!env.isDevEnv()) {
+      throw new Error('当前环境禁止数据层自检（仅 develop 允许）');
+    }
     const store = require('../../data/index');
     const now = Date.now();
-    const bill = store.addBill({
-      type: 'expense',
-      amount: 18.8,
-      categoryId: 'c-food',
-      merchant: '瑞幸咖啡',
-      note: '生椰拿铁',
-      occurredAt: now,
-    });
-    const income = store.addBill({
-      type: 'income',
-      amount: 500,
-      categoryId: 'c-salary',
-      occurredAt: now,
-    });
-    const ym = store.ledger.ymOf(now);
-    const s = store.monthSummary(ym);
-    const grouped = store.monthGrouped(ym);
-    const backup = store.buildBackup();
-    const backupValid = store.backup.validateBackup(backup);
-    store.deleteBill(bill.id);
-    store.deleteBill(income.id);
-    const after = store.monthSummary(ym);
-    return {
-      ym,
-      expenseBillCents: bill.amountCents,
-      incomeBillCents: income.amountCents,
-      summaryBefore: { expense: s.expense, income: s.income, balance: s.balance, count: s.count },
-      groupedDays: grouped.length,
-      groupedDayBills: grouped[0] ? grouped[0].bills.length : 0,
-      backupFormat: backup.format,
-      backupBillCount: backup.data.bills.length,
-      backupValidError: backupValid,
-      afterClean: { expense: after.expense, income: after.income, count: after.count },
-    };
+    const ids = [];
+    try {
+      const bill = store.addBill({
+        type: 'expense',
+        amount: 18.8,
+        categoryId: 'c-food',
+        merchant: '瑞幸咖啡',
+        note: SELFTEST_TAG,
+        occurredAt: now,
+      });
+      const income = store.addBill({
+        type: 'income',
+        amount: 500,
+        categoryId: 'c-salary',
+        note: SELFTEST_TAG,
+        occurredAt: now,
+      });
+      ids.push(bill.id, income.id);
+      const ym = store.ledger.ymOf(now);
+      const s = store.monthSummary(ym);
+      const grouped = store.monthGrouped(ym);
+      const backup = store.buildBackup();
+      const backupValid = store.backup.validateBackup(backup);
+
+      // 正常路径清理（finally 再兜底一次，cleanup 幂等，重复调用安全）。
+      cleanupSelftestBills(store, ids);
+      const after = store.monthSummary(ym);
+
+      return {
+        ym,
+        expenseBillCents: bill.amountCents,
+        incomeBillCents: income.amountCents,
+        summaryBefore: { expense: s.expense, income: s.income, balance: s.balance, count: s.count },
+        groupedDays: grouped.length,
+        groupedDayBills: grouped[0] ? grouped[0].bills.length : 0,
+        backupFormat: backup.format,
+        backupBillCount: backup.data.bills.length,
+        backupValidError: backupValid,
+        afterClean: { expense: after.expense, income: after.income, count: after.count },
+      };
+    } finally {
+      // 兜底：try 内任一步抛错时，确保已登记 id 与任何同标识残留都被删除。
+      cleanupSelftestBills(store, ids);
+    }
   },
   /**
-   * 迁移真机自检（自动化 page.callMethod('__migtest') 调用）。
-   * 注入虚构 jm_records → 重置 manifest → 重新 init 触发迁移 → 校验 → 自动清理恢复。
+   * 迁移自检（自动化 page.callMethod('__migtest') 调用）。
+   * 安全收口（v1.3.3）：仅 develop 可执行；不再直接操作正式 manifest / 月份分片 /
+   * jm_records，改为在独立沙箱目录复用真实转换函数 legacyToBill 完成迁移冒烟，
+   * 结束后整个沙箱目录删除，正式账本零接触。
    */
   __migtest() {
-    const store = require('../../data/index');
-    const fs = store.fs;
-    const paths = store.paths;
-
-    // 1. 注入虚构旧数据
-    const legacy = [
-      { id: 'x1', createdAt: 1760000000000, type: 'expense', amount: 25.5, category: 'food', date: '2026-10-15', note: '午餐' },
-      { id: 'x2', createdAt: 1760000001000, type: 'income', amount: 1000, category: 'salary', date: '2026-10-15' },
-      { id: 'x3', createdAt: 1760000002000, type: 'expense', amount: 12, category: 'transport', date: '2026-09-30' },
-    ];
-    wx.setStorageSync('jm_records', legacy);
-
-    // 2. 重置 manifest（迁移状态回到 pending）
-    fs.remove(paths.FILE.manifest);
-
-    // 3. 重新 init → 触发迁移
-    const status = store.init();
-    const m = status.migration;
-    const result = {
-      migrationStatus: m.status,
-      recordCount: m.recordCount,
-      expenseCents: m.expenseCents,
-      incomeCents: m.incomeCents,
-      months: m.months,
-      backupExists: fs.exists(paths.legacyRecordsBackup()),
-      jmRecordsKept: (wx.getStorageSync('jm_records') || []).length,
-      summary10: store.monthSummary('2026-10'),
-      summary9: store.monthSummary('2026-09'),
-      foodCategory: store.getBill('mig-x1').categoryId,
-    };
-
-    // 4. 清理，恢复到"无旧数据"状态
-    fs.remove(paths.billFile('2026-10'));
-    fs.remove(paths.billFile('2026-09'));
-    fs.remove(paths.legacyRecordsBackup());
-    wx.removeStorageSync('jm_records');
-    fs.remove(paths.FILE.manifest);
-    store.init();
-
-    return result;
+    const env = require('../../utils/env');
+    if (!env.isDevEnv()) {
+      throw new Error('当前环境禁止迁移自检（仅 develop 允许）');
+    }
+    return require('../../utils/migtest-sandbox').runMigtestSandbox();
   },
   /**
    * E2E 圆环交互测试专用入口（无 UI 入口，自动化 page.callMethod 调用）。

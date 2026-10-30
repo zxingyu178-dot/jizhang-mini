@@ -152,6 +152,15 @@ Component({
     attached() {
       // 不在此加载：组件位于 swiper-item 中，未激活时其布局尺寸未就绪，
       // 此时取数会让柱状图首次渲染异常。等 main 在该 item 首次激活时调用 activate()。
+      // 但要订阅主题：切主题后圆环明度由 category-donut 自更新，而本面板的
+      // shareList / fullShareList（年度同理）的颜色需重新取色，否则会停留在旧主题。
+      this._offTheme = theme.subscribe(() => {
+        // 未激活时不提前取数（保持「激活才加载」的设计）；首次 activate 会用当前主题取色。
+        if (this._activated) this.refresh();
+      });
+    },
+    detached() {
+      if (this._offTheme) { this._offTheme(); this._offTheme = null; }
     },
   },
   methods: {
