@@ -128,4 +128,4 @@ v1.3.3 **未升级 / 未改动**任何核心数据合同：Bill V3、Backup V3�
 - 临时探查脚本（`temp/donut-contrast-probe.js`）不进仓库、不提交。
 - 中文消息用 `git commit -F <file>`，推送走显式代理 `http://127.0.0.1:33210`。
 - 最终结果：HEAD == origin/main，ahead=0 / behind=0（核对 `git rev-list --left-right --count origin/main...HEAD`）。
-- 功能主体提交 SHA：`待回填`（提交后回填；若仅文档回填另做一个不改动代码的提交）。
+- 功能主体提交 SHA：`2a494020122b85d98c68263ec5de4c0b19d9c264`（本版本全部代码与文档所在提交；本行 SHA 回填随后另做一个仅文档提交，不改动任何代码）。
