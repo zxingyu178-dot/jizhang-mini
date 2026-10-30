@@ -1,6 +1,8 @@
 // components/category-donut/category-donut.js
 // 分类占比环形图：data/statistics/donut 纯计算动态生成 SVG，base64 成 data-URI 交给 <image>。
 // v1.3.1 起支持真实触摸命中分段：选中高亮、中心切换分类名/金额/占比、图例同步、点击中心钻取。
+// v1.3.2 手势重构：touchstart 不再立即选中，改为 start/move/end/cancel 完整识别，
+//   区分点击与上下滑动、不阻止页面滚动；颜色只由稳定 categoryId 决定。
 // 不引 ECharts、不用 Canvas；深浅主题切换重染，完全离线。
 
 const theme = require('../../utils/theme');
@@ -12,11 +14,16 @@ const {
   localToViewBox,
 } = require('../../data/statistics/donut');
 
-// 背景轨道颜色（主题感知；分段颜色为固定调色板，在两主题下均可读）
+// 背景轨道颜色（主题感知；分段颜色为确定性 HSL，在两主题下均可读）
 const TRACK_COLORS = {
   dark: 'rgba(255,255,255,0.10)',
   light: 'rgba(25,28,40,0.08)',
 };
+
+// —— 手势识别参数 ——
+const MOVE_TOLERANCE_PX = 10; // 点击位移阈值：超过即判定为滑动
+const MAX_TAP_DURATION_MS = 600; // 点击最长时长：超过视为长按，不触发点击
+const DEFAULT_THEME = 'dark';
 
 Component({
   properties: {
@@ -39,29 +46,44 @@ Component({
     attached() {
       try { theme.init(); } catch (e) { /* 忽略 */ }
       this._offTheme = theme.subscribe(() => this.refresh());
+      this._gSeq = 0;
+      this._clearGestureState();
       this.resetDisplay();
       this.refresh();
     },
     detached() {
       if (this._offTheme) { this._offTheme(); this._offTheme = null; }
+      this.cancelGesture(); // 销毁：取消手势，使在途异步回调失效
     },
   },
   observers: {
-    // 数据或尺寸变化：失效旧选中（切年月 / 重新加载由外部触发），重画
+    // 数据或尺寸变化：失效旧手势与旧选中（切年月 / 重新加载由外部触发），重画
     'segments, size': function () {
+      this.cancelGesture();
       this.setData({ selectedIndex: -1, hasSelection: false });
       this.resetDisplay();
       this.refresh();
     },
   },
   methods: {
+    /** 当前有效主题 key（dark/light），未知值安全回退 dark */
+    effectiveThemeKey() {
+      let t = DEFAULT_THEME;
+      try { t = theme.getEffectiveTheme(); } catch (e) { t = DEFAULT_THEME; }
+      return t === 'light' ? 'light' : DEFAULT_THEME;
+    },
     resolveTrackColor() {
-      let t = 'dark';
-      try { t = theme.getEffectiveTheme(); } catch (e) { t = 'dark'; }
-      return TRACK_COLORS[t] || TRACK_COLOR.dark;
+      const t = this.effectiveThemeKey();
+      return TRACK_COLORS[t] || TRACK_COLORS.dark;
     },
     refresh() {
-      const svg = buildDonutSVG(this.data.segments, this.resolveTrackColor(), this.data.selectedIndex);
+      const themeKey = this.effectiveThemeKey();
+      const svg = buildDonutSVG(
+        this.data.segments,
+        this.resolveTrackColor(),
+        this.data.selectedIndex,
+        themeKey
+      );
       const uri = 'data:image/svg+xml;base64,' + b64encodeAscii(svg);
       this.setData({ uri });
     },
@@ -73,24 +95,124 @@ Component({
         dispSub: '',
       });
     },
-    /** 触摸圆环：命中分段则选中，未命中（中心孔 / 外部）不改变选中 */
+
+    /* ================= 手势识别（v1.3.2） ================= */
+
+    /** 触摸开始：只记录初始坐标 / 时间 / identifier / 候选态，不做任何选中 */
     onTouchStart(e) {
-      const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      const touch = firstTouch(e.touches) || firstTouch(e.changedTouches);
       if (!touch) return;
+      this._gSeq += 1;
+      const seq = this._gSeq;
+      this._gActive = true;
+      this._gId = touch.identifier;
+      this._gStartX = touch.clientX;
+      this._gStartY = touch.clientY;
+      this._gStartTime = Date.now();
+      this._gMoved = false;
+      this._gMaxDist = 0;
+      this._gRect = null;
+      // 预取容器 rect 仅作缓存（不选中）；回调带 seq 守卫，过期结果丢弃
       wx.createSelectorQuery()
         .in(this)
         .select('.cd')
         .boundingClientRect((rect) => {
-          if (!rect || !rect.width || !rect.height) return;
-          const localX = touch.clientX - rect.left;
-          const localY = touch.clientY - rect.top;
-          const vb = localToViewBox(localX, localY, rect.width, rect.height);
-          const idx = hitSegment(this.data.segments, vb.x, vb.y);
-          if (idx < 0) return; // 中心孔 / 外部：不误选
-          this.applySelection(idx);
+          if (seq !== this._gSeq || !this._gActive) return;
+          if (rect && rect.width && rect.height) this._gRect = rect;
         })
         .exec();
     },
+
+    /** 触摸移动：累计最大位移，超过阈值标记滑动；不 preventDefault、不阻止页面滚动 */
+    onTouchMove(e) {
+      if (!this._gActive) return;
+      const touch = this.findGestureTouch(e.changedTouches) || this.findGestureTouch(e.touches);
+      if (!touch) return;
+      const dx = touch.clientX - this._gStartX;
+      const dy = touch.clientY - this._gStartY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > this._gMaxDist) this._gMaxDist = dist;
+      if (this._gMaxDist > MOVE_TOLERANCE_PX) this._gMoved = true;
+    },
+
+    /** 触摸结束：同一手指 + 位移未超阈值 + 时长符合 + 最终坐标落在有效分段，才识别为点击 */
+    async onTouchEnd(e) {
+      if (!this._gActive) return;
+      const seq = this._gSeq;
+      const gId = this._gId;
+      const touch = this.pickEndTouch(e.changedTouches, gId);
+      const duration = Date.now() - this._gStartTime;
+      const moved = this._gMoved || this._gMaxDist > MOVE_TOLERANCE_PX;
+      const segCount = this.data.segments.length;
+      let rect = this._gRect; // 缓存优先
+      this._clearGestureState(); // 无论是否点击，先清当前手势（不递增 seq）
+
+      if (!touch) return;
+      if (moved) return; // 滑动：不选中，页面滚动不受影响
+      if (duration > MAX_TAP_DURATION_MS) return; // 长按：不触发点击
+
+      if (!rect) rect = await this.queryRect(seq);
+      // await 期间若已开始新手势 / 数据已刷新，丢弃本次结果（防异步污染）
+      if (seq !== this._gSeq || !rect) return;
+      if (this.data.segments.length !== segCount) return;
+
+      const localX = touch.clientX - rect.left;
+      const localY = touch.clientY - rect.top;
+      const vb = localToViewBox(localX, localY, rect.width, rect.height);
+      const idx = hitSegment(this.data.segments, vb.x, vb.y);
+      if (idx < 0) return; // 中心孔 / 圆环外：不误选
+      this.applySelection(idx);
+    },
+
+    /** 触摸取消：清理手势状态，不残留选中 */
+    onTouchCancel() {
+      this._clearGestureState();
+    },
+
+    /* ---------- 手势辅助 ---------- */
+    findGestureTouch(list) {
+      if (!list || !list.length) return null;
+      if (this._gId !== null && this._gId !== undefined) {
+        const m = list.find((t) => t.identifier === this._gId);
+        if (m) return m;
+      }
+      return list[0];
+    },
+    pickEndTouch(list, gId) {
+      if (!list || !list.length) return null;
+      if (gId !== null && gId !== undefined) {
+        const m = list.find((t) => t.identifier === gId);
+        if (m) return m;
+      }
+      return list[0];
+    },
+    /** 发起一次容器 rect 查询（带 seq 守卫），返回 Promise */
+    queryRect(seq) {
+      return new Promise((resolve) => {
+        wx.createSelectorQuery()
+          .in(this)
+          .select('.cd')
+          .boundingClientRect((rect) => {
+            if (seq !== this._gSeq) return resolve(null);
+            if (!rect || !rect.width || !rect.height) return resolve(null);
+            resolve(rect);
+          })
+          .exec();
+      });
+    },
+    _clearGestureState() {
+      this._gActive = false;
+      this._gMoved = false;
+      this._gMaxDist = 0;
+      this._gRect = null;
+      this._gId = null;
+    },
+    /** 数据变化 / 组件失效：清理手势并递增 seq，使在途异步回调全部失效 */
+    cancelGesture() {
+      this._clearGestureState();
+      this._gSeq = (this._gSeq || 0) + 1;
+    },
+
     /** 应用选中：更新中心信息、重画、通知面板同步图例 */
     applySelection(idx) {
       const seg = this.data.segments[idx];
@@ -112,9 +234,7 @@ Component({
       this.refresh();
       this.triggerEvent('select', { index: idx, segment: seg });
     },
-    /** 聚合项包含的真实分类数量（segments 外无法直接知道，由聚合段 count 语义近似：
-     *  聚合段 count 是账单笔数而非分类数，分类数由外部通过 aggregatedCount 属性传入更准确，
-     *  这里回退用 panel 注入的 aggCount 字段） */
+    /** 聚合项包含的真实分类数量（由外部通过 aggCount 属性注入更准确） */
     countAggregated() {
       return this.data.aggCount > 0 ? this.data.aggCount : '';
     },
@@ -128,9 +248,14 @@ Component({
     },
     /** 供外部（面板切年月 / 模式）主动清除选中 */
     clearSelection() {
+      this.cancelGesture();
       this.setData({ selectedIndex: -1, hasSelection: false });
       this.resetDisplay();
       this.refresh();
     },
   },
 });
+
+function firstTouch(list) {
+  return list && list.length ? list[0] : null;
+}

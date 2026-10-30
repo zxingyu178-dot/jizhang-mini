@@ -77,7 +77,7 @@
         />
         <view class="share-list">
           <view
-            class="share-row {{shareSelectedId === item.categoryId ? 'share-row--active' : ''}}"
+            class="share-row {{item.kind === 'group' ? 'share-row--group' : ''}} {{item.kind === 'child' ? 'share-row--child' : ''}} {{shareSelectedId === item.categoryId ? 'share-row--active' : ''}}"
             wx:for="{{shareExpanded ? fullShareList : shareList}}"
             wx:key="categoryId"
             data-id="{{item.categoryId}}"
@@ -89,8 +89,10 @@
               <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="19"/>
             </view>
             <text class="share-row__name">{{item.name}}</text>
+            <text class="share-row__tag" wx:if="{{item.kind === 'group'}}">含 {{item.aggCount}} 个分类</text>
+            <text class="share-row__tag" wx:elif="{{item.kind === 'child'}}">属于「其他」</text>
             <text class="share-row__amount money-expense">¥{{item.centsText}}</text>
-            <text class="share-row__percent">{{item.percentText}}%</text>
+            <text class="share-row__percent" wx:if="{{item.kind !== 'child'}}">{{item.percentText}}%</text>
           </view>
         </view>
         <view class="share-toggle" wx:if="{{shareAggregated}}" bindtap="onToggleShareExpand">
@@ -332,7 +334,7 @@
           />
           <view class="share-list">
             <view
-              class="share-row {{yearShareSelectedId === item.categoryId ? 'share-row--active' : ''}}"
+              class="share-row {{item.kind === 'group' ? 'share-row--group' : ''}} {{item.kind === 'child' ? 'share-row--child' : ''}} {{yearShareSelectedId === item.categoryId ? 'share-row--active' : ''}}"
               wx:for="{{yearShareExpanded ? yearFullShareList : yearShareList}}"
               wx:key="categoryId"
               data-id="{{item.categoryId}}"
@@ -344,8 +346,10 @@
                 <category-icon icon-type="{{item.iconType}}" icon-value="{{item.iconValue}}" emoji="{{item.emoji}}" size="19"/>
               </view>
               <text class="share-row__name">{{item.name}}</text>
+              <text class="share-row__tag" wx:if="{{item.kind === 'group'}}">含 {{item.aggCount}} 个分类</text>
+              <text class="share-row__tag" wx:elif="{{item.kind === 'child'}}">属于「其他」</text>
               <text class="share-row__amount money-expense">¥{{item.centsText}}</text>
-              <text class="share-row__percent">{{item.percentText}}%</text>
+              <text class="share-row__percent" wx:if="{{item.kind !== 'child'}}">{{item.percentText}}%</text>
             </view>
           </view>
           <view class="share-toggle" wx:if="{{yearShareAggregated}}" bindtap="onToggleYearShareExpand">

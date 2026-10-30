@@ -3,6 +3,32 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.3.2] — 2026-10-30
+
+Interaction Reliability & Visual Polish（交互可靠性与视觉语义收口）。不增加无关业务功能，只做四件事：测试代码不污染正式账本、圆环触摸区分点击与滑动、颜色只由稳定 categoryId 决定、Top7+其他展开状态不再误导用户。数据合同继续冻结，不升级 Backup、不新增分类颜色持久化字段。
+
+### 安全
+- **测试注入 / 清理隔离出业务代码**：新增 `utils/env.js`（`getEnvVersion()` 读 `envVersion`，异常 / 缺失 / 未知值 fail-closed 回退 release；`isTestEnv()` 仅 develop/trial 为真）。测试桥接模块独立为 `utils/e2e-donut-seed.js`，`pages/main/main.js` 的三个测试入口先经 `isTestEnv()` 守卫，release 下抛错、不执行任何测试账单注入。
+- **专用标识与精确清理**：测试数据固定标识 `E2E_DONUT`，注入前先清残留（异常退出可自愈），清理按备注精确全等匹配、不做宽泛匹配，避免误删真实账单；保留创建与清理记录。
+
+### 优化
+- **圆环完整手势识别**：`category-donut` 从 touchstart 立即选中改为 start/move/end/cancel 状态机。touchstart 只记录初始坐标 / 时间 / identifier / 候选态，不选中；touchmove 累计最大位移，超 10px 标记滑动，全程不调用 `preventDefault`、不阻止页面滚动；touchend 仅在同一手指、位移未超阈值、时长 ≤600ms、最终坐标命中有效分段时才选中；touchcancel 清理状态。点击中心孔不误选，点击中心按钮执行钻取，快速连点与切年月状态正确。
+- **颜色彻底消除排序漂移**：`getCategoryColor()` 改为黄金角确定性 HSL，色相 `H = (hashId(id) × 137.508°) mod 360`，只由稳定 categoryId 决定，不随其他分类出现 / 排名 / 金额变化；饱和度固定 62%，明度随主题微调（深色 56%、浅色 45%），两主题色相身份一致。撞色靠图标 / 描边等其他视觉属性区分，不再动态改色。聚合「其他」固定中性色 `#8D94A8`。
+- **Top7+其他展开重整**：默认圆环与图例同为 8 项、颜色一一对应；展开后前 7 分类保持原色，新增明确的「其他」分组头（总额、分类数量），被聚合子分类统一使用中性色并标注「属于「其他」」，子分类仍支持独立钻取；月度年度复用同一 `buildExpandedShareRows()`，不复制两套实现。
+
+### 修复
+- 修正 `resolveTrackColor()` 回退分支的 `TRACK_COLOR.dark` 拼写错误（正确为 `TRACK_COLORS.dark`）；未知主题值安全回退 dark。
+- 选中状态、中心金额、组件销毁取消主题订阅、快速切换异步触摸回调（seq 守卫）等可靠性问题收口。
+
+### 文档
+- 修正 OSS 评估报告中把真机滚动 / 手势「不冲突」写成已验证事实的措辞，明确标注为代码层面结论、真机待验收。
+
+### 测试
+- 单测新增 `tests/env.test.js`（12 项），donut-hit 增加 c-shopping / c-life 排序反转回归与未知主题回退；E2E T20/T21 改用真实触摸事件（`dispatchEvent` + `offset()`/`size()` 计算坐标），新增 T22/T23 聚合「其他」展开与子分类钻取。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1，均不升级；不新增分类颜色持久化字段。
+
 ## [1.3.1] — 2026-10-29
 
 Interactive Statistics & OSS Review（统计图表交互与开源方案评估）。让 v1.3.0 的静态分类占比圆环变成可真实触摸交互，并先完成开源图表方案评估。不升级数据合同、不新增业务功能、不把分类颜色持久化。

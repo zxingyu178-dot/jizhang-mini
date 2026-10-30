@@ -10,6 +10,7 @@ const R = require('../../data/statistics/range');
 const dateUtil = require('../../data/date');
 const statCfg = require('../../data/statistics/config');
 const donut = require('../../data/statistics/donut');
+const theme = require('../../utils/theme');
 const { pickCategoryVisual } = require('../../data/category-icons');
 
 /** 模块 ID → 中文展示名（管理 Bottom Sheet 用） */
@@ -181,6 +182,60 @@ Component({
       this.setData({ mode: 'year' });
       this.loadYear(this.data.year || new Date().getFullYear());
     },
+    /** 当前主题 key（dark/light），未知值安全回退 dark */
+    shareThemeKey() {
+      let t = 'dark';
+      try { t = theme.getEffectiveTheme(); } catch (e) { t = 'dark'; }
+      return t === 'light' ? 'light' : 'dark';
+    },
+    /**
+     * 构建「查看全部分类」展开列表（月度 / 年度共用同一套数据处理与视觉规范）。
+     * - 未聚合（≤8）：展开与默认一致，全部真实分类；
+     * - 聚合态：前 7 保持圆环原色 → 明确「其他」分组头（总额 + 分类数）→
+     *   被聚合真实分类列在分组下，颜色标记统一用「其他」中性色并标注属于圆环「其他」，
+     *   子分类仍为真实分类、支持独立钻取。
+     */
+    buildExpandedShareRows(share) {
+      const themeKey = this.shareThemeKey();
+      const toRow = (x, extra) => Object.assign(
+        {}, x, { centsText: money.formatCents(x.cents) }, extra || {}
+      );
+      if (!share.aggregated) {
+        return donut.resolveSegmentColors(share.all, themeKey)
+          .map((x) => toRow(x, { kind: 'top' }));
+      }
+      const rows = [];
+      const top = share.all.slice(0, M.TOP_N_WHEN_AGGREGATED);
+      const rest = share.all.slice(M.TOP_N_WHEN_AGGREGATED);
+      // 前 7：保持圆环原色
+      donut.resolveSegmentColors(top, themeKey).forEach((x) => rows.push(toRow(x, { kind: 'top' })));
+      // 「其他」分组头：用圆环聚合段的总额 / 分类数
+      const aggSeg = share.segments.find((s) => s.aggregate);
+      rows.push({
+        categoryId: M.AGGREGATE_OTHER_ID,
+        name: '其他',
+        cents: aggSeg.cents,
+        count: aggSeg.count,
+        ratio: aggSeg.ratio,
+        percentText: aggSeg.percentText,
+        color: donut.AGGREGATE_COLOR,
+        centsText: money.formatCents(aggSeg.cents),
+        iconType: 'emoji',
+        iconValue: '📦',
+        emoji: '📦',
+        aggregate: true,
+        kind: 'group',
+        aggCount: rest.length,
+      });
+      // 被聚合子分类：统一中性色标记，保留真实 id 支持独立钻取
+      rest.forEach((x) => {
+        rows.push(toRow(Object.assign({}, x, { color: donut.AGGREGATE_COLOR }), {
+          kind: 'child',
+          aggregate: false,
+        }));
+      });
+      return rows;
+    },
     /* ---------- 月度取数（Lazy Compute：关闭的可选模块不计算） ---------- */
     loadMonth(ym) {
       const bills = store.rangeBills(ym, ym);
@@ -234,14 +289,15 @@ Component({
       patch.shareSelectedId = ''; // 切月重置选中
       if (on('category-share')) {
         const share = M.computeCategoryShare(bills, resolveCategory);
-        // 圆环与图例同一套颜色解析，保证颜色完全一致
-        const colored = donut.resolveSegmentColors(share.segments);
-        const fullColored = donut.resolveSegmentColors(share.all);
+        const themeKey = this.shareThemeKey();
+        // 圆环与默认图例同一套颜色解析（主题透传），保证颜色完全一致
+        const colored = donut.resolveSegmentColors(share.segments, themeKey);
         patch.shareSegments = colored;
         patch.shareList = colored.map(toShareRow);
         patch.shareAggregated = share.aggregated;
         patch.shareExpanded = false;
-        patch.fullShareList = fullColored.map(toShareRow);
+        // 展开列表走统一构建：前 7 原色 + 「其他」分组 + 中性色子分类
+        patch.fullShareList = this.buildExpandedShareRows(share);
         patch.shareAggCount = share.aggregated ? share.all.length - M.TOP_N_WHEN_AGGREGATED : 0;
       } else {
         // 关闭：清空，避免显示上次旧结果
@@ -439,13 +495,13 @@ Component({
       patch.yearShareSelectedId = ''; // 切年重置选中
       const yearShare = M.computeCategoryShare(bills, resolveCategory);
       const toYearShareRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
-      const yColored = donut.resolveSegmentColors(yearShare.segments);
-      const yFullColored = donut.resolveSegmentColors(yearShare.all);
+      const yThemeKey = this.shareThemeKey();
+      const yColored = donut.resolveSegmentColors(yearShare.segments, yThemeKey);
       patch.yearShareSegments = yColored;
       patch.yearShareList = yColored.map(toYearShareRow);
       patch.yearShareAggregated = yearShare.aggregated;
       patch.yearShareExpanded = false;
-      patch.yearFullShareList = yFullColored.map(toYearShareRow);
+      patch.yearFullShareList = this.buildExpandedShareRows(yearShare);
       patch.yearShareAggCount = yearShare.aggregated
         ? yearShare.all.length - M.TOP_N_WHEN_AGGREGATED
         : 0;

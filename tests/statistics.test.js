@@ -402,20 +402,16 @@ console.log('最高消费日 / 日均 / 最大单笔');
 console.log('环形图圆弧 buildDonutArcs / buildDonutSVG');
 {
   const share = M.computeCategoryShare(oct, resolveCat);
-  const arcs = D.buildDonutArcs(share.segments);
+  const arcs = D.buildDonutArcs(share.segments, 'dark');
   eq(arcs.length, 3, '圆弧段数 = 分类数');
   eq(arcs[0].dashOffset, 0, '第一段 dashOffset=0（从 12 点开始）');
   const expectedOffset1 = -share.segments[0].ratio * D.CIRCUMFERENCE;
   assert(Math.abs(arcs[1].dashOffset - expectedOffset1) < 1e-6, '第二段累计 dashOffset');
-  // 颜色按 categoryId 稳定映射（不再按排行索引）
+  // 颜色按 categoryId 稳定映射（不随排行 / 其他分类变化）
   const firstId = share.segments[0].categoryId;
-  eq(arcs[0].color, D.getCategoryColor(firstId, new Set()).color, '第一段颜色 = 该分类稳定色');
-  eq(arcs[0].color, D.resolveSegmentColors(share.segments)[0].color, '圆弧与统一颜色解析一致');
-  eq(
-    D.getCategoryColor(firstId, new Set()).color,
-    D.getCategoryColor(firstId, new Set()).color,
-    '同分类跨两次解析颜色稳定'
-  );
+  eq(arcs[0].color, D.getCategoryColor(firstId, 'dark'), '第一段颜色 = 该分类稳定色');
+  eq(arcs[0].color, D.resolveSegmentColors(share.segments, 'dark')[0].color, '圆弧与统一颜色解析一致');
+  eq(D.getCategoryColor(firstId, 'dark'), D.getCategoryColor(firstId, 'dark'), '同分类跨两次解析颜色稳定');
   eq(arcs[0].aggregate, false, '真实段 aggregate=false');
   assert(Math.abs(arcs[0].ratio - share.segments[0].ratio) < 1e-9, '圆弧 ratio 透传');
 
@@ -423,7 +419,7 @@ console.log('环形图圆弧 buildDonutArcs / buildDonutSVG');
   const manyBills = [];
   for (let i = 1; i <= 9; i++) manyBills.push(bill('expense', 10, 2026, 10, i, 'c-cat' + i));
   const aggShare = M.computeCategoryShare(manyBills, resolveCat);
-  const aggArcs = D.buildDonutArcs(aggShare.segments);
+  const aggArcs = D.buildDonutArcs(aggShare.segments, 'dark');
   eq(aggArcs.length, 8, '聚合后 8 段（7+1）');
   eq(aggArcs[7].aggregate, true, '末段为聚合项');
   eq(aggArcs[7].categoryId, M.AGGREGATE_OTHER_ID, '聚合段 categoryId');

@@ -206,6 +206,30 @@
   font-size: 24rpx;
   color: var(--text-secondary);
 }
+/* 「其他」分组头：顶部分隔 + 名称加粗，与普通行区分 */
+.share-row--group {
+  border-top: 1rpx solid var(--divider);
+  margin-top: 6rpx;
+}
+.share-row--group .share-row__name {
+  font-weight: 700;
+}
+/* 被聚合子分类：缩进、字号弱化，视觉上从属于「其他」分组 */
+.share-row--child {
+  padding-left: 42rpx;
+}
+.share-row--child .share-row__name {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+/* 分组 / 子分类语义小标签 */
+.share-row__tag {
+  font-size: 20rpx;
+  color: var(--text-faint);
+  margin-right: 12rpx;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .share-toggle {
   margin-top: 12rpx;
   padding: 12rpx 0;

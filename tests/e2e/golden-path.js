@@ -23,6 +23,9 @@
 
 const path = require('path');
 const { APP_VERSION } = require(path.join(__dirname, '..', '..', 'utils', 'version.js'));
+const donutData = require(path.join(__dirname, '..', '..', 'data', 'statistics', 'donut.js'));
+const AGG_COLOR = donutData.AGGREGATE_COLOR;
+const AGG_OTHER_ID = '__aggregate_other__';
 
 const TEST_NOTE = 'E2E回归';
 const TEST_BILL_NOTE = 'E2E账单回归';
@@ -105,6 +108,64 @@ module.exports = async function goldenPath(ctx) {
       if (d.current === i) return;
     }
     throw new Error('切换 Tab ' + i + ' 超时');
+  }
+
+  /* ---------- 真实触摸辅助（automator Element.touchstart/move/end，非 callMethod） ---------- */
+  function tp(x, y, id) {
+    return { identifier: id, pageX: x, pageY: y, clientX: x, clientY: y };
+  }
+  // 说明：当前 Skyline 环境下 Element.touchstart/move/end 不派发事件（实测不触发组件
+  // bindtouch*），改用 Element.dispatchEvent 派发真实触摸事件，仍走组件完整手势状态机，
+  // 而非 callMethod 内部方法。
+  async function dispatchTouch(rootEl, eventName, touches, changedTouches) {
+    await rootEl.dispatchEvent({
+      eventName,
+      eventData: { touches, changedTouches },
+    });
+  }
+  /** 真实点击：touchstart → 短停顿 → touchend（无 move），坐标为页面绝对坐标。 */
+  async function realTap(rootEl, x, y, id = 0) {
+    const p = tp(x, y, id);
+    await dispatchTouch(rootEl, 'touchstart', [p], [p]);
+    await sleep(60);
+    await dispatchTouch(rootEl, 'touchend', [], [p]);
+  }
+  /** 真实滑动：touchstart → 多步 touchmove → touchend，用于验证滑动不误选。 */
+  async function realSwipe(rootEl, x1, y1, x2, y2, id = 0, steps = 6) {
+    const start = tp(x1, y1, id);
+    await dispatchTouch(rootEl, 'touchstart', [start], [start]);
+    let last = start;
+    for (let i = 1; i <= steps; i++) {
+      const x = x1 + (x2 - x1) * (i / steps);
+      const y = y1 + (y2 - y1) * (i / steps);
+      const p = tp(x, y, id);
+      await sleep(30);
+      await dispatchTouch(rootEl, 'touchmove', [p], [p]);
+      last = p;
+    }
+    await dispatchTouch(rootEl, 'touchend', [], [last]);
+  }
+  /** 读取圆环根元素几何，返回中心、环半径与 rect。 */
+  async function donutGeo(donutEl) {
+    const rootEl = await donutEl.$('.cd');
+    const off = await rootEl.offset();
+    const sz = await rootEl.size();
+    return {
+      rootEl,
+      left: off.left, top: off.top, width: sz.width, height: sz.height,
+      cx: off.left + sz.width / 2,
+      cy: off.top + sz.height / 2,
+      ringR: (sz.width / 100) * 40,
+    };
+  }
+  /** 按「12 点顺时针 frac、环上 dist 比例」算页面绝对坐标。 */
+  function ringPoint(geo, frac, distRatio = 40) {
+    const theta = frac * 2 * Math.PI;
+    const r = (geo.width / 100) * distRatio;
+    return {
+      x: geo.cx + r * Math.sin(theta),
+      y: geo.cy - r * Math.cos(theta),
+    };
   }
 
   /** 在时间线里按备注找到测试账单 id。 */
@@ -696,8 +757,8 @@ module.exports = async function goldenPath(ctx) {
     ctx.eq((await panel.data()).mode, 'month', '已切回月度模式');
   });
 
-  // ---------------- T20 月度圆环：触摸选中、中心切换、图例同步、钻取 ----------------
-  await ctx.test('T20 月度圆环触摸选中、中心切换与钻取', async () => {
+  // ---------------- T20 月度圆环：真实触摸（点击/连续点击/中心孔/滑动/颜色一致/钻取） ----------------
+  await ctx.test('T20 月度圆环真实触摸与钻取', async () => {
     const page = await ctx.home();
     await page.callMethod('__e2eClearDonut');
     await page.callMethod('__e2eSeedDonut');
@@ -713,22 +774,15 @@ module.exports = async function goldenPath(ctx) {
     await panel.setData({ scrollInto: 'monthShareCard' });
     await sleep(900);
     const donutEl = await panel.$('#monthDonut');
-    const rootEl = await donutEl.$('.cd');
-    const off = await rootEl.offset();
-    const sz = await rootEl.size();
-    const rect = { left: off.left, top: off.top, width: sz.width, height: sz.height };
+    const geo = await donutGeo(donutEl);
     const segs = pd.shareSegments;
-    const midFrac = segs[0].ratio / 2; // 第一段中点
-    const theta = midFrac * 2 * Math.PI;
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const ringR = (rect.width / 100) * 40;
-    const tx = cx + ringR * Math.sin(theta);
-    const ty = cy - ringR * Math.cos(theta);
-    await donutEl.callMethod('onTouchStart', { touches: [{ clientX: tx, clientY: ty }] });
-    await sleep(600);
-    const dd = await donutEl.data();
-    ctx.eq(dd.selectedIndex, 0, '选中第一段');
+
+    // (1) 真实点击第一段中点 → 选中
+    const pt1 = ringPoint(geo, segs[0].ratio / 2);
+    await realTap(geo.rootEl, pt1.x, pt1.y);
+    await sleep(500);
+    let dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '真实点击选中第一段');
     ctx.eq(dd.hasSelection, true, 'hasSelection=true');
     ctx.eq(dd.dispLabel, segs[0].name, '中心切换为分类名');
     ctx.truthy(String(dd.dispAmount).indexOf('¥') === 0, '中心显示分类金额');
@@ -736,10 +790,47 @@ module.exports = async function goldenPath(ctx) {
     pd = await panel.data();
     ctx.eq(pd.shareSelectedId, segs[0].categoryId, '面板同步选中 id（图例高亮）');
 
+    // (2) 图例颜色与圆环分段颜色一一对应
+    const listRows = pd.shareList;
+    for (let i = 0; i < segs.length; i++) {
+      ctx.eq(listRows[i].color, segs[i].color, '第 ' + i + ' 项图例色=圆环分段色');
+    }
+
+    // (3) 快速连续点击：先点最后一段、立刻点回第一段，选中正确
+    const lastIdx = segs.length - 1;
+    let acc = 0;
+    for (let k = 0; k < lastIdx; k++) acc += segs[k].ratio;
+    const ptLast = ringPoint(geo, acc + segs[lastIdx].ratio / 2);
+    await realTap(geo.rootEl, ptLast.x, ptLast.y);
+    await sleep(120);
+    await realTap(geo.rootEl, pt1.x, pt1.y);
+    await sleep(500);
+    dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '快速连续点击后选中状态正确（回到第一段）');
+
+    // 中心区域（中心孔与中心按钮同处 .cd__center，覆盖整个内半径 34）在有选中时，
+    // 真实触摸的无移动点击会被 Skyline 合成 tap 并触发 onTapCenter 钻取。
+    // 因此从中心孔点击开始统一 mock navigateTo，隔离真实导航，避免页面离开栈顶。
     await mp.mockWxMethod('navigateTo', function (options) {
       globalThis.__e2eNavUrl = options.url;
       return { errMsg: 'navigateTo:ok' };
     });
+
+    // (4) 点击中心孔（环内半径 10，<34）→ 不误选、不改变当前选中
+    const hole = ringPoint(geo, 0.25, 10);
+    await realTap(geo.rootEl, hole.x, hole.y);
+    await sleep(400);
+    dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '点击中心孔不误选其他分类');
+
+    // (5) 垂直滑动（位移远超 10px）→ 不触发/改变分类选择；有移动不合成 tap，不触发钻取
+    const beforeSwipe = (await donutEl.data()).selectedIndex;
+    await realSwipe(geo.rootEl, geo.cx, geo.cy - geo.ringR * 0.6, geo.cx, geo.cy + geo.ringR * 0.9);
+    await sleep(500);
+    dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, beforeSwipe, '上下滑动不误触发/改变分类选择');
+
+    // (6) 点击中心按钮 → 已选分类钻取（覆盖读取最终 URL）
     const centerEl = await donutEl.$('.cd__center');
     await centerEl.tap();
     await sleep(500);
@@ -749,6 +840,7 @@ module.exports = async function goldenPath(ctx) {
     ctx.truthy(captured.indexOf('month=') >= 0, '月度钻取带 month');
     await mp.restoreWxMethod('navigateTo');
 
+    // (7) 刷新后选中重置
     await panel.callMethod('refresh');
     await sleep(900);
     const ddReset = await (await panel.$('#monthDonut')).data();
@@ -760,8 +852,8 @@ module.exports = async function goldenPath(ctx) {
     await sleep(800);
   });
 
-  // ---------------- T21 年度圆环：触摸选中、中心切换、图例同步、钻取 ----------------
-  await ctx.test('T21 年度圆环触摸选中、中心切换与钻取', async () => {
+  // ---------------- T21 年度圆环：真实触摸（点击/中心孔/滑动/颜色一致/钻取） ----------------
+  await ctx.test('T21 年度圆环真实触摸与钻取', async () => {
     const page = await ctx.home();
     await page.callMethod('__e2eClearDonut');
     await page.callMethod('__e2eSeedDonut');
@@ -778,32 +870,48 @@ module.exports = async function goldenPath(ctx) {
     await panel.setData({ scrollInto: 'yearShareCard' });
     await sleep(900);
     const donutEl = await panel.$('#yearDonut');
-    const rootEl = await donutEl.$('.cd');
-    const off = await rootEl.offset();
-    const sz = await rootEl.size();
-    const rect = { left: off.left, top: off.top, width: sz.width, height: sz.height };
+    const geo = await donutGeo(donutEl);
     const segs = pd.yearShareSegments;
-    const midFrac = segs[0].ratio / 2;
-    const theta = midFrac * 2 * Math.PI;
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const ringR = (rect.width / 100) * 40;
-    const tx = cx + ringR * Math.sin(theta);
-    const ty = cy - ringR * Math.cos(theta);
-    await donutEl.callMethod('onTouchStart', { touches: [{ clientX: tx, clientY: ty }] });
-    await sleep(600);
-    const dd = await donutEl.data();
-    ctx.eq(dd.selectedIndex, 0, '年度选中第一段');
+
+    // (1) 真实点击第一段中点
+    const pt1 = ringPoint(geo, segs[0].ratio / 2);
+    await realTap(geo.rootEl, pt1.x, pt1.y);
+    await sleep(500);
+    let dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '年度真实点击选中第一段');
     ctx.eq(dd.hasSelection, true, '年度 hasSelection=true');
     ctx.eq(dd.dispLabel, segs[0].name, '年度中心切换为分类名');
     ctx.truthy(String(dd.dispSub).indexOf('%') > 0, '年度中心显示占比');
     pd = await panel.data();
     ctx.eq(pd.yearShareSelectedId, segs[0].categoryId, '年度面板同步选中 id');
 
+    // (2) 图例与圆环颜色一致
+    const yRows = pd.yearShareList;
+    for (let i = 0; i < segs.length; i++) {
+      ctx.eq(yRows[i].color, segs[i].color, '年度第 ' + i + ' 项图例色=圆环色');
+    }
+
+    // 中心区域有选中时，无移动点击会合成 tap 触发钻取，统一提前 mock navigateTo 隔离真实导航。
     await mp.mockWxMethod('navigateTo', function (options) {
       globalThis.__e2eNavUrl2 = options.url;
       return { errMsg: 'navigateTo:ok' };
     });
+
+    // (3) 点击中心孔不误选
+    const hole = ringPoint(geo, 0.5, 10);
+    await realTap(geo.rootEl, hole.x, hole.y);
+    await sleep(400);
+    dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, 0, '年度点击中心孔不误选');
+
+    // (4) 垂直滑动不误选（有移动不合成 tap）
+    const before = (await donutEl.data()).selectedIndex;
+    await realSwipe(geo.rootEl, geo.cx, geo.cy + geo.ringR * 0.6, geo.cx, geo.cy - geo.ringR * 0.9);
+    await sleep(500);
+    dd = await donutEl.data();
+    ctx.eq(dd.selectedIndex, before, '年度上下滑动不误选');
+
+    // (5) 中心按钮钻取（覆盖读取最终 URL）
     const centerEl = await donutEl.$('.cd__center');
     await centerEl.tap();
     await sleep(500);
@@ -811,6 +919,154 @@ module.exports = async function goldenPath(ctx) {
     ctx.truthy(captured.indexOf('year=') >= 0, '年度钻取带 year');
     ctx.truthy(captured.indexOf('category=' + segs[0].categoryId) >= 0, '年度钻取带 categoryId');
     ctx.truthy(captured.indexOf('type=expense') >= 0, '年度钻取带 expense');
+    await mp.restoreWxMethod('navigateTo');
+
+    await panel.setData({ scrollInto: '' });
+    await panel.callMethod('onModeMonth');
+    await sleep(1000);
+    await page.callMethod('__e2eClearDonut');
+    await (await page.$('#statisticsPanel')).callMethod('refresh');
+    await sleep(800);
+  });
+
+  // ---------------- T22 月度超 8 分类：Top7+其他展开、分组头/子分类、独立钻取 ----------------
+  await ctx.test('T22 月度「其他」聚合展开与子分类钻取', async () => {
+    const page = await ctx.home();
+    await page.callMethod('__e2eClearDonut');
+    await page.callMethod('__e2eSeedDonutMany');
+    await ensureTab(page, 0);
+    await sleep(400);
+    const panel = await page.$('#statisticsPanel');
+    await panel.callMethod('refresh');
+    await sleep(1000);
+    let pd = await panel.data();
+    ctx.eq(pd.shareAggregated, true, '10 分类触发聚合');
+    ctx.eq(pd.shareSegments.length, 8, '默认圆环 8 段（7+其他）');
+    ctx.eq(pd.shareList.length, 8, '默认图例 8 项，与圆环一一对应');
+    ctx.eq(pd.shareAggCount, 3, '「其他」含 3 个被聚合分类');
+    for (let i = 0; i < 8; i++) {
+      ctx.eq(pd.shareList[i].color, pd.shareSegments[i].color, '默认第 ' + i + ' 项图例色=圆环色');
+    }
+
+    await panel.setData({ scrollInto: 'monthShareCard' });
+    await sleep(900);
+    await (await panel.$('.share-toggle')).tap();
+    await sleep(600);
+    pd = await panel.data();
+    ctx.eq(pd.shareExpanded, true, '已展开全部分类');
+    const rows = pd.fullShareList;
+    ctx.eq(rows.length, 11, '展开列表 11 行（7 top + 1 分组头 + 3 子分类）');
+    const topRows = rows.filter((r) => r.kind === 'top');
+    const groupRows = rows.filter((r) => r.kind === 'group');
+    const childRows = rows.filter((r) => r.kind === 'child');
+    ctx.eq(topRows.length, 7, '前 7 为 top');
+    ctx.eq(groupRows.length, 1, '1 个分组头');
+    ctx.eq(childRows.length, 3, '3 个子分类');
+    for (let i = 0; i < 7; i++) {
+      ctx.eq(topRows[i].color, pd.shareSegments[i].color, '前 7 第 ' + i + ' 项保持圆环原色');
+    }
+    const g = groupRows[0];
+    ctx.eq(g.categoryId, AGG_OTHER_ID, '分组头 categoryId');
+    ctx.eq(g.aggregate, true, '分组头 aggregate=true');
+    ctx.eq(g.color, AGG_COLOR, '分组头用中性色');
+    ctx.eq(g.aggCount, 3, '分组头标注含 3 个分类');
+    ctx.truthy(g.cents > 0, '分组头显示聚合总额');
+    childRows.forEach((c) => {
+      ctx.eq(c.color, AGG_COLOR, '子分类颜色统一中性色');
+      ctx.eq(c.aggregate, false, '子分类 aggregate=false（真实分类）');
+      ctx.truthy(c.categoryId.indexOf(AGG_OTHER_ID) < 0, '子分类保留真实 id');
+    });
+
+    // 注意：mockWxMethod 的函数经 toString 在小程序逻辑层重建，无法闭包 Node 端变量，
+    // 故计数与 URL 都写入 globalThis，再用 evaluate 读回（自由变量会导致 ReferenceError 使 mock 失效）。
+    await mp.evaluate(() => { globalThis.__e2eNavCount3 = 0; });
+    await mp.mockWxMethod('navigateTo', function (options) {
+      globalThis.__e2eNavCount3 = (globalThis.__e2eNavCount3 || 0) + 1;
+      globalThis.__e2eNavUrl3 = options.url;
+      return { errMsg: 'navigateTo:ok' };
+    });
+    await (await panel.$('.share-row--group')).tap();
+    await sleep(400);
+    ctx.eq(await mp.evaluate(() => globalThis.__e2eNavCount3), 0, '点击分组头不跳转（仅展开态）');
+    await (await panel.$('.share-row--child')).tap();
+    await sleep(500);
+    ctx.eq(await mp.evaluate(() => globalThis.__e2eNavCount3), 1, '点击子分类触发一次钻取');
+    const captured = await mp.evaluate(() => globalThis.__e2eNavUrl3);
+    ctx.truthy(captured.indexOf('category=' + childRows[0].categoryId) >= 0, '子分类钻取带真实 categoryId');
+    ctx.truthy(captured.indexOf('type=expense') >= 0, '子分类钻取带 expense');
+    await mp.restoreWxMethod('navigateTo');
+
+    await panel.callMethod('onToggleShareExpand');
+    await sleep(500);
+    pd = await panel.data();
+    ctx.eq(pd.shareExpanded, false, '收起后恢复默认');
+    ctx.eq(pd.shareList.length, 8, '收起后图例恢复 8 项');
+
+    await panel.setData({ scrollInto: '' });
+    await page.callMethod('__e2eClearDonut');
+    await panel.callMethod('refresh');
+    await sleep(800);
+  });
+
+  // ---------------- T23 年度超 8 分类：Top7+其他展开、分组头/子分类、独立钻取 ----------------
+  await ctx.test('T23 年度「其他」聚合展开与子分类钻取', async () => {
+    const page = await ctx.home();
+    await page.callMethod('__e2eClearDonut');
+    await page.callMethod('__e2eSeedDonutMany');
+    await ensureTab(page, 0);
+    await sleep(400);
+    const panel = await page.$('#statisticsPanel');
+    await panel.callMethod('onModeYear');
+    await sleep(1200);
+    let pd = await panel.data();
+    ctx.eq(pd.mode, 'year', '已切年度');
+    ctx.eq(pd.yearShareAggregated, true, '年度 10 分类触发聚合');
+    ctx.eq(pd.yearShareSegments.length, 8, '年度默认圆环 8 段');
+    ctx.eq(pd.yearShareList.length, 8, '年度默认图例 8 项');
+    ctx.eq(pd.yearShareAggCount, 3, '年度「其他」含 3 个分类');
+
+    await panel.setData({ scrollInto: 'yearShareCard' });
+    await sleep(900);
+    await (await panel.$('.share-toggle')).tap();
+    await sleep(600);
+    pd = await panel.data();
+    ctx.eq(pd.yearShareExpanded, true, '年度已展开');
+    const rows = pd.yearFullShareList;
+    ctx.eq(rows.length, 11, '年度展开 11 行');
+    const topRows = rows.filter((r) => r.kind === 'top');
+    const groupRows = rows.filter((r) => r.kind === 'group');
+    const childRows = rows.filter((r) => r.kind === 'child');
+    ctx.eq(topRows.length, 7, '年度前 7 top');
+    ctx.eq(groupRows.length, 1, '年度 1 分组头');
+    ctx.eq(childRows.length, 3, '年度 3 子分类');
+    for (let i = 0; i < 7; i++) {
+      ctx.eq(topRows[i].color, pd.yearShareSegments[i].color, '年度前 7 保持原色');
+    }
+    const g = groupRows[0];
+    ctx.eq(g.categoryId, AGG_OTHER_ID, '年度分组头 id');
+    ctx.eq(g.aggregate, true, '年度分组头 aggregate');
+    ctx.eq(g.color, AGG_COLOR, '年度分组头中性色');
+    ctx.eq(g.aggCount, 3, '年度分组头分类数');
+    childRows.forEach((c) => {
+      ctx.eq(c.color, AGG_COLOR, '年度子分类中性色');
+      ctx.eq(c.aggregate, false, '年度子分类真实分类');
+    });
+
+    await mp.evaluate(() => { globalThis.__e2eNavCount4 = 0; });
+    await mp.mockWxMethod('navigateTo', function (options) {
+      globalThis.__e2eNavCount4 = (globalThis.__e2eNavCount4 || 0) + 1;
+      globalThis.__e2eNavUrl4 = options.url;
+      return { errMsg: 'navigateTo:ok' };
+    });
+    await (await panel.$('.share-row--group')).tap();
+    await sleep(400);
+    ctx.eq(await mp.evaluate(() => globalThis.__e2eNavCount4), 0, '年度点分组头不跳转');
+    await (await panel.$('.share-row--child')).tap();
+    await sleep(500);
+    ctx.eq(await mp.evaluate(() => globalThis.__e2eNavCount4), 1, '年度点子分类独立钻取');
+    const captured = await mp.evaluate(() => globalThis.__e2eNavUrl4);
+    ctx.truthy(captured.indexOf('year=') >= 0, '年度子分类钻取带 year');
+    ctx.truthy(captured.indexOf('category=' + childRows[0].categoryId) >= 0, '年度子分类带真实 categoryId');
     await mp.restoreWxMethod('navigateTo');
 
     await panel.setData({ scrollInto: '' });

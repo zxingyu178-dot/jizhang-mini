@@ -1,4 +1,11 @@
-<view class="cd" style="width:{{size}}px;height:{{size}}px;" bindtouchstart="onTouchStart">
+<view
+  class="cd"
+  style="width:{{size}}px;height:{{size}}px;"
+  bindtouchstart="onTouchStart"
+  bindtouchmove="onTouchMove"
+  bindtouchend="onTouchEnd"
+  bindtouchcancel="onTouchCancel"
+>
   <image class="cd__img" src="{{uri}}" style="width:{{size}}px;height:{{size}}px;" mode="aspectFit"/>
   <view class="cd__center {{hasSelection ? 'cd__center--tap' : ''}}" bindtap="onTapCenter">
     <text class="cd__amount">{{dispAmount}}</text>

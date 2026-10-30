@@ -4,7 +4,7 @@
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const suites = ['device.test.js', 'data.test.js', 'accounting.test.js', 'statistics.test.js', 'donut-hit.test.js', 'daily-value.test.js', 'budget.test.js', 'read-range.test.js', 'lazy-compute.test.js', 'categories.test.js', 'category-visual.test.js', 'path-normalize.test.js', 'recurring.test.js', 'search.test.js', 'settings.test.js', 'stat-config.test.js', 'health.test.js', 'storage-integrity.test.js', 'duplicate-id.test.js', 'protection.test.js', 'id-repair.test.js', 'keyboard-viewport.test.js', 'strict-read.test.js', 'atomic-storage.test.js', 'csv-export.test.js', 'backup-validator.test.js', 'backup-migration.test.js', 'disaster-recovery.test.js', 'importer.test.js', 'theme.test.js'];
+const suites = ['device.test.js', 'data.test.js', 'accounting.test.js', 'statistics.test.js', 'donut-hit.test.js', 'daily-value.test.js', 'budget.test.js', 'read-range.test.js', 'lazy-compute.test.js', 'categories.test.js', 'category-visual.test.js', 'path-normalize.test.js', 'recurring.test.js', 'search.test.js', 'settings.test.js', 'stat-config.test.js', 'health.test.js', 'storage-integrity.test.js', 'duplicate-id.test.js', 'protection.test.js', 'id-repair.test.js', 'keyboard-viewport.test.js', 'strict-read.test.js', 'atomic-storage.test.js', 'csv-export.test.js', 'backup-validator.test.js', 'backup-migration.test.js', 'disaster-recovery.test.js', 'importer.test.js', 'theme.test.js', 'env.test.js'];
 
 let failed = 0;
 const results = [];

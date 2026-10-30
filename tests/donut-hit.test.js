@@ -165,32 +165,57 @@ console.log('本地 px → viewBox');
 /* ---------- 10. 颜色稳定与统一 ---------- */
 console.log('颜色稳定、月度年度同色、图例=圆环');
 {
-  // 同 id 跨两次解析稳定
-  eq(
-    D.getCategoryColor('c-id0', new Set()).color,
-    D.getCategoryColor('c-id0', new Set()).color,
-    '同分类多次解析颜色稳定'
-  );
-  // 同图 8 个真实分类不撞色
-  const colors = D.resolveSegmentColors(makeSegments(8)).map((s) => s.color);
+  // 同 id 多次解析稳定
+  eq(D.getCategoryColor('c-id0', 'dark'), D.getCategoryColor('c-id0', 'dark'), '同分类多次解析颜色稳定');
+  // 未知 / 缺省主题安全回退 dark（不抛错）
+  eq(D.getCategoryColor('c-id0', 'unknown'), D.getCategoryColor('c-id0', 'dark'), '未知主题回退 dark');
+  eq(D.getCategoryColor('c-id0'), D.getCategoryColor('c-id0', 'dark'), '缺省主题回退 dark');
+  // 同图 8 个真实分类颜色互不相同（黄金角分布）
+  const colors = D.resolveSegmentColors(makeSegments(8), 'dark').map((s) => s.color);
   eq(new Set(colors).size, 8, '8 个真实分类颜色互不相同');
   // 排序变化（模拟不同月份顺序不同），同 id 颜色一致
   const groupA = D.resolveSegmentColors([
     { categoryId: 'c-id0', ratio: 0.6, aggregate: false },
     { categoryId: 'c-id1', ratio: 0.4, aggregate: false },
-  ]);
+  ], 'dark');
   const groupB = D.resolveSegmentColors([
     { categoryId: 'c-id1', ratio: 0.5, aggregate: false },
     { categoryId: 'c-id0', ratio: 0.5, aggregate: false },
-  ]);
+  ], 'dark');
   const colorOf = (list, id) => list.find((s) => s.categoryId === id).color;
-  eq(colorOf(groupA, 'c-id0'), colorOf(groupB, 'c-id0'), 'c-id0 跨月颜色一致');
-  eq(colorOf(groupA, 'c-id1'), colorOf(groupB, 'c-id1'), 'c-id1 跨月颜色一致');
+  eq(colorOf(groupA, 'c-id0'), colorOf(groupB, 'c-id0'), 'c-id0 排序变化颜色一致');
+  eq(colorOf(groupA, 'c-id1'), colorOf(groupB, 'c-id1'), 'c-id1 排序变化颜色一致');
   // 图例颜色 = 圆环圆弧颜色
   const segs = makeSegments(3);
-  const listColors = D.resolveSegmentColors(segs).map((s) => s.color);
-  const arcColors = D.buildDonutArcs(segs).map((a) => a.color);
+  const listColors = D.resolveSegmentColors(segs, 'dark').map((s) => s.color);
+  const arcColors = D.buildDonutArcs(segs, 'dark').map((a) => a.color);
   for (let i = 0; i < 3; i++) eq(listColors[i], arcColors[i], '第 ' + i + ' 段图例色=圆环色');
+}
+
+/* ---------- 11. 真实分类 c-shopping / c-life 排序反转回归（v1.3.2） ---------- */
+console.log('c-shopping/c-life 排序反转颜色不变');
+{
+  const shopH = Math.round(D.categoryHue('c-shopping'));
+  const lifeH = Math.round(D.categoryHue('c-life'));
+  assert(shopH !== lifeH, 'c-shopping 与 c-life 色相不同（旧 hash%8 撞色已消除）');
+  // 排序 A：shopping 在前；排序 B：life 在前（排名反转）
+  const a = D.resolveSegmentColors([
+    { categoryId: 'c-shopping', ratio: 0.6, aggregate: false },
+    { categoryId: 'c-life', ratio: 0.4, aggregate: false },
+  ], 'dark');
+  const b = D.resolveSegmentColors([
+    { categoryId: 'c-life', ratio: 0.5, aggregate: false },
+    { categoryId: 'c-shopping', ratio: 0.5, aggregate: false },
+  ], 'dark');
+  const find = (list, id) => list.find((s) => s.categoryId === id).color;
+  eq(find(a, 'c-shopping'), find(b, 'c-shopping'), 'c-shopping 排序反转后颜色不变');
+  eq(find(a, 'c-life'), find(b, 'c-life'), 'c-life 排序反转后颜色不变');
+  // 两主题明度不同但色相身份一致
+  const shopDark = D.getCategoryColor('c-shopping', 'dark');
+  const shopLight = D.getCategoryColor('c-shopping', 'light');
+  const hueOfHsl = (s) => parseInt(s.slice(4), 10);
+  assert(shopDark !== shopLight, 'c-shopping 两主题明度不同');
+  eq(hueOfHsl(shopDark), hueOfHsl(shopLight), 'c-shopping 两主题色相一致');
 }
 
 console.log('\ndonut-hit tests: ' + pass + ' passed, ' + fail + ' failed');

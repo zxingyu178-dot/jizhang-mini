@@ -402,44 +402,33 @@ Page({
     return result;
   },
   /**
-   * E2E 圆环交互测试专用：在当前月份注入固定多分类支出账单（无 UI 入口，
-   * 自动化 page.callMethod('__e2eSeedDonut') 调用）。用固定 note 标记，便于幂等清理。
+   * E2E 圆环交互测试专用入口（无 UI 入口，自动化 page.callMethod 调用）。
+   * 薄委托：先做环境守卫，release 一律拒绝且不 require 测试模块，因此正式发布环境
+   * 无法执行测试账单注入；具体注入逻辑在独立模块 utils/e2e-donut-seed，与业务逻辑解耦。
+   * 注：受微信工具限制，被 packOptions.ignore 的文件无法在本地模拟器 require，
+   * 故该桥接模块参与编译，但 release 下入口已 fail-closed，模块为不可达死代码。
    */
   __e2eSeedDonut() {
-    const store = require('../../data/index');
-    const now = new Date();
-    const ym = store.ledger.ymOf(now.getTime());
-    const seed = [
-      { categoryId: 'c-food', amount: 375.64 },
-      { categoryId: 'c-shopping', amount: 204.04 },
-      { categoryId: 'c-life', amount: 140.00 },
-      { categoryId: 'c-transport', amount: 90.00 },
-      { categoryId: 'c-fun', amount: 50.00 },
-    ];
-    const ids = [];
-    seed.forEach((s, i) => {
-      const at = new Date(now.getFullYear(), now.getMonth(), Math.min(i + 1, 27), 12, 0).getTime();
-      const b = store.addBill({
-        type: 'expense',
-        amount: s.amount,
-        categoryId: s.categoryId,
-        note: 'E2E_DONUT',
-        occurredAt: at,
-      });
-      ids.push(b.id);
-    });
-    return { ym, ids };
+    const env = require('../../utils/env');
+    if (!env.isTestEnv()) {
+      throw new Error('当前环境禁止测试数据注入（仅 develop/trial 允许）');
+    }
+    return require('../../utils/e2e-donut-seed').seedDonut();
   },
-  /** E2E 清理：删除当前月份所有 note=E2E_DONUT 的账单 */
+  /** E2E 多分类注入（>8，聚合回归）：同样先环境守卫，再委托测试模块 */
+  __e2eSeedDonutMany() {
+    const env = require('../../utils/env');
+    if (!env.isTestEnv()) {
+      throw new Error('当前环境禁止测试数据注入（仅 develop/trial 允许）');
+    }
+    return require('../../utils/e2e-donut-seed').seedDonutMany();
+  },
+  /** E2E 清理入口：同样先环境守卫，再委托测试模块按专用标识精确清理 */
   __e2eClearDonut() {
-    const store = require('../../data/index');
-    const now = new Date();
-    const ym = store.ledger.ymOf(now.getTime());
-    const bills = store.rangeBills(ym, ym);
-    let removed = 0;
-    bills.forEach((b) => {
-      if (b.note === 'E2E_DONUT') { store.deleteBill(b.id); removed++; }
-    });
-    return { ym, removed };
+    const env = require('../../utils/env');
+    if (!env.isTestEnv()) {
+      throw new Error('当前环境禁止测试数据清理（仅 develop/trial 允许）');
+    }
+    return require('../../utils/e2e-donut-seed').clearDonut();
   },
 });
