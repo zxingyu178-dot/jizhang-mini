@@ -232,4 +232,5 @@ v1.3.4 两轮修复**均未升级 / 未改动**任何核心数据合同：Bill V
 - **第二轮（本轮，3 P1 + 2 P2）收口提交：`f5cb7593a1bec918e8e9d56e101a26779cf96c5b`**，29 files changed、684 insertions(+)、184 deletions(-)。
 - 精确 `git add` 17 条目标路径（29 文件：27 改 + 1 新测试 + 截图 / HANDOFF）；诊断 / 临时脚本（agent workspace 的 dpi-probe、ide-shot、click、action、diag-* 等）不进仓库。
 - 中文 commit 用 `git commit -F <file>`，推送走显式代理 `http://127.0.0.1:33210`。
-- 推送后 fetch 核对：**本地 HEAD == origin/main == f5cb759**，`git rev-list --left-right --count origin/main...HEAD` 为 0 0；已跟踪工作区改动数 0，仅 3 个未跟踪历史验收 ZIP（不进 git）。
+- 代码修复收口 `f5cb759` 推送后，本 HANDOFF 的第二轮修复 + 微信上传记录回填**另做一个仅文档提交（不改动任何代码）**；最终 HEAD 以该文档提交为准，与 origin/main 一致，`git rev-list --left-right --count origin/main...HEAD` 为 0 0。
+- 已跟踪工作区改动数 0，仅 3 个未跟踪历史验收 ZIP（不进 git）；新打包验收产物同样不进 git。
