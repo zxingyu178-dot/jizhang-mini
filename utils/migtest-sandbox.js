@@ -45,13 +45,13 @@ function removeSandbox() {
  * 返回可读结果；任何校验失败都抛错。无论成功或失败，结束时都删除整个沙箱。
  */
 function runMigtestSandbox() {
-  // 干净开始：先清掉上一轮可能残留的沙箱。
-  removeSandbox();
-  fs.ensureDir(SANDBOX);
-
   // 声明在 try 外，finally 才能回填清理状态。
   let result;
   try {
+    // 干净开始：旧沙箱清理 + 目录初始化统一纳入异常安全保护；初始化失败也会进 finally。
+    removeSandbox();
+    fs.ensureDir(SANDBOX);
+
     // 虚构旧数据（与历史用例一致：跨 2026-09 / 2026-10，覆盖 food/salary/transport）。
     const legacy = [
       { id: 'x1', createdAt: 1760000000000, type: 'expense', amount: 25.5, category: 'food', date: '2026-10-15', note: '午餐' },

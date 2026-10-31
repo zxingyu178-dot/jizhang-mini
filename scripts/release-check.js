@@ -282,35 +282,74 @@ if (contrastR.status === 0) {
   });
 }
 
-/* ---------- 6.7 背景常量同步防护（app.wxss ↔ contrast.js） ---------- */
-section('6.7 背景常量同步防护（app.wxss ↔ contrast.js）');
+/* ---------- 6.7 背景常量同步防护（按主题块精确绑定 app.wxss ↔ contrast.js） ---------- */
+section('6.7 背景常量同步防护（app.wxss ↔ contrast.js，按主题块精确绑定）');
 const contrastMod = require(nodePath.join(ROOT, 'data', 'statistics', 'contrast'));
+
+/** 剥离 CSS 块注释（含跨行），避免注释文字里的主题类名被误当成选择器。 */
+function stripCssComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/** 提取包含指定主题类（.theme-dark / .theme-light）的规则块体；找不到返回 null。 */
+function extractThemeBlock(wxss, themeClass) {
+  const clean = stripCssComments(wxss);
+  const blockRe = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = blockRe.exec(clean)) !== null) {
+    if (m[1].indexOf(themeClass) >= 0) return m[2];
+  }
+  return null;
+}
+
+/** 从块体提取某个 CSS 变量的声明值（去首尾空白）。 */
+function extractTokenValue(body, token) {
+  if (!body) return null;
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(escaped + '\\s*:\\s*([^;]+?)\\s*;');
+  const m = body.match(re);
+  return m ? m[1].trim() : null;
+}
+
+/** 从 --card-bg 声明值按出现顺序提取白色 rgba 的 alpha（start → end）。 */
+function extractCardAlphas(cardBgValue) {
+  if (!cardBgValue) return [];
+  const alphaRe = /rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*([0-9]*\.?[0-9]+)\s*\)/g;
+  const alphas = [];
+  let m;
+  while ((m = alphaRe.exec(cardBgValue)) !== null) alphas.push(parseFloat(m[1]));
+  return alphas;
+}
+
 try {
   const wxss = nodeFs.readFileSync(nodePath.join(ROOT, 'app.wxss'), 'utf8');
-  // 1) 页面背景 hex：每个主题的 PAGE_BG 必须在 app.wxss 中出现
-  Object.keys(contrastMod.PAGE_BG).forEach((theme) => {
-    const bg = contrastMod.PAGE_BG[theme];
-    if (wxss.indexOf(bg) >= 0) pass(theme + ' 页面背景 ' + bg + ' 与 app.wxss 一致');
-    else fail(theme + ' 页面背景 ' + bg + ' 在 app.wxss 未找到，contrast.PAGE_BG 需同步');
-  });
-  // 2) 卡片渐变两端 alpha：仅取 --card-bg 行内的 rgba(255,255,255,A)
-  const cardLines = wxss.split('\n').filter((l) => l.indexOf('--card-bg:') >= 0);
-  const wxssAlphas = [];
-  const alphaRe = /rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*([0-9]*\.?[0-9]+)\s*\)/g;
-  cardLines.forEach((l) => {
-    let m;
-    while ((m = alphaRe.exec(l)) !== null) wxssAlphas.push(parseFloat(m[1]));
-  });
-  const expectedAlphas = [];
-  Object.keys(contrastMod.CARD_WHITE_ALPHA).forEach((t) => {
-    expectedAlphas.push({ theme: t, end: 'start', value: contrastMod.CARD_WHITE_ALPHA[t].start });
-    expectedAlphas.push({ theme: t, end: 'end', value: contrastMod.CARD_WHITE_ALPHA[t].end });
-  });
-  expectedAlphas.forEach((e) => {
-    if (wxssAlphas.some((a) => Math.abs(a - e.value) < 1e-9)) {
-      pass(e.theme + ' 卡片 ' + e.end + ' alpha ' + e.value + ' 与 app.wxss 一致');
+  ['dark', 'light'].forEach((theme) => {
+    const themeClass = '.theme-' + theme;
+    const body = extractThemeBlock(wxss, themeClass);
+    if (!body) {
+      fail(theme + ' 主题块未找到（选择器含 ' + themeClass + '）');
+      return;
+    }
+    // 1) 该主题块内 --bg 精确等于该主题 PAGE_BG：验证 token 与主题块归属绑定。
+    const bg = extractTokenValue(body, '--bg');
+    const expectedBg = contrastMod.PAGE_BG[theme];
+    if (bg === expectedBg) {
+      pass(theme + ' 主题块 --bg 精确绑定 ' + expectedBg);
     } else {
-      fail(e.theme + ' 卡片 ' + e.end + ' alpha ' + e.value + ' 在 app.wxss 未找到，contrast.CARD_WHITE_ALPHA 需同步');
+      fail(theme + ' 主题块 --bg 异常：实际「' + bg + '」，期望「' + expectedBg + '」');
+    }
+    // 2) 该主题块内 --card-bg 的 start/end alpha 按顺序精确匹配（深浅对调会 FAIL）。
+    const alphas = extractCardAlphas(extractTokenValue(body, '--card-bg'));
+    const expected = contrastMod.CARD_WHITE_ALPHA[theme];
+    if (alphas.length === 2
+        && Math.abs(alphas[0] - expected.start) < 1e-9
+        && Math.abs(alphas[1] - expected.end) < 1e-9) {
+      pass(theme + ' 主题块 --card-bg start/end alpha 精确绑定 '
+        + expected.start + ' → ' + expected.end);
+    } else {
+      fail(theme + ' 主题块 --card-bg alpha 异常：实际「' + alphas.join(',')
+        + '」，期望「' + expected.start + ',' + expected.end
+        + '」（须同主题块、按 start/end 顺序）');
     }
   });
 } catch (e) {

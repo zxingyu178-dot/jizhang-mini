@@ -4,7 +4,7 @@
 - Branch：main
 - Version：**1.3.0**
 - 品牌名：**随时随地大小记**
-- AppID：`wxcdcf83d191065d9`
+- AppID：`wxcdcf83d9191065d9`
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`（顶部 + `packages[""]` 两处）、`README.md`）
 - 上一版本基线：v1.2.1（HEAD `82d5c30`）
 - 本版定位：**统计仪表盘重构 + 真实规模压测。一半提升统计可读性 / 可定制性，一半建立真实风格大账本压测长期使用能力；不升级数据合同、不新增业务功能。**

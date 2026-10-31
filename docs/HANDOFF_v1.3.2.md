@@ -4,7 +4,7 @@
 - Branch：main
 - Version：**1.3.2**
 - 品牌名：**随时随地大小记**
-- AppID：`wxcdcf83d191065d9`
+- AppID：`wxcdcf83d9191065d9`
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`（顶部 + `packages[""]` 两处）、`README.md`、`CHANGELOG.md`）
 - 上一版本基线：v1.3.1（HEAD `ef5be31`）
 - 本版定位：**交互可靠性与视觉语义收口，不增加无关业务功能。** 核心四件事：测试代码不污染正式账本、圆环触摸区分点击与滑动、颜色只由稳定 categoryId 决定、Top7+其他展开状态不再误导用户。

@@ -161,7 +161,7 @@ eq(left.length, 1, '4 清理后剩 1 条');
 eq(left[0].note, '真实消费', '4 无前缀真实账单保留');
 eq(reg.readRegistry().runs.length, 0, '4 全量清理后清单 runs 清空');
 
-// 4.1 兜底扫描：清单内容丢失但命名空间账单残留
+// 4.1 清单丢失（runs 空）：账单 runId 未登记，兜底也不删（fail-safe，宁可残留不误删）
 const ghost = reg.makeRunId('ghost');
 store.addBill({
   type: 'expense', amount: 8, categoryId: 'c-food',
@@ -170,9 +170,9 @@ store.addBill({
 });
 reg.writeRegistry({ version: 1, runs: [] });
 const gr = reg.cleanupTestBills(store);
-eq(gr.removed, 1, '4.1 清单丢失时兜底扫描清理');
-eq(gr.removedByScan.length, 1, '4.1 经命名空间扫描命中');
-eq(store.rangeBills().length, 1, '4.1 真实账单仍在');
+eq(gr.removed, 0, '4.1 清单 runs 空时兜底不删未登记账单');
+eq(gr.removedByScan.length, 0, '4.1 未登记 runId 不在兜底范围');
+eq(store.rangeBills().length, 2, '4.1 真实账单与未登记账单均保留');
 
 // 4.2 runId 限定：只清指定 run，其他 run 保留
 const keepRun = reg.makeRunId('keep');
@@ -191,6 +191,91 @@ const limited = reg.cleanupTestBills(store, { runId: otherRun });
 eq(limited.removed, 1, '4.2 仅清理指定 run');
 eq(reg.readRegistry().runs.length, 1, '4.2 清单保留未清理的 run');
 eq(store.rangeBills().some((b) => b.note === reg.encodeTestNote(keepRun)), true, '4.2 其他 run 账单保留');
+
+/* ---------- 5. P1-1 安全专项（独立内存环境） ---------- */
+function freshEnv() {
+  buildMemWx().setWx();
+  const s = require(path.join(ROOT, 'data', 'index'));
+  s.init();
+  return s;
+}
+
+// 5.1 真实账单备注恰好为 E2E_DONUT（裸备注），任何清理都保留
+(function () {
+  const s = freshEnv();
+  const real = s.addBill({
+    type: 'expense', amount: 30, categoryId: 'c-life', note: 'E2E_DONUT',
+    occurredAt: new Date(2026, 9, 11, 12).getTime(),
+  });
+  const r = reg.makeRunId('donut');
+  reg.registerRun({ runId: r, kind: 'donut', billIds: [] });
+  const cr = reg.cleanupTestBills(s);
+  eq(cr.removed, 0, '5.1 裸备注 E2E_DONUT 真实账单不被清理');
+  eq(s.rangeBills().some((b) => b.id === real.id), true, '5.1 E2E_DONUT 真实账单保留');
+})();
+
+// 5.2 真实账单 ID 被错误写入测试清单，三重核对拦截、账单保留
+(function () {
+  const s = freshEnv();
+  const real = s.addBill({
+    type: 'expense', amount: 88, categoryId: 'c-fun', note: '真实消费',
+    occurredAt: new Date(2026, 9, 12, 12).getTime(),
+  });
+  const r = reg.makeRunId('donut');
+  reg.registerRun({ runId: r, kind: 'donut', billIds: [real.id] }); // 故意误入真实 ID
+  const cr = reg.cleanupTestBills(s);
+  eq(cr.removed, 0, '5.2 真实账单 ID 误入清单不被删除');
+  eq(cr.removedById.length, 0, '5.2 三重核对（note/runId 不匹配）拦截');
+  eq(s.rangeBills().some((b) => b.id === real.id), true, '5.2 真实账单保留');
+})();
+
+// 5.3 测试中途异常退出：本次已登记测试账单可被清理
+(function () {
+  const s = freshEnv();
+  const r = reg.makeRunId('donut');
+  reg.registerRun({ runId: r, kind: 'donut', billIds: [] });
+  const tb = s.addBill({
+    type: 'expense', amount: 10, categoryId: 'c-food',
+    note: reg.encodeTestNote(r),
+    occurredAt: new Date(2026, 9, 13, 12).getTime(),
+  });
+  reg.addBillToRun(r, tb.id); // 第一笔已及时登记，后续逻辑模拟异常（不继续）
+  const cr = reg.cleanupTestBills(s);
+  eq(cr.removed, 1, '5.3 异常退出后本次已登记测试账单可清理');
+  eq(s.rangeBills().some((b) => b.id === tb.id), false, '5.3 已登记测试账单已删除');
+  eq(reg.readRegistry().runs.length, 0, '5.3 清理后清单 run 移除');
+})();
+
+// 5.4 清理指定 run 时，真实账单与其他 run 账单均保留
+(function () {
+  const s = freshEnv();
+  const real = s.addBill({
+    type: 'expense', amount: 66, categoryId: 'c-fun', note: '真实消费',
+    occurredAt: new Date(2026, 9, 14, 12).getTime(),
+  });
+  const runA = reg.makeRunId('a');
+  const runB = reg.makeRunId('b');
+  reg.registerRun({ runId: runA, kind: 'donut', billIds: [] });
+  reg.registerRun({ runId: runB, kind: 'donut', billIds: [] });
+  const bA = s.addBill({
+    type: 'expense', amount: 11, categoryId: 'c-food',
+    note: reg.encodeTestNote(runA),
+    occurredAt: new Date(2026, 9, 15, 12).getTime(),
+  });
+  reg.addBillToRun(runA, bA.id);
+  const bB = s.addBill({
+    type: 'expense', amount: 22, categoryId: 'c-life',
+    note: reg.encodeTestNote(runB),
+    occurredAt: new Date(2026, 9, 16, 12).getTime(),
+  });
+  reg.addBillToRun(runB, bB.id);
+  const cr = reg.cleanupTestBills(s, { runId: runA }); // 仅清理 runA
+  eq(cr.removed, 1, '5.4 仅清理 runA 的账单');
+  eq(s.rangeBills().some((b) => b.id === bA.id), false, '5.4 runA 账单已删');
+  eq(s.rangeBills().some((b) => b.id === bB.id), true, '5.4 runB 账单保留');
+  eq(s.rangeBills().some((b) => b.id === real.id), true, '5.4 真实账单保留');
+  eq(reg.readRegistry().runs.length, 1, '5.4 清单保留 runB');
+})();
 
 console.log('\ntest-registry tests: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

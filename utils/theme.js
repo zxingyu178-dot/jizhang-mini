@@ -54,6 +54,10 @@ let _listeners = [];
 // 供页面判断「本次回前台是否仅由主题变化引起」，避免 onShow 全量刷新冲掉
 // 已由主题订阅做的局部 recolor（如统计面板展开 / 选中态）。
 let _changeCounter = 0;
+// 仅在「用户主动 setThemeMode」且主题确实变化时递增的序号：reloadFromStorage（备份
+// 恢复 / settings 被外部覆盖）、refreshSystemTheme、system 模式 onThemeChange 都不递增。
+// 页面 onShow 据此判断是否为纯主题切换，避免备份恢复（账单已变）被误判而跳过统计刷新。
+let _themeOnlyCounter = 0;
 // Native Chrome Guard 监听者（系统主题变化时，手动模式下重守原生窗口颜色）。
 let _chromeListeners = [];
 
@@ -160,6 +164,10 @@ function getThemeClass() {
 function getChangeCounter() {
   return _changeCounter;
 }
+/** 纯用户主题切换序号（仅 setThemeMode 递增），用于 onShow 精确识别可跳过统计刷新的场景 */
+function getThemeOnlyCounter() {
+  return _themeOnlyCounter;
+}
 
 /**
  * 设置主题模式（用户主动选择）：**先持久化 settings.json，写成功后才更新内存并通知**。
@@ -186,7 +194,11 @@ function setThemeMode(mode) {
   _effective = computeEffective(next);
   // mode 变化也必须通知：例如 light → system（系统恰为浅色）时 effective 不变，
   // 但选中对勾需从「浅色」移到「跟随系统」，页面 data.themeMode 也要更新。
-  if (_effective !== prevEffective || next !== prevMode) emit();
+  if (_effective !== prevEffective || next !== prevMode) {
+    emit();
+    // 仅用户主动 setThemeMode 才递增纯主题序号；备份恢复走 reloadFromStorage 不递增。
+    _themeOnlyCounter += 1;
+  }
   return Object.assign({ ok: true }, snapshot());
 }
 
@@ -259,6 +271,7 @@ function _resetForTest() {
   _listeners = [];
   _chromeListeners = [];
   _changeCounter = 0;
+  _themeOnlyCounter = 0;
 }
 
 module.exports = {
@@ -273,6 +286,7 @@ module.exports = {
   getEffectiveTheme,
   getThemeClass,
   getChangeCounter,
+  getThemeOnlyCounter,
   setThemeMode,
   reloadFromStorage,
   refreshSystemTheme,

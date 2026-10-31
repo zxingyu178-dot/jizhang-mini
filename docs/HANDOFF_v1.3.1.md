@@ -4,7 +4,7 @@
 - Branch：main
 - Version：**1.3.1**
 - 品牌名：**随时随地大小记**
-- AppID：`wxcdcf83d191065d9`
+- AppID：`wxcdcf83d9191065d9`
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`（顶部 + `packages[""]` 两处）、`README.md`、`CHANGELOG.md`）
 - 上一版本基线：v1.3.0（HEAD `a1621f0`）
 - 本版定位：**统计图表交互收口 + 开源方案评估。让 v1.3.0 的静态分类占比圆环变成可真实触摸交互；不升级数据合同、不新增业务功能、不把分类颜色持久化。**

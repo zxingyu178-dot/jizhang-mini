@@ -1,48 +1,38 @@
 // utils/e2e-donut-seed.js
-// 圆环 E2E 的数据注入 / 清理逻辑（测试桥接模块），与业务逻辑解耦。
-// 仅在非 release（develop/trial）由 pages/main 的薄委托调用；release 环境 main.js 已先
-// fail-closed 拒绝，不会走到本文件的 require。因此本模块在正式发布环境为不可达死代码。
+// E2E 圆环命中测试的种子数据桥接（v1.3.4 Review Fix 再加固）。
 //
-// v1.3.4 安全收口：不再仅凭普通备注文本认定测试账单。每次注入生成唯一 runId，
-// 账单 note 写带命名空间前缀的标记（__TEST__:<runId>），runId + 账单 ID 持久化到
-// 独立测试清单（utils/test-registry）。清理优先按清单账单 ID 精确删除，兜底只扫描
-// 命名空间前缀残留，绝不删除 note 不带测试前缀的真实账单。
-
+// 安全收口（本版本）：
+//   1. 移除 buildSeed 中原先无条件执行的 clearLegacyDonut，也不再自动删除仅凭
+//      E2E_DONUT / SELFTEST 裸备注识别的账单——裸备注不携带 runId，无法确认归属，
+//      真实账单备注恰好等于该值时必须保留；
+//   2. runId 在注入账单之前先 registerRun（空 billIds）登记；
+//   3. 每笔账单创建后立即 addBillToRun 登记其 ID，支持中途异常退出时清理本次已登记账单；
+//   4. 清理统一走 test-registry 的 fail-safe 精确清理（三重核对 + 兜底仅已登记 runId）。
+//
+// 仅在 develop / trial 测试桥接路径使用，release 下入口 fail-closed、不可达。
 const testRegistry = require('./test-registry');
 
-// 旧版本（≤1.3.3）裸标识：仅用于测试环境升级时一次性清理残留，不再作为新账单标记。
-const LEGACY_DONUT_TAG = 'E2E_DONUT';
+/** 旧版本裸标识：仅保留常量供测试构造「备注巧合」的真实账单，不再用于删除判定。 */
+const E2E_DONUT_TAG = 'E2E_DONUT';
+
+/* ---------------- 注入 ---------------- */
 
 /**
- * 清理旧版本（≤1.3.3）裸标识残留。仅在测试桥接流程内调用（release 不可达），
- * 用于升级后清掉历史测试账单；新账单一律不再使用该裸标识。
+ * 注入种子账单并返回创建结果。
+ * @param {object} store 数据层
+ * @param {Array<{categoryId:string, amount:number}>} rows 种子行
+ * @param {string} kind run 类型前缀
  */
-function clearLegacyDonut(store) {
-  const removed = [];
-  store.rangeBills().forEach((b) => {
-    if (b.note === LEGACY_DONUT_TAG) {
-      const ym = store.ledger.ymOf(b.occurredAt);
-      try {
-        store.deleteBill(b.id);
-        removed.push({ id: b.id, ym });
-      } catch (e) {
-        /* 忽略 */
-      }
-    }
-  });
-  return removed;
-}
-
-/** 注入公共逻辑：清理 → 生成 runId → 注入命名空间账单 → 持久化 run。 */
 function buildSeed(store, rows, kind) {
   const now = new Date();
-  const ym = store.ledger.ymOf(now.getTime());
 
-  // 干净起点：先清历史命名空间测试账单，再清旧版本裸标识残留。
+  // 干净起点：先清历史「已登记」命名空间测试账单（fail-safe，不碰裸备注真实账单）。
   const preClean = testRegistry.cleanupTestBills(store);
-  const legacyRemoved = clearLegacyDonut(store);
 
+  // runId 先登记（空 billIds），再注入账单。
   const runId = testRegistry.makeRunId(kind);
+  testRegistry.registerRun({ runId, kind, billIds: [] });
+
   const created = [];
   rows.forEach((s, i) => {
     const at = new Date(
@@ -52,34 +42,28 @@ function buildSeed(store, rows, kind) {
       12,
       0
     ).getTime();
-    const b = store.addBill({
+    const bill = store.addBill({
       type: 'expense',
       amount: s.amount,
       categoryId: s.categoryId,
       note: testRegistry.encodeTestNote(runId),
       occurredAt: at,
     });
-    created.push({ id: b.id, categoryId: b.categoryId, amountCents: b.amountCents });
-  });
-
-  // 持久化本次 run（runId + 账单 ID），供后续按 ID 精确清理。
-  testRegistry.registerRun({
-    runId,
-    kind,
-    billIds: created.map((c) => c.id),
+    // 每笔创建后及时登记 ID，支持中途异常退出时清理本次已登记账单。
+    testRegistry.addBillToRun(runId, bill.id);
+    created.push({ id: bill.id, categoryId: bill.categoryId, amountCents: bill.amountCents });
   });
 
   return {
-    ym,
+    ym: store.ledger.ymOf(now.getTime()),
     runId,
     preCleaned: preClean.removed,
-    legacyRemoved: legacyRemoved.length,
     created,
     createdIds: created.map((c) => c.id),
   };
 }
 
-/** 注入前先清理残留（幂等 + 异常退出自愈），再注入固定 5 分类支出。 */
+/** 注入前清理残留（幂等 + 异常自愈），再注入固定 5 分类支出。 */
 function seedDonut() {
   const store = require('../data/index');
   const rows = [
@@ -106,28 +90,26 @@ function seedDonutMany() {
   return buildSeed(store, rows, 'donutMany');
 }
 
+/* ---------------- 清理 ---------------- */
+
 /**
- * 跨全部月份清理测试账单：
- *   先按持久化清单的账单 ID 精确删除 + 命名空间前缀兜底；仅当测试清单本就存在
- *   （测试框架运行过的环境）时，再清旧版本裸标识残留，全新 / 真实账本不凭普通备注删除。
- * 不触碰 note 不带测试前缀的真实账单；每条记录可追溯。
+ * 清理测试种子：统一走 test-registry fail-safe 精确清理。
+ * 不凭裸备注删除任何账单。
  */
 function clearDonut() {
   const store = require('../data/index');
-  const hadRegistry = testRegistry.registryExists(); // 调用前状态，避免被本次 cleanup 改写
   const cr = testRegistry.cleanupTestBills(store);
-  const legacyRemoved = hadRegistry ? clearLegacyDonut(store) : [];
   return {
     scannedMonthCount: store.listMonths().length,
     months: cr.months,
-    removed: cr.removed + legacyRemoved.length,
+    removed: cr.removed,
     removedIds: cr.removedById.concat(cr.removedByScan),
-    legacyRemoved: legacyRemoved.map((r) => r.id),
+    corrupt: cr.corrupt,
   };
 }
 
 module.exports = {
-  E2E_DONUT_TAG: LEGACY_DONUT_TAG, // 保留导出名兼容引用；语义为旧版本裸标识
+  E2E_DONUT_TAG, // 保留导出名兼容引用；语义为旧版本裸标识，不用于删除
   seedDonut,
   seedDonutMany,
   clearDonut,

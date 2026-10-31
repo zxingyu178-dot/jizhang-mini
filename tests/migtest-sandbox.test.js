@@ -168,15 +168,15 @@ eq(remain2.length, 1, 'C2 清理后剩 1 条真实账单');
 eq(remain2[0].note, '真实消费', 'C2 普通真实账单保留');
 eq(seed2.clearDonut().removed, 0, 'C3 重复清理幂等');
 
-// C4：清单内容丢失（文件在但 runs 空），靠命名空间兜底扫描清理残留
+// C4：清单内容丢失（文件在但 runs 空），账单 runId 未登记，兜底也不删（fail-safe）
 store2.addBill({
   type: 'expense', amount: 10, categoryId: 'c-food',
   note: reg2.encodeTestNote(reg2.makeRunId('ghost')),
   occurredAt: new Date(2026, 9, 13, 12).getTime(),
 });
 reg2.writeRegistry({ version: 1, runs: [] }); // 模拟清单内容损坏 / 丢失
-eq(seed2.clearDonut().removed, 1, 'C4 清单丢失时命名空间兜底扫描清理残留');
-eq(store2.rangeBills().length, 1, 'C4 兜底后真实账单仍在');
+eq(seed2.clearDonut().removed, 0, 'C4 清单 runs 空时兜底不删未登记账单');
+eq(store2.rangeBills().length, 2, 'C4 真实账单与未登记账单均保留');
 
 /* ==================== D：异常路径清理（try/finally 故障注入） ==================== */
 // data/fs 每次动态取 fsm，替换 global.wx 后，缓存的 sandbox 模块也会用新 fsm。
@@ -232,6 +232,35 @@ try {
   eq(e.message.indexOf('CLEANUP_RMDIR_FAULT') < 0, true, 'D3 清理异常未向上抛出');
 }
 assert(d3, 'D3 主体异常确实抛错');
+
+// D4：初始化失败（ensureDir 的 mkdirSync 抛错）→ 原始异常向上抛、不进入主体，finally 仍清理
+withFaulty((f) => {
+  f.mkdirSync = function () { throw new Error('INIT_MKDIR_FAULT'); };
+});
+let d4 = false;
+try {
+  sandbox.runMigtestSandbox();
+} catch (e) {
+  d4 = true;
+  assert(e.message.indexOf('INIT_MKDIR_FAULT') >= 0, 'D4 初始化异常保留：' + e.message);
+}
+assert(d4, 'D4 初始化失败确实抛错');
+eq(dataFs.exists('/usr/__migtest_sandbox__'), false, 'D4 初始化失败后无残留沙箱');
+
+// D5：清理失败独立项（主体成功，仅 finally 清理 rmdir 失败）→ 不影响主体返回，标记未移除
+withFaulty((f) => {
+  f.rmdirSync = function () { throw new Error('CLEANUP_RMDIR_FAULT_D5'); };
+});
+let d5Threw = false;
+let d5Result;
+try {
+  d5Result = sandbox.runMigtestSandbox();
+} catch (e) {
+  d5Threw = true;
+}
+eq(d5Threw, false, 'D5 清理失败不向上抛、不影响主体');
+assert(d5Result && d5Result.actualCount === 3, 'D5 主体正常返回 3 条迁移结果');
+eq(d5Result.sandboxRemoved, false, 'D5 清理失败标记 sandboxRemoved=false');
 
 /* ---------- 汇总 ---------- */
 console.log('\nmigtest-sandbox tests: ' + pass + ' passed, ' + fail + ' failed');

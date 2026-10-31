@@ -1,16 +1,17 @@
 // utils/test-registry.js
-// 测试桥接共享的「运行 ID + 持久化测试清单 + 命名空间标记」机制。
-// 仅由测试桥接（e2e-donut-seed / main.__selftest）在非 release 环境调用；
-// release 下入口 fail-closed，本模块不可达，为测试环境专用模块。
+// 测试桥接：运行 ID + 持久化测试清单 + 命名空间安全清理（v1.3.4 Review Fix 再加固）。
 //
-// 设计目的（消除「凭普通备注文本误删真实账单」）：
-//   1. 每次测试生成唯一 runId；
-//   2. 账单 note 写带专用前缀的命名空间标记（TEST_NOTE_PREFIX + runId），
-//      不是用户可能巧合输入的普通文本；
-//   3. runId 与本次账单 ID 持久化到独立测试清单文件（与账本数据分离）；
-//   4. 清理优先按清单内账单 ID 精确删除，兜底只扫描命名空间前缀的残留；
-//   5. 绝不删除 note 不带测试前缀的账单。
-
+// 设计目标（fail-safe，宁可少删、绝不误删真实账单）：
+//   1. 测试账单 note 统一带命名空间前缀 `__TEST__:<runId>`，普通真实账单永远不匹配；
+//   2. 清单 readRegistry 严格校验 version / runs / runId / billIds，任何结构异常都标记
+//      corrupt；cleanupTestBills 遇到 corrupt 清单时不删除任何账单；
+//   3. 按清单 ID 删除时三重核对：账单 ID + note 命名空间 + note 内 runId 三者一致才删，
+//      真实账单 ID 即使被错误写入清单也会保留；
+//   4. 兜底扫描仅覆盖「已登记 runId」的账单，清单缺失 / runs 为空时兜底删不了任何东西；
+//   5. runId 先登记（空 billIds），每笔账单创建后 addBillToRun 及时登记，支持中途异常
+//      退出时仍能清理本次已登记账单。
+//
+// 本模块仅在 develop / trial 测试桥接路径使用，release 下入口 fail-closed、不可达。
 const fs = require('../data/fs');
 
 const TEST_NOTE_PREFIX = '__TEST__:';
@@ -21,131 +22,259 @@ function registryPath() {
   return fs.userRoot() + '/' + REGISTRY_FILE_NAME;
 }
 
-/** 生成唯一运行 ID（前缀 + 时间戳 + 随机），不依赖网络。 */
+/* ---------------- 运行 ID ---------------- */
+
 function makeRunId(prefix) {
-  const ts = Date.now();
-  const rand = Math.random().toString(36).slice(2, 8);
-  return String(prefix || 'run') + '-' + ts + '-' + rand;
+  const p = prefix ? String(prefix) : 'run';
+  return p + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-/** 编码测试账单 note（命名空间前缀 + runId）。 */
+/* ---------------- 测试 note 编码 / 识别 / 提取 ---------------- */
+
 function encodeTestNote(runId) {
   return TEST_NOTE_PREFIX + runId;
 }
 
-/** note 是否属于测试命名空间（绝不仅凭普通文本认定）。 */
 function isTestNote(note) {
   return typeof note === 'string' && note.indexOf(TEST_NOTE_PREFIX) === 0;
 }
 
-/** 从测试 note 取 runId；非测试 note 返回 null。 */
 function runIdFromNote(note) {
   if (!isTestNote(note)) return null;
-  return note.slice(TEST_NOTE_PREFIX.length);
+  const runId = note.slice(TEST_NOTE_PREFIX.length);
+  return runId.length > 0 ? runId : null;
 }
 
-/** 读取测试清单；损坏 / 不存在返回空骨架（不抛错，保证清理可自愈）。 */
+/* ---------------- 清单结构校验 ---------------- */
+
+function isValidRunId(runId) {
+  return typeof runId === 'string' && runId.length > 0;
+}
+
+function isValidBillIds(billIds) {
+  return Array.isArray(billIds)
+    && billIds.every((id) => typeof id === 'string' && id.length > 0);
+}
+
+/** 校验单个 run；合法则返回规范化副本（billIds 去重拷贝），非法返回 null。 */
+function normalizeRun(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (!isValidRunId(raw.runId)) return null;
+  if (!isValidBillIds(raw.billIds)) return null;
+  const seen = new Set();
+  const billIds = [];
+  raw.billIds.forEach((id) => {
+    if (!seen.has(id)) { seen.add(id); billIds.push(id); }
+  });
+  return {
+    runId: raw.runId,
+    kind: typeof raw.kind === 'string' && raw.kind ? raw.kind : 'test',
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
+    billIds,
+  };
+}
+
+function emptyRegistry() {
+  return { version: REGISTRY_VERSION, runs: [] };
+}
+
+/**
+ * 读取并严格校验清单。
+ * @returns {{version:number, runs:Array, corrupt:boolean, missing:boolean}}
+ *   - 文件不存在：missing=true（正常空态，非损坏）；
+ *   - 读取 / 解析失败或结构非法：corrupt=true，runs 强制为空（fail-safe）；
+ *   - 正常：corrupt=false，runs 为规范化数组。
+ */
 function readRegistry() {
-  const fallback = { version: REGISTRY_VERSION, runs: [] };
-  const data = fs.readJSON(registryPath(), fallback);
-  if (!data || !Array.isArray(data.runs)) return fallback;
-  return data;
+  const path = registryPath();
+  if (!fs.exists(path)) {
+    return Object.assign(emptyRegistry(), { corrupt: false, missing: true });
+  }
+  let data;
+  try {
+    data = fs.readJSONStrict(path);
+  } catch (e) {
+    return Object.assign(emptyRegistry(), { corrupt: true, missing: false });
+  }
+  if (!data || typeof data !== 'object'
+      || data.version !== REGISTRY_VERSION
+      || !Array.isArray(data.runs)) {
+    return Object.assign(emptyRegistry(), { corrupt: true, missing: false });
+  }
+  const runs = [];
+  for (const raw of data.runs) {
+    const run = normalizeRun(raw);
+    if (!run) {
+      // 含任意非法 run：整体 fail-safe，返回空 runs，避免基于部分异常清单做删除。
+      return Object.assign(emptyRegistry(), { corrupt: true, missing: false });
+    }
+    runs.push(run);
+  }
+  return { version: REGISTRY_VERSION, runs, corrupt: false, missing: false };
 }
 
-/** 持久化测试清单。 */
+/** 写入清单：永远规范化为合法结构（非法 run 被丢弃）。 */
 function writeRegistry(reg) {
-  fs.writeJSON(registryPath(), reg);
+  const rawRuns = reg && Array.isArray(reg.runs) ? reg.runs : [];
+  const runs = [];
+  rawRuns.forEach((raw) => {
+    const run = normalizeRun(raw);
+    if (run) runs.push(run);
+  });
+  fs.writeJSON(registryPath(), { version: REGISTRY_VERSION, runs });
 }
 
-/** 测试清单文件是否存在（用于区分「测试框架运行过的环境」与全新 / 真实账本）。 */
 function registryExists() {
   return fs.exists(registryPath());
 }
 
-/** 登记一次测试运行（runId + 账单 ID 列表）。 */
+/* ---------------- 运行登记 ---------------- */
+
+/**
+ * 登记一个新 run（通常 billIds 初始为空，账单创建后再 addBillToRun）。
+ * 同 runId 已存在则不重复追加。当前清单损坏时，重建只含本次 run 的新清单。
+ */
 function registerRun(entry) {
-  const reg = readRegistry();
-  reg.runs.push({
+  if (!entry || !isValidRunId(entry.runId)) {
+    throw new Error('registerRun 缺少合法 runId');
+  }
+  const current = readRegistry();
+  const runs = current.corrupt ? [] : current.runs;
+  if (runs.some((r) => r.runId === entry.runId)) {
+    return readRegistry();
+  }
+  const billIds = isValidBillIds(entry.billIds)
+    ? entry.billIds.slice()
+    : [];
+  runs.push({
     runId: entry.runId,
-    kind: entry.kind || 'test',
-    createdAt: entry.createdAt || Date.now(),
-    billIds: Array.isArray(entry.billIds) ? entry.billIds : [],
+    kind: typeof entry.kind === 'string' && entry.kind ? entry.kind : 'test',
+    createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
+    billIds,
   });
-  writeRegistry(reg);
+  writeRegistry({ version: REGISTRY_VERSION, runs });
+  return readRegistry();
 }
 
 /**
- * 清理测试账单：
- *   1) 先按清单内账单 ID 精确删除（不看 note）；
- *   2) 再兜底扫描全部账单，只删除 note 属于测试命名空间的残留；
- *   3) 绝不删除 note 不带测试前缀的账单。
- * @param {object} store 数据层
- * @param {object} [opts]
- * @param {string} [opts.runId] 仅清理指定 run；缺省清理全部测试 run
- * @returns {{removedById:string[],removedByScan:string[],removed:number,months:string[]}}
+ * 往已登记 run 追加一笔账单 ID（每笔账单创建后及时登记）。
+ * 清单损坏时重建只含本次 run 的新清单，确保本次账单可被追踪。
+ */
+function addBillToRun(runId, billId) {
+  if (!isValidRunId(runId)) throw new Error('addBillToRun 缺少合法 runId');
+  if (typeof billId !== 'string' || !billId) {
+    throw new Error('addBillToRun 缺少合法 billId');
+  }
+  const current = readRegistry();
+  if (current.corrupt) {
+    writeRegistry({
+      version: REGISTRY_VERSION,
+      runs: [{
+        runId, kind: 'test', createdAt: Date.now(), billIds: [billId],
+      }],
+    });
+    return;
+  }
+  const run = current.runs.find((r) => r.runId === runId);
+  if (!run) throw new Error('addBillToRun 找不到已登记 run：' + runId);
+  if (run.billIds.indexOf(billId) < 0) run.billIds.push(billId);
+  writeRegistry({ version: REGISTRY_VERSION, runs: current.runs });
+}
+
+/* ---------------- 安全清理 ---------------- */
+
+function ymOf(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+/**
+ * 清理测试账单（fail-safe）。
+ * @param {object} store 数据层（rangeBills / deleteBill）
+ * @param {{runId?:string}} [opts] opts.runId 仅清理指定 run；缺省清理全部已登记 run。
+ * @returns {{removedById:string[], removedByScan:string[], removed:number,
+ *            months:string[], corrupt:boolean}}
  */
 function cleanupTestBills(store, opts) {
   const options = opts || {};
-  const reg = readRegistry();
   const removedById = [];
   const removedByScan = [];
-  const touchedMonths = {};
+  const touchedMonths = new Set();
 
-  function mark(id, ym, list) {
-    list.push(id);
-    if (ym) touchedMonths[ym] = true;
+  function record(bill, list) {
+    list.push(bill.id);
+    touchedMonths.add(ymOf(bill.occurredAt));
   }
 
-  // 1) 按清单账单 ID 精确删除
-  const allBills = store.rangeBills();
-  const targetIds = new Set();
-  reg.runs.forEach((run) => {
-    if (options.runId && run.runId !== options.runId) return;
-    run.billIds.forEach((id) => targetIds.add(id));
+  const current = readRegistry();
+
+  // fail-safe：清单损坏（读取 / 解析 / 结构异常）→ 不删除任何账单，也不覆盖清单。
+  if (current.corrupt) {
+    return {
+      removedById,
+      removedByScan,
+      removed: 0,
+      months: [],
+      corrupt: true,
+    };
+  }
+
+  // 已登记 runId 集合：兜底扫描的唯一合法范围。
+  const registeredRunIds = new Set(current.runs.map((r) => r.runId));
+  const targetRuns = current.runs
+    .filter((r) => !options.runId || r.runId === options.runId);
+
+  // 1) 按清单 ID 删除：三重核对（ID + note 命名空间 + note 内 runId）。
+  const billById = new Map(store.rangeBills().map((b) => [b.id, b]));
+  targetRuns.forEach((run) => {
+    run.billIds.forEach((id) => {
+      const bill = billById.get(id);
+      if (!bill) return; // 账单已不存在，无需处理
+      const noteRunId = runIdFromNote(bill.note);
+      // 真实账单 ID 被错误写入清单：note 非测试命名空间或 runId 不匹配 → 保留。
+      if (noteRunId !== run.runId) return;
+      try {
+        store.deleteBill(id);
+        record(bill, removedById);
+      } catch (e) {
+        /* 单笔删除失败不影响其余清理 */
+      }
+    });
   });
-  targetIds.forEach((id) => {
+
+  // 2) 兜底扫描：仅删除 note 的 runId 已登记、且属于本次目标范围的残留账单。
+  store.rangeBills().forEach((bill) => {
+    const noteRunId = runIdFromNote(bill.note);
+    if (noteRunId === null) return; // 非测试命名空间（含 E2E_DONUT / SELFTEST 裸备注）
+    if (!registeredRunIds.has(noteRunId)) return; // runId 未登记 → 不删
+    if (options.runId && noteRunId !== options.runId) return;
     try {
-      const b = allBills.find((x) => x.id === id);
-      const ym = b ? store.ledger.ymOf(b.occurredAt) : null;
-      store.deleteBill(id);
-      mark(id, ym, removedById);
+      store.deleteBill(bill.id);
+      record(bill, removedByScan);
     } catch (e) {
-      /* 已不存在则忽略，继续兜底 */
+      /* 单笔删除失败不影响其余清理 */
     }
   });
 
-  // 2) 兜底：扫描命名空间前缀残留
-  store.rangeBills().forEach((b) => {
-    if (!isTestNote(b.note)) return;
-    if (options.runId && runIdFromNote(b.note) !== options.runId) return;
-    const ym = store.ledger.ymOf(b.occurredAt);
-    try {
-      store.deleteBill(b.id);
-      mark(b.id, ym, removedByScan);
-    } catch (e) {
-      /* 忽略 */
-    }
-  });
-
-  // 3) 更新清单：全量清理清空；指定 run 仅移除该 run
-  if (options.runId) {
-    reg.runs = reg.runs.filter((r) => r.runId !== options.runId);
-  } else {
-    reg.runs = [];
-  }
-  writeRegistry(reg);
+  // 3) 回写清单：指定 run 时只移除该 run，保留其他 run；缺省则全部清空。
+  const remainingRuns = options.runId
+    ? current.runs.filter((r) => r.runId !== options.runId)
+    : [];
+  writeRegistry({ version: REGISTRY_VERSION, runs: remainingRuns });
 
   return {
     removedById,
     removedByScan,
     removed: removedById.length + removedByScan.length,
-    months: Object.keys(touchedMonths).sort(),
+    months: Array.from(touchedMonths).sort(),
+    corrupt: false,
   };
 }
 
 module.exports = {
   TEST_NOTE_PREFIX,
   REGISTRY_FILE_NAME,
+  REGISTRY_VERSION,
   makeRunId,
   encodeTestNote,
   isTestNote,
@@ -154,5 +283,6 @@ module.exports = {
   writeRegistry,
   registryExists,
   registerRun,
+  addBillToRun,
   cleanupTestBills,
 };

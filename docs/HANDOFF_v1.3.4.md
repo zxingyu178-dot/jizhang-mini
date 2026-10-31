@@ -4,7 +4,7 @@
 - Branch：main
 - Version：**1.3.4**
 - 品牌名：**随时随地大小记**
-- AppID：`wxcdcf83d191065d9`
+- AppID：`wxcdcf83d9191065d9`
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`（顶部 + `packages[""]` 两处）、`README.md`、`CHANGELOG.md`）
 - 上一版本基线：v1.3.3（HEAD `06c6fe1`，功能主体 `2a49402`）
 - 本版定位：**独立代码审查修复，不新增业务功能。** 针对 v1.3.3 交付后的独立审查所指出的 2 个 P1、3 个 P2 实现问题逐项核实并收口，数据合同与依赖全部冻结。

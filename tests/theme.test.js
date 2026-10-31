@@ -444,6 +444,30 @@ async function run() {
   theme._resetForTest();
   eq(theme.getChangeCounter(), 0, 'COUNTER-05 _resetForTest 归零序号');
 
+  /* ============================================================
+   * v1.3.4 Review Fix：纯主题序号（仅用户主动 setThemeMode 递增）
+   * ============================================================ */
+  freshInit({ theme: 'dark' });
+  eq(theme.getThemeOnlyCounter(), 0, 'THEMEONLY-01 初始纯主题序号为 0');
+  theme.setThemeMode('light');
+  eq(theme.getThemeOnlyCounter(), 1, 'THEMEONLY-02 用户主动切主题 +1');
+  theme.setThemeMode('dark');
+  eq(theme.getThemeOnlyCounter(), 2, 'THEMEONLY-02 再次主动切换继续 +1');
+  theme.setThemeMode('dark');
+  eq(theme.getThemeOnlyCounter(), 2, 'THEMEONLY-03 同模式重复设置不递增');
+  theme.reloadFromStorage(); // 备份恢复路径
+  eq(theme.getThemeOnlyCounter(), 2, 'THEMEONLY-04 reloadFromStorage 不递增纯主题序号');
+  theme.refreshSystemTheme(); // 前台校准路径
+  eq(theme.getThemeOnlyCounter(), 2, 'THEMEONLY-05 refreshSystemTheme 不递增纯主题序号');
+  const fsmTO = global.wx.getFileSystemManager();
+  const origTO = fsmTO.writeFileSync;
+  fsmTO.writeFileSync = function () { throw new Error('EIO'); };
+  theme.setThemeMode('light');
+  fsmTO.writeFileSync = origTO;
+  eq(theme.getThemeOnlyCounter(), 2, 'THEMEONLY-06 写失败不递增纯主题序号');
+  theme._resetForTest();
+  eq(theme.getThemeOnlyCounter(), 0, 'THEMEONLY-07 _resetForTest 归零');
+
   /* ---- 汇总 ---- */
   console.log('\ntheme tests: ' + pass + ' passed, ' + fail + ' failed');
   if (fail > 0) process.exit(1);

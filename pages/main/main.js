@@ -107,7 +107,7 @@ Page({
   },
   onReady() {
     if (!this.data.protection) {
-      this._lastThemeCounter = theme.getChangeCounter();
+      this._lastThemeOnly = theme.getThemeOnlyCounter();
       this.activatePanel(this.data.current);
       this._ready = true;
     }
@@ -117,12 +117,13 @@ Page({
     // 保护模式下不刷新正常面板（组件未渲染）
     if (this.data.protection) return;
     if (!this._ready) return;
-    // 从外观页切主题返回：主题订阅已让统计面板做局部 recolor（保留展开 / 选中态），
-    // 这里识别主题序号变化，跳过统计面板的完整重载，避免状态被重置；
-    // 从预算设置 / 其他二级页返回（序号未变）仍安全刷新全部面板。
-    const themeCounter = theme.getChangeCounter();
-    const themeOnly = themeCounter !== this._lastThemeCounter;
-    this._lastThemeCounter = themeCounter;
+    // 仅「用户主动 setThemeMode」（纯主题序号变化）才跳过统计面板完整重载：主题订阅
+    // 已让统计面板做局部 recolor（保留展开 / 选中态），完整重载会重置状态。
+    // 备份恢复 / 主题重载 / 数据变化不会递增纯主题序号，因此这里一定完整刷新统计，
+    // 保证恢复后月度 / 年度统计与新账本一致；从预算设置等二级页返回也安全刷新。
+    const themeOnlyCounter = theme.getThemeOnlyCounter();
+    const themeOnly = themeOnlyCounter !== this._lastThemeOnly;
+    this._lastThemeOnly = themeOnlyCounter;
     this.refreshPanels({ preserveStatistics: themeOnly });
   },
   /** G6：检测 App 是否进入数据保护模式（启动完整性扫描发现损坏） */
@@ -356,6 +357,8 @@ Page({
 
     // 先清历史自检残留，保证干净起点。
     cleanupSelftestBills(store);
+    // runId 先登记（空 billIds），再注入账单；每笔创建后及时登记 ID，支持中途异常清理。
+    testRegistry.registerRun({ runId, kind: 'selftest', billIds: [] });
 
     try {
       const bill = store.addBill({
@@ -366,6 +369,7 @@ Page({
         note: testRegistry.encodeTestNote(runId),
         occurredAt: now,
       });
+      testRegistry.addBillToRun(runId, bill.id);
       const income = store.addBill({
         type: 'income',
         amount: 500,
@@ -373,8 +377,7 @@ Page({
         note: testRegistry.encodeTestNote(runId),
         occurredAt: now,
       });
-      // 持久化本次 run（runId + 账单 ID），供按 ID 精确清理。
-      testRegistry.registerRun({ runId, kind: 'selftest', billIds: [bill.id, income.id] });
+      testRegistry.addBillToRun(runId, income.id);
 
       const ym = store.ledger.ymOf(now);
       const s = store.monthSummary(ym);

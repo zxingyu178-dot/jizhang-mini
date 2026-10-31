@@ -4,7 +4,7 @@
 - Branch：main
 - Version：**1.3.3**
 - 品牌名：**随时随地大小记**
-- AppID：`wxcdcf83d191065d9`
+- AppID：`wxcdcf83d9191065d9`
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`（顶部 + `packages[""]` 两处）、`README.md`、`CHANGELOG.md`）
 - 上一版本基线：v1.3.2（HEAD `b9fd200`）
 - 本版定位：**可靠性收口与主题一致性，不新增业务功能。** 针对外部静态审查指出的 5 类遗留问题逐项修复，数据合同与依赖全部冻结。
