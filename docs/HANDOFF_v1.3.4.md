@@ -16,7 +16,7 @@
 - 本版本在同一版本号 **1.3.4** 上经历了**三轮独立复审**：
   - **第一轮（针对 v1.3.3）**：2 个 P1 + 3 个 P2，功能主体提交 `9278e58`，SHA 回填提交 `e43a1d1`；
   - **第二轮（针对 v1.3.4 的更严格复审）**：3 个 P1 + 2 个 P2，收口提交 **`f5cb759`**；
-  - **第三轮 Final Closure（最终收尾，本轮）**：1 个 P1 + 1 个 P2，收口提交 **`<待回填>`**。
+  - **第三轮 Final Closure（最终收尾，本轮）**：1 个 P1 + 1 个 P2，收口提交 **`077e194`**。
 - 全量单元测试 **37/37 套件通过**（较上轮新增 1 个 theme-preserve-flow 套件），E2E **24/24 通过**，主题 / 对比度 / release 审计全部通过。
 - 微信开发者工具 **cli 自动上传成功**（只上传、不提交审核、不发布），版本号 1.3.4，平台返回 `√ upload`；第三轮修复后重新上传同版本覆盖旧体验版（见第 5 节）。
 - 数据合同零改动：Bill V3、Backup V3、Recurring Store V1、Budget V1 均未升级；无第三方依赖新增。
@@ -250,9 +250,12 @@ v1.3.3 交付后收到独立代码审查，指出 5 个实现问题，逐项读�
 
 第三轮修复后重新 cli 上传同一版本 1.3.4，覆盖旧体验版；只上传、不审核、不发布。
 
-- **上传命令**：`cli upload --project <root> --version 1.3.4 --desc "v1.3.4 Final Closure" --info-output upload-info.json`
-- **平台返回 / 包体 / 上传时间**：`<待上传成功后回填>`
-- 上传前已编译并核对 AppID（18 位，来自 project.config.json）；如平台再次提示覆盖体验版，按平台正常行为记录并如实报告。
+- **上传命令**：`cli upload --project <root> --version 1.3.4 --desc "v1.3.4 Final Closure" --info-output upload-info-134-r3.json`
+- **平台返回**：`√ upload`（exit=0，未提交审核、未发布）；
+- **包体**：总 **1,675,581 字节（约 1.6 MB）**，其中 main 360,038 字节、importer 分包 1,315,543 字节；
+- **上传时间**：2026-10-31 16:46:17；
+- 凭证文件（upload-info-134-r3.json，含 size 明细）保存在项目外 agent workspace，**不进 GitHub**；
+- 上传前已核对 AppID（18 位 `wxcdcf83d9191065d9`，来自 project.config.json）；同版本上传会覆盖旧体验版，属平台正常行为，需用户真机 / 后台确认。
 
 ---
 
@@ -290,4 +293,4 @@ v1.3.4 三轮修复**均未升级 / 未改动**任何核心数据合同：Bill V
 - 中文 commit 用 `git commit -F <file>`，推送走显式代理 `http://127.0.0.1:33210`。
 - 代码修复收口 `f5cb759` 推送后，本 HANDOFF 的第二轮修复 + 微信上传记录回填**另做一个仅文档提交（不改动任何代码）**；最终 HEAD 以该文档提交为准，与 origin/main 一致，`git rev-list --left-right --count origin/main...HEAD` 为 0 0。
 - 已跟踪工作区改动数 0，仅 3 个未跟踪历史验收 ZIP（不进 git）；新打包验收产物同样不进 git。
-- **第三轮 Final Closure（1 P1 + 1 P2，本轮）收口提交：`<待回填>`**，压缩到一个提交。精确 `git add` 目标文件：6 个已跟踪修改（`pages/main/main.js`、`pages/settings/settings.js`、`tests/run-all.js`、`tests/test-registry.test.js`、`utils/test-registry.js`、`utils/theme.js`）+ 1 个新建测试（`tests/theme-preserve-flow.test.js`）+ 本 HANDOFF；验收 ZIP 不进 git。推送后核对 `git rev-list --left-right --count origin/main...HEAD` 为 0 0。
+- **第三轮 Final Closure（1 P1 + 1 P2，本轮）收口提交：`077e19476c55eccdfb081bf77d79a4b03177d15f`**，压缩到一个提交。精确 `git add` 目标文件：6 个已跟踪修改（`pages/main/main.js`、`pages/settings/settings.js`、`tests/run-all.js`、`tests/test-registry.test.js`、`utils/test-registry.js`、`utils/theme.js`）+ 1 个新建测试（`tests/theme-preserve-flow.test.js`）+ 本 HANDOFF；验收 ZIP 不进 git。推送后核对 `git rev-list --left-right --count origin/main...HEAD` 为 0 0。
