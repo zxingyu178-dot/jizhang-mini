@@ -57,33 +57,38 @@ Page({
     this.setData({ budgetHint: hint });
   },
 
-  /** 分类管理（二级页） */
+  /** 分类管理（二级页，非主题操作）：取消主题保留标记 */
   onCategoryManage() {
+    theme.cancelThemePreserve();
     wx.navigateTo({ url: '/pages/category-manage/category-manage' });
   },
 
-  /** 周期记账（二级页） */
+  /** 周期记账（二级页，非主题操作）：取消主题保留标记 */
   onRecurring() {
+    theme.cancelThemePreserve();
     wx.navigateTo({ url: '/pages/recurring/recurring' });
   },
 
-  /** 预算设置（二级页） */
+  /** 预算设置（二级页，非主题操作）：取消主题保留标记 */
   onBudgetSettings() {
+    theme.cancelThemePreserve();
     wx.navigateTo({ url: '/pages/budget-settings/budget-settings' });
   },
 
-  /** 外观（二级页） */
+  /** 外观（二级页，主题操作）：不取消主题保留标记 */
   onAppearance() {
     wx.navigateTo({ url: '/pages/appearance/appearance' });
   },
 
-  /** 数据导入：统一导入引擎分包 */
+  /** 数据导入：统一导入引擎分包（非主题操作）：取消主题保留标记 */
   onImport() {
+    theme.cancelThemePreserve();
     wx.navigateTo({ url: '/packages/importer/pages/import/import' });
   },
 
-  /** 备份与恢复（合并为二级页） */
+  /** 备份与恢复（合并为二级页，非主题操作）：取消主题保留标记 */
   onBackupRestore() {
+    theme.cancelThemePreserve();
     wx.navigateTo({ url: '/pages/backup-restore/backup-restore' });
   },
 

@@ -6,18 +6,19 @@
 - 品牌名：**随时随地大小记**
 - AppID：`wxcdcf83d9191065d9`（18 位，以 `project.config.json` 为唯一权威；本版已修正历史文档中的 17 位笔误）
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`、`README.md`、`CHANGELOG.md`）
-- 本版定位：**两轮独立代码审查修复，不新增业务功能。** 数据合同与依赖全部冻结，不重写统计模块与圆环。
+- 本版定位：**三轮独立代码审查修复，不新增业务功能。** 数据合同与依赖全部冻结，不重写统计模块与圆环。
 - 后续路线：本版完成后停止，等用户审 main 与 ChatGPT 独立复审；真机 Gate 由用户本人执行，助手不代签。
 
 ---
 
 ## 0. 结论速览
 
-- 本版本在同一版本号 **1.3.4** 上经历了**两轮独立复审**：
+- 本版本在同一版本号 **1.3.4** 上经历了**三轮独立复审**：
   - **第一轮（针对 v1.3.3）**：2 个 P1 + 3 个 P2，功能主体提交 `9278e58`，SHA 回填提交 `e43a1d1`；
-  - **第二轮（针对 v1.3.4 的更严格复审，本轮）**：3 个 P1 + 2 个 P2，收口提交 **`f5cb759`**。
-- 全量单元测试 **36/36 套件通过**（较上轮新增 1 个套件），E2E **24/24 通过**，主题 / 对比度 / release 审计全部通过。
-- 微信开发者工具 **cli 自动上传成功**（只上传、不提交审核、不发布），版本号 1.3.4，平台返回 `√ upload`。
+  - **第二轮（针对 v1.3.4 的更严格复审）**：3 个 P1 + 2 个 P2，收口提交 **`f5cb759`**；
+  - **第三轮 Final Closure（最终收尾，本轮）**：1 个 P1 + 1 个 P2，收口提交 **`<待回填>`**。
+- 全量单元测试 **37/37 套件通过**（较上轮新增 1 个 theme-preserve-flow 套件），E2E **24/24 通过**，主题 / 对比度 / release 审计全部通过。
+- 微信开发者工具 **cli 自动上传成功**（只上传、不提交审核、不发布），版本号 1.3.4，平台返回 `√ upload`；第三轮修复后重新上传同版本覆盖旧体验版（见第 5 节）。
 - 数据合同零改动：Bill V3、Backup V3、Recurring Store V1、Budget V1 均未升级；无第三方依赖新增。
 
 ---
@@ -49,6 +50,15 @@ v1.3.3 交付后收到独立代码审查，指出 5 个实现问题，逐项读�
 **版本号说明**：第二轮仍为同一版本 1.3.4 的修订收口，不新增版本号；微信允许同版本号多次上传开发版，以最新为准。
 
 数据合同与依赖在两轮中**全部冻结**：Bill V3、Backup V3、Recurring Store V1、Budget V1 均不升级，不新增依赖、不新增分类颜色持久化字段、不重新设计圆环、不改变黄金角稳定配色基本原则。
+
+### 1.3 第三轮 Final Closure：最终收尾（1 P1 + 1 P2，本轮）
+
+第二轮收口后，用户转来最后一轮 Final Closure 复审，聚焦第二轮 P1-2 引入的 `_themeOnlyCounter` 机制仍不够彻底，以及一个测试清理边界：
+
+- **P1 纯主题事件过期**：`_themeOnlyCounter` 是单调累计的**状态**而非一次性**事件**，`main.onShow` 用「当前值 ≠ 上次快照值」判断。真实路径「主页→设置→外观切浅色(+1)→返回设置（计数器保留）→备份恢复新账本→返回设置→返回主页」时，main 发现计数器变化误判为纯主题、跳过统计刷新，可能出现旧统计数字。settings 页 onShow 只更新入口提示、未清除主题事件，其他子页面也未取消标记。
+- **P2 清理失败保留注册**：`cleanupTestBills` 删除账单抛错时虽捕获异常，但回写清单仍可能把整个 run 移除，账单残留且失去后续清理依据。
+
+**第三轮口径**：仍为同一版本 1.3.4 的最终修订，不新增业务功能、不升级数据合同、不引第三方依赖、不重构稳定模块，压缩到一个提交。
 
 ---
 
@@ -139,33 +149,71 @@ v1.3.3 交付后收到独立代码审查，指出 5 个实现问题，逐项读�
 - 以正则 `wx[0-9a-f]+` 替换为读取变量（全程不手敲字符串），UTF8 无 BOM、`[IO.File]::WriteAllText` 原样写回保持 LF；
 - 修正后用精确正则 `(?<![0-9a-f])wx[0-9a-f]{15}(?![0-9a-f])` 全仓扫描（排除 node_modules/.git/WeappCache），确认无 17 位残留；扫描中 len=10（历史截断示意）、len=3（测试变量名 wx2/wx3）均核实为误报。
 
+### 3.6 第三轮 Final Closure 修复详解（1 P1 + 1 P2）
+
+#### 3.6.1 P1：累计计数器改为可消费、可取消的一次性主题保留标记
+
+涉及文件：`utils/theme.js`、`pages/main/main.js`、`pages/settings/settings.js`（`data/backup.js` 数据合同不动，备份恢复的取消经由 `reloadFromStorage` 统一完成）。
+
+**theme.js 新增模块变量与四个操作**：
+- 模块变量 `_themePreservePending`（布尔，初始 false）；
+- `markThemePreserve()`：置 true，重复调用不累积；
+- `cancelThemePreserve()`：置 false；
+- `consumeThemePreserve()`：返回当前值并立即清零（一次性消费）；
+- `hasThemePreserve()`：测试断言用。
+- 接线：`setThemeMode` 在确实变化、emit 且 `_themeOnlyCounter += 1` 后调用 `markThemePreserve()`；`reloadFromStorage`（备份恢复 / 回滚 / 外部覆盖的必经路径）末尾调用 `cancelThemePreserve()`。`backup.restoreBackup` 成功与 `rollback` 两条路径末尾都走 `reloadFromStorage`，因此备份恢复自动取消，无需在 backup.js 单独加调用。
+- 保留 `_themeOnlyCounter` / `getThemeOnlyCounter` 作为可观测计数，使现有 theme.test.js 的 THEMEONLY-01~07 不被破坏；但 onShow 是否跳过刷新实际以一次性标记为准。`_resetForTest` 同时把标记重置为 false。
+
+**main.js**：
+- `onReady` 删除 `this._lastThemeOnly = theme.getThemeOnlyCounter()`（不再依赖快照比较）；
+- `onShow` 改为 `const preserveStatistics = theme.consumeThemePreserve(); this.refreshPanels({ preserveStatistics })`，每次回主页最多拿到一次 true、标记自动清零，不会残留误判。
+
+**settings.js**：5 个非主题导航（`onCategoryManage`、`onRecurring`、`onBudgetSettings`、`onImport`、`onBackupRestore`）在 `navigateTo` 前调用 `theme.cancelThemePreserve()`；`onAppearance`（主题入口）显式不取消。这些非主题页面全部从 settings 进入，正好覆盖验收点名的全部路径。
+
+**行为保证**：
+- 纯主题切换回主页：consume 得 true，圆环展开 / 选中态保持，且只消费一次；
+- 切主题后进入备份恢复（cancel）→ restoreBackup（reloadFromStorage 再 cancel）→ 回主页：consume 得 false，统计完整刷新为新账本；
+- 切主题后进入分类 / 周期 / 预算 / 导入（cancel）→ 回主页：consume 得 false，不跳过必要刷新；
+- 不恢复主题切换时的全量重算，仅纯主题这一条路径 preserve。
+
+#### 3.6.2 P2：删除失败保留 runId / billId，下次继续清理
+
+涉及文件：`utils/test-registry.js`、`tests/test-registry.test.js`。fail-safe 原则（清单 corrupt 零删除、删除三重核对、兜底仅扫已登记 runId）完全未改。
+
+- `cleanupTestBills` 新增 `failedByRun`（按 runId 归属）与 `markFailed(runId, billId)`（去重）；
+- 按清单 ID 删除的 catch 改为 `markFailed(run.runId, id)`；兜底扫描的 catch 改为 `markFailed(noteRunId, bill.id)`；
+- 回写清单逻辑重写：指定 runId 清理时非目标 run 原样保留；目标 run 计算 `keepIds`（原清单中删除失败的 + 兜底失败的，去重），keepIds 非空则保留该 run 且 billIds 只含未删成功的 ID，全部成功的 run 才移除；
+- 返回对象新增 `failedBillIds` 数组（现有 removedById / removedByScan / removed / months / corrupt 字段保留不破坏）。
+
 ---
 
 ## 4. 测试真实结果
 
 | 命令 | 结果 |
 | --- | --- |
-| `npm test` | **36/36 套件通过，0 失败**（较上轮新增 backup-restore-statistics，run-all 已注册） |
+| `npm test` | **37/37 套件通过，0 失败**（第三轮新增 theme-preserve-flow，run-all 已注册） |
 | `npm run e2e` | **T01–T24 全绿 24/24，0 失败**，17 张截图均带 `_simulator` 后缀 |
 | `npm run theme:audit` | 0 FAIL，3 项 JS 白色 WARN 不阻断 |
 | `npm run contrast:audit` | 两主题圆环在全部候选背景上 worst 均 ≥3:1，PASS（dark 3.145 / light 3.249） |
-| `npm run release:check` | **FAIL 0，WARN 1**（历史文档 / libVersion 用户侧项，不阻断），通过 |
+| `npm run release:check` | **FAIL 0，WARN 1**（libVersion 用户侧项，不阻断），通过 |
 
 关键套件断言数（本轮实跑）：
 
 | 套件 | 断言 / 通过数 | 套件 | 断言 / 通过数 |
 | --- | --- | --- | --- |
-| test-registry | 57 | statistics | 175 |
+| test-registry | 78（第三轮 +21） | statistics | 175 |
 | migtest-sandbox | 42 | importer | 144 |
 | theme | 79 | budget | 135 |
-| backup-restore-statistics | 16（新建） | daily-value | 97 |
-| path-normalize | 575 | recurring | 107 |
-| donut-hit | 51 | search | 80 |
-| contrast | 30 | categories | 76 |
+| backup-restore-statistics | 16 | daily-value | 97 |
+| theme-preserve-flow | 34（第三轮新建） | recurring | 107 |
+| path-normalize | 575 | search | 80 |
+| donut-hit | 51 | categories | 76 |
+| contrast | 30 | | |
 
 - 全部改动文件 `node --check` 退出码 0。
-- E2E 本轮重新生成 13 张截图（时间戳 2026-10-31 11:45:35），截图目录共 17 张（其余为历史保留）。
+- 第三轮 E2E 重新生成 17 张截图（时间戳 2026-10-31 16:24），截图目录共 17 张。
 - 5k/15k/30k 大账本真机 Gate 未在本轮运行：本版聚焦可靠性收口，真机大账本体验待用户验收时集中测试。
+- 第三轮 P1 专项 `theme-preserve-flow.test.js` 共 34 断言，覆盖纯主题、备份恢复、四类非主题页、取消后重建四个时序；P2 在 test-registry 第 6 节新增 21 断言（全失败 + 部分失败故障注入）。
 
 ---
 
@@ -198,6 +246,14 @@ v1.3.3 交付后收到独立代码审查，指出 5 个实现问题，逐项读�
 - 未修改 AppID、未修改 `libVersion`（仍 `latest`）；
 - 未遇到未登录 / 无权限 / 扫码 / 平台报错情形（login:true、upload 成功）；若后续出现将暂停报告、不伪造。
 
+### 5.4 第三轮 Final Closure 重新上传（同版本 1.3.4 覆盖旧体验版）
+
+第三轮修复后重新 cli 上传同一版本 1.3.4，覆盖旧体验版；只上传、不审核、不发布。
+
+- **上传命令**：`cli upload --project <root> --version 1.3.4 --desc "v1.3.4 Final Closure" --info-output upload-info.json`
+- **平台返回 / 包体 / 上传时间**：`<待上传成功后回填>`
+- 上传前已编译并核对 AppID（18 位，来自 project.config.json）；如平台再次提示覆盖体验版，按平台正常行为记录并如实报告。
+
 ---
 
 ## 6. 真机验收（待用户执行，助手不代签）
@@ -211,7 +267,7 @@ v1.3.3 交付后收到独立代码审查，指出 5 个实现问题，逐项读�
 
 ## 7. 数据合同冻结声明
 
-v1.3.4 两轮修复**均未升级 / 未改动**任何核心数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1；不新增第三方依赖、不新增分类颜色持久化字段、不加入新业务功能、不重写统计模块与圆环、不改变黄金角稳定配色原则。
+v1.3.4 三轮修复**均未升级 / 未改动**任何核心数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1；不新增第三方依赖、不新增分类颜色持久化字段、不加入新业务功能、不重写统计模块与圆环、不改变黄金角稳定配色原则。
 
 ---
 
@@ -234,3 +290,4 @@ v1.3.4 两轮修复**均未升级 / 未改动**任何核心数据合同：Bill V
 - 中文 commit 用 `git commit -F <file>`，推送走显式代理 `http://127.0.0.1:33210`。
 - 代码修复收口 `f5cb759` 推送后，本 HANDOFF 的第二轮修复 + 微信上传记录回填**另做一个仅文档提交（不改动任何代码）**；最终 HEAD 以该文档提交为准，与 origin/main 一致，`git rev-list --left-right --count origin/main...HEAD` 为 0 0。
 - 已跟踪工作区改动数 0，仅 3 个未跟踪历史验收 ZIP（不进 git）；新打包验收产物同样不进 git。
+- **第三轮 Final Closure（1 P1 + 1 P2，本轮）收口提交：`<待回填>`**，压缩到一个提交。精确 `git add` 目标文件：6 个已跟踪修改（`pages/main/main.js`、`pages/settings/settings.js`、`tests/run-all.js`、`tests/test-registry.test.js`、`utils/test-registry.js`、`utils/theme.js`）+ 1 个新建测试（`tests/theme-preserve-flow.test.js`）+ 本 HANDOFF；验收 ZIP 不进 git。推送后核对 `git rev-list --left-right --count origin/main...HEAD` 为 0 0。

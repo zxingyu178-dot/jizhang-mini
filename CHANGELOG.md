@@ -18,6 +18,10 @@ Review Fix & Final Reliability Closure（独立代码审查修复与最终可靠
 - E2E T24 重写为真正覆盖展开与选中态：改用 10 分类（触发聚合，含子分类与中性色），月度 + 年度均真实展开、真实选中圆环分段后再切主题，断言展开 / 选中状态保持、前七项颜色与色相身份、子分类中性色、圆环与图例一致；旧 T24 全程未展开、无法暴露状态问题。
 - 新增 `tests/test-registry.test.js`（44 项），`contrast.test.js` 重写为 30 项，`migtest-sandbox.test.js` 新增故障注入（现 36 项），`lazy-compute.test.js` 新增局部刷新专项（现 52 项），`theme.test.js` 新增变更序号专项（现 71 项）。
 
+### Final Closure（第三轮收尾，1 P1 + 1 P2）
+- **纯主题事件改为一次性可消费 / 可取消标记（P1）**：第二轮用于判断的 `_themeOnlyCounter` 是单调累计的状态而非事件，「切主题→再进备份恢复 / 分类 / 周期 / 预算 / 导入等非主题操作→返回主页」时可能被误判为纯主题而跳过统计刷新。`theme.js` 新增 `_themePreservePending` 与 `markThemePreserve` / `cancelThemePreserve` / `consumeThemePreserve` / `hasThemePreserve`：主动切主题才 mark，进入任一非主题页（settings 导航）与 `reloadFromStorage`（备份恢复 / 回滚必经）均 cancel，`main.onShow` 改为 consume（取值即清零）。纯主题回主页圆环展开 / 选中态保持且只消费一次，非主题操作后统计完整刷新，不恢复全量重算。
+- **删除失败保留注册（P2）**：`cleanupTestBills` 删除账单抛错时，按 runId 记录失败 billId，回写清单时保留该 run 与未删成功的 ID，等下次清理；返回值新增 `failedBillIds`。fail-safe（清单 corrupt 零删除、三重核对、兜底仅扫已登记 runId）不变，并补 deleteBill 故障注入测试。
+
 ### 冻结项
 - 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1，均不升级；不新增依赖、不新增分类颜色持久化字段、不重新设计圆环、不改变黄金角稳定配色基本原则。
 

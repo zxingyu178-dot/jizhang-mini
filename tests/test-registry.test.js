@@ -277,5 +277,86 @@ function freshEnv() {
   eq(reg.readRegistry().runs.length, 1, '5.4 清单保留 runB');
 })();
 
+/* ---------- 6. P2 deleteBill 故障注入：删除失败保留注册，下次继续清理 ---------- */
+(function () {
+  const s = freshEnv();
+  const r = reg.makeRunId('donut');
+  reg.registerRun({ runId: r, kind: 'donut', billIds: [] });
+  const b1 = s.addBill({
+    type: 'expense', amount: 10, categoryId: 'c-food',
+    note: reg.encodeTestNote(r), occurredAt: new Date(2026, 9, 17, 12).getTime(),
+  });
+  const b2 = s.addBill({
+    type: 'expense', amount: 12, categoryId: 'c-life',
+    note: reg.encodeTestNote(r), occurredAt: new Date(2026, 9, 18, 12).getTime(),
+  });
+  reg.addBillToRun(r, b1.id);
+  reg.addBillToRun(r, b2.id);
+  eq(s.rangeBills().length, 2, '6 故障前共 2 笔测试账单');
+
+  // 故障注入：deleteBill 一律抛错（保存原始实现以便恢复）。
+  const realDeleteBill = s.deleteBill.bind(s);
+  let injectFail = true;
+  s.deleteBill = function (id) {
+    if (injectFail) throw new Error('inject deleteBill failure');
+    return realDeleteBill(id);
+  };
+
+  const failed = reg.cleanupTestBills(s);
+  eq(failed.removed, 0, '6 故障注入下没有账单被删除');
+  eq(failed.failedBillIds.length, 2, '6 返回值记录 2 个删除失败的账单 ID');
+  eq(failed.failedBillIds.indexOf(b1.id) >= 0 && failed.failedBillIds.indexOf(b2.id) >= 0, true, '6 失败 ID 包含两笔账单');
+  // 账单仍在（未被误删）
+  eq(s.rangeBills().length, 2, '6 删除失败后账单仍保留');
+  // 关键：run 与 billId 仍在注册表，保留后续清理依据
+  const keptReg = reg.readRegistry();
+  eq(keptReg.runs.length, 1, '6 删除失败后 run 仍保留在注册表');
+  eq(keptReg.runs[0].runId, r, '6 保留的 runId 正确');
+  eq(keptReg.runs[0].billIds.length, 2, '6 保留的 billIds 含两个未清理 ID');
+  eq(keptReg.runs[0].billIds.indexOf(b1.id) >= 0 && keptReg.runs[0].billIds.indexOf(b2.id) >= 0, true, '6 注册表保留两笔账单 ID');
+
+  // 恢复 deleteBill 正常，下次 cleanup 依据保留的注册继续清理
+  injectFail = false;
+  const retry = reg.cleanupTestBills(s);
+  eq(retry.removed, 2, '6 故障恢复后下次清理成功删除 2 笔');
+  eq(retry.failedBillIds.length, 0, '6 重试无删除失败');
+  eq(s.rangeBills().length, 0, '6 重试后账单全部清理');
+  eq(reg.readRegistry().runs.length, 0, '6 重试成功后 run 从注册表移除');
+})();
+
+// 6.2 部分失败：一笔成功、一笔失败，清单只保留失败那笔
+(function () {
+  const s = freshEnv();
+  const r = reg.makeRunId('donut');
+  reg.registerRun({ runId: r, kind: 'donut', billIds: [] });
+  const ok = s.addBill({
+    type: 'expense', amount: 10, categoryId: 'c-food',
+    note: reg.encodeTestNote(r), occurredAt: new Date(2026, 9, 19, 12).getTime(),
+  });
+  const bad = s.addBill({
+    type: 'expense', amount: 11, categoryId: 'c-life',
+    note: reg.encodeTestNote(r), occurredAt: new Date(2026, 9, 20, 12).getTime(),
+  });
+  reg.addBillToRun(r, ok.id);
+  reg.addBillToRun(r, bad.id);
+
+  const realDeleteBill = s.deleteBill.bind(s);
+  s.deleteBill = function (id) {
+    if (id === bad.id) throw new Error('inject partial failure');
+    return realDeleteBill(id);
+  };
+
+  const partial = reg.cleanupTestBills(s);
+  eq(partial.removed, 1, '6.2 成功删除 1 笔');
+  eq(partial.failedBillIds.length, 1, '6.2 仅 1 笔删除失败');
+  eq(partial.failedBillIds[0], bad.id, '6.2 失败 ID 为 bad 账单');
+  const kept = reg.readRegistry();
+  eq(kept.runs.length, 1, '6.2 run 因有失败账单而保留');
+  eq(kept.runs[0].billIds.length, 1, '6.2 清单只保留失败那笔 ID');
+  eq(kept.runs[0].billIds[0], bad.id, '6.2 保留的是失败账单 ID');
+  eq(s.rangeBills().some((b) => b.id === ok.id), false, '6.2 成功那笔已删除');
+  eq(s.rangeBills().some((b) => b.id === bad.id), true, '6.2 失败那笔仍残留待清理');
+})();
+
 console.log('\ntest-registry tests: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

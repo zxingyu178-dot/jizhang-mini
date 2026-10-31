@@ -107,7 +107,6 @@ Page({
   },
   onReady() {
     if (!this.data.protection) {
-      this._lastThemeOnly = theme.getThemeOnlyCounter();
       this.activatePanel(this.data.current);
       this._ready = true;
     }
@@ -117,14 +116,12 @@ Page({
     // 保护模式下不刷新正常面板（组件未渲染）
     if (this.data.protection) return;
     if (!this._ready) return;
-    // 仅「用户主动 setThemeMode」（纯主题序号变化）才跳过统计面板完整重载：主题订阅
-    // 已让统计面板做局部 recolor（保留展开 / 选中态），完整重载会重置状态。
-    // 备份恢复 / 主题重载 / 数据变化不会递增纯主题序号，因此这里一定完整刷新统计，
-    // 保证恢复后月度 / 年度统计与新账本一致；从预算设置等二级页返回也安全刷新。
-    const themeOnlyCounter = theme.getThemeOnlyCounter();
-    const themeOnly = themeOnlyCounter !== this._lastThemeOnly;
-    this._lastThemeOnly = themeOnlyCounter;
-    this.refreshPanels({ preserveStatistics: themeOnly });
+    // 消费一次性主题保留标记：仅当用户主动切主题、且之后没有进入任何非主题操作时，
+    // 才拿到 true 并跳过统计面板完整重载（主题订阅已做局部 recolor，保留圆环展开/
+    // 选中态）。标记在 consume 内立即清零，只生效一次；备份恢复 / 分类 / 周期 /
+    // 预算 / 导入等非主题操作会先取消标记，这里拿到 false，统计必然完整刷新。
+    const preserveStatistics = theme.consumeThemePreserve();
+    this.refreshPanels({ preserveStatistics });
   },
   /** G6：检测 App 是否进入数据保护模式（启动完整性扫描发现损坏） */
   checkProtection() {

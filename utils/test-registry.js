@@ -200,6 +200,14 @@ function cleanupTestBills(store, opts) {
   const removedById = [];
   const removedByScan = [];
   const touchedMonths = new Set();
+  // 删除失败的账单按 runId 归属：{ [runId]: string[] }。回写清单时这些 ID 连同
+  // run 一并保留，等下次 cleanup 继续清理，避免账单残留且失去追踪依据。
+  const failedByRun = Object.create(null);
+
+  function markFailed(runId, billId) {
+    if (!failedByRun[runId]) failedByRun[runId] = [];
+    if (failedByRun[runId].indexOf(billId) < 0) failedByRun[runId].push(billId);
+  }
 
   function record(bill, list) {
     list.push(bill.id);
@@ -237,7 +245,8 @@ function cleanupTestBills(store, opts) {
         store.deleteBill(id);
         record(bill, removedById);
       } catch (e) {
-        /* 单笔删除失败不影响其余清理 */
+        // 单笔删除失败：保留该 runId/billId，等下次清理，不影响其余清理。
+        markFailed(run.runId, id);
       }
     });
   });
@@ -252,20 +261,43 @@ function cleanupTestBills(store, opts) {
       store.deleteBill(bill.id);
       record(bill, removedByScan);
     } catch (e) {
-      /* 单笔删除失败不影响其余清理 */
+      // 兜底删除失败：按 note 内 runId 保留账单 ID，等下次清理。
+      markFailed(noteRunId, bill.id);
     }
   });
 
-  // 3) 回写清单：指定 run 时只移除该 run，保留其他 run；缺省则全部清空。
-  const remainingRuns = options.runId
-    ? current.runs.filter((r) => r.runId !== options.runId)
-    : [];
+  // 3) 回写清单：
+  //    - 删除成功的 run 移除（缺省）或保留非目标 run（指定 runId 时）；
+  //    - 任何仍有「删除失败账单」的 run 必须保留，billIds 只保留未删成功的 ID，
+  //      等下次 cleanup 继续清理，账单不残留为无追踪的孤儿。
+  const remainingRuns = [];
+  current.runs.forEach((run) => {
+    const isTarget = !options.runId || run.runId === options.runId;
+    if (!isTarget) {
+      remainingRuns.push(run); // 指定 runId 清理时，非目标 run 原样保留
+      return;
+    }
+    const failed = failedByRun[run.runId] || [];
+    // 保留 ID：原清单中删除失败的 + 兜底扫描删除失败的（去重）。
+    const keepIds = Array.from(new Set(
+      run.billIds.filter((id) => failed.indexOf(id) >= 0).concat(failed)
+    ));
+    if (keepIds.length > 0) {
+      remainingRuns.push(Object.assign({}, run, { billIds: keepIds }));
+    }
+    // 该 run 全部删除成功 → 不保留。
+  });
   writeRegistry({ version: REGISTRY_VERSION, runs: remainingRuns });
+
+  const failedBillIds = Array.from(new Set(
+    Object.keys(failedByRun).reduce((all, k) => all.concat(failedByRun[k]), [])
+  ));
 
   return {
     removedById,
     removedByScan,
     removed: removedById.length + removedByScan.length,
+    failedBillIds,
     months: Array.from(touchedMonths).sort(),
     corrupt: false,
   };

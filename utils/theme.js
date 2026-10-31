@@ -56,8 +56,15 @@ let _listeners = [];
 let _changeCounter = 0;
 // 仅在「用户主动 setThemeMode」且主题确实变化时递增的序号：reloadFromStorage（备份
 // 恢复 / settings 被外部覆盖）、refreshSystemTheme、system 模式 onThemeChange 都不递增。
-// 页面 onShow 据此判断是否为纯主题切换，避免备份恢复（账单已变）被误判而跳过统计刷新。
+// 该序号仅作可观测计数；onShow 是否跳过统计刷新，实际以下方一次性保留标记为准。
 let _themeOnlyCounter = 0;
+// 一次性主题保留标记（v1.3.4 Final Closure）：用户主动切主题且确实变化时置 true，
+// 语义为「下一次回到主页，统计面板可只做局部 recolor、保留圆环展开/选中，不必完整
+// refresh」。它是**可消费、可取消的事件**而非累计计数：
+//   - 纯主题返回主页 → consumeThemePreserve 读取并立即清零（只消费一次）；
+//   - 进入备份恢复 / 分类 / 周期 / 预算 / 导入等非主题操作 → cancelThemePreserve 取消，
+//     旧事件不会残留，返回主页必然完整刷新统计。
+let _themePreservePending = false;
 // Native Chrome Guard 监听者（系统主题变化时，手动模式下重守原生窗口颜色）。
 let _chromeListeners = [];
 
@@ -169,6 +176,39 @@ function getThemeOnlyCounter() {
   return _themeOnlyCounter;
 }
 
+/* ---- 一次性主题保留标记（可消费、可取消） ---- */
+
+/**
+ * 建立一次主题保留标记：用户主动 setThemeMode 且主题确实变化时调用。
+ * 重复调用仍只是一次待消费事件（true），不会累积。
+ */
+function markThemePreserve() {
+  _themePreservePending = true;
+}
+
+/**
+ * 取消主题保留标记：进入备份恢复 / 分类 / 周期 / 预算 / 导入等任何非主题操作时调用。
+ * 取消后旧的主题事件不再生效，返回主页必须完整刷新统计。
+ */
+function cancelThemePreserve() {
+  _themePreservePending = false;
+}
+
+/**
+ * 消费主题保留标记：返回当前标记并**立即清零**。
+ * 主页 onShow 每次调用最多拿到一次 true，事件不会残留到后续刷新。
+ */
+function consumeThemePreserve() {
+  const pending = _themePreservePending;
+  _themePreservePending = false;
+  return pending;
+}
+
+/** 当前是否存在待消费的主题保留标记（主要用于测试断言） */
+function hasThemePreserve() {
+  return _themePreservePending;
+}
+
 /**
  * 设置主题模式（用户主动选择）：**先持久化 settings.json，写成功后才更新内存并通知**。
  * 持久化时保留 settings 其它字段（currency/budget），只更新 theme。
@@ -198,6 +238,8 @@ function setThemeMode(mode) {
     emit();
     // 仅用户主动 setThemeMode 才递增纯主题序号；备份恢复走 reloadFromStorage 不递增。
     _themeOnlyCounter += 1;
+    // 建立一次性主题保留标记：纯主题返回主页时可跳过统计完整刷新（保留圆环状态）。
+    markThemePreserve();
   }
   return Object.assign({ ok: true }, snapshot());
 }
@@ -221,6 +263,9 @@ function reloadFromStorage() {
   _mode = next;
   _effective = computeEffective(next);
   if (_effective !== prevEffective || next !== prevMode) emit();
+  // 从磁盘重载意味着 settings（往往连同账单）已被外部覆盖（备份恢复 / 回滚），
+  // 任何此前的纯主题保留标记都必须取消，避免返回主页跳过统计刷新。
+  cancelThemePreserve();
   return snapshot();
 }
 
@@ -272,6 +317,7 @@ function _resetForTest() {
   _chromeListeners = [];
   _changeCounter = 0;
   _themeOnlyCounter = 0;
+  _themePreservePending = false;
 }
 
 module.exports = {
@@ -287,6 +333,10 @@ module.exports = {
   getThemeClass,
   getChangeCounter,
   getThemeOnlyCounter,
+  markThemePreserve,
+  cancelThemePreserve,
+  consumeThemePreserve,
+  hasThemePreserve,
   setThemeMode,
   reloadFromStorage,
   refreshSystemTheme,
