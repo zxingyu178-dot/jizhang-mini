@@ -7,7 +7,7 @@
 - AppID：`wxcdcf83d9191065d9`（18 位，以 `project.config.json` 为唯一权威）
 - 版本单一事实源：`utils/version.js`（已同步 `package.json`、`package-lock.json`、`README.md`、`CHANGELOG.md`）
 - 本版定位：**移动端布局兼容与视觉收口**。不新增业务功能、不升级数据合同、不引入第三方依赖。
-- 完成状态：**READY_FOR_REVIEW**（自动化 + 模拟器多尺寸视觉已通过；真机 Gate 待用户本人执行，助手不代签）
+- 完成状态：**READY_FOR_REVIEW**（自动化 + 模拟器多尺寸视觉已通过；微信开发版已上传；真机 Gate 待用户本人执行，助手不代签）
 
 ---
 
@@ -18,6 +18,7 @@
 - 修复窄屏下的**内容溢出与挤压**：分类网格名称、导入长文件名、导入预览统计与按钮、分类管理行、统计页标题与占比列、备份页信息值。
 - 关键产出：`npm test` **38/38 套件通过**（新增 `ui-layout.test.js` 76 项）；`npm run e2e` **25/25 通过**（新增 T25 移动端 Header 胶囊避让）。
 - 320 / 360 / 375 / 390 / 414 五档宽度的模拟器截图与 DOM 实测尺寸留档于 `docs/screenshots/v1.3.5/`。
+- 微信开发者工具 cli 已上传 **1.3.5** 开发版（只上传、不审核、不发布）：TOTAL **1,680,340 字节（约 1.6 MB）**，main 364,102 字节、importer 分包 1,316,238 字节，平台返回 `√ upload`。
 - 数据合同零改动：Bill V3、Backup V3、Recurring Store V1、Budget V1 均未升级；无第三方依赖新增；紫黑毛玻璃视觉主题不变。
 
 ---
@@ -209,5 +210,28 @@ docs/screenshots/v1.3.5/
 
 - 分支：`main`；本版功能主体收口提交见下节「提交记录」。
 - 改动范围：wxml / wxss（主 Header、page-header、search、bill-form、daily-value-form、recurring、category-manage、budget-settings、backup-restore、statistics-panel、importer 三页）+ 布局 JS（`pages/main/main.js`、`pages/search/search.js`、`components/page-header/page-header.js`）+ 版本号四处同步 + 新增静态测试与 E2E T25 + 文档与截图。
-- 验收 ZIP（`jizhang-mini_v1.3.2/3/4_acceptance.zip` 及本次新包）均为未跟踪文件，不进 git。
-- 提交记录：待回填（本文件与代码在同一个提交中）。
+- 验收 ZIP（`jizhang-mini_v1.3.2/3/4/5_acceptance.zip`）均为未跟踪文件，不进 git。
+- **功能主体提交：`a90dfa6`**（118 files changed，1361 insertions(+)，34 deletions(-)），已推送 origin/main。
+- 本 HANDOFF 的上传记录回填（第 10 节）另做一个**仅文档提交**，不改动任何代码；最终 HEAD 以该文档提交为准，并核对 `git rev-list --left-right --count origin/main...HEAD` 为 `0 0`。
+
+---
+
+## 10. 微信开发者工具自动上传（cli，只上传不审核不发布）
+
+- **工程目录**：`D:\AIHome_2.0_L1_L2\projects\jizhang-mini`（对应 GitHub main 功能主体提交 `a90dfa6`）。
+- **登录态**：`cli islogin` 返回 `{"login":true}`。
+- **上传命令**：
+  `cli upload --project <root> --version 1.3.5 --desc "v1.3.5 Mobile UI Compatibility" --info-output upload-info-135.json`
+- **平台返回**：`✔ upload`，exit=0；未提交审核、未发布正式版本。
+- **包体**：TOTAL **1,680,340 字节**；main **364,102 字节**；importer 分包 **1,316,238 字节**。
+- **上传时间**：约 **2026-11-03 11:09:45**（Asia/Shanghai，命令结束时间）。
+- **凭证**：`upload-info-135.json` 保存在项目外 agent workspace，**不进 GitHub**。
+- 按用户要求，本轮开发过程中没有反复上传；只在全部自动化验收通过后统一上传一次。同版本上传会覆盖旧体验版，属平台正常行为。
+
+---
+
+## 11. 验收包
+
+- 交付包：`jizhang-mini_v1.3.5_acceptance.zip`（项目根目录，未跟踪，不进 git）。
+- 内容：阶段报告、测试结果（npm test / E2E / theme / contrast / release-check）、真机待验收清单、Git 状态、改动文件清单、HANDOFF、本次改动源码快照、各尺寸截图索引。
+- 截图完整目录：`docs/screenshots/v1.3.5/`（已提交到 GitHub）。
