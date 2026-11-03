@@ -62,22 +62,28 @@
   padding: 18rpx 0;
 }
 .bs2-amount__cur {
+  flex-shrink: 0;
   font-size: 40rpx;
   font-weight: 600;
   color: var(--text-primary);
   margin-right: 10rpx;
 }
+/* 预算金额：保留原有 80rpx / 52rpx 大字号，仅显式 border-box + padding，防裁切。 */
 .bs2-amount__input {
   flex: 1;
   min-width: 0;
   height: 80rpx;
   line-height: 80rpx;
+  padding: 0;
+  box-sizing: border-box;
   font-size: 52rpx;
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 .bs2-amount__unit {
+  flex-shrink: 0;
+  margin-left: 10rpx;
   font-size: 26rpx;
   color: var(--text-secondary);
 }

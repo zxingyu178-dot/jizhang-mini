@@ -22,32 +22,44 @@
 }
 
 /* Header 由全局 <page-header> 提供，搜索框置于其默认 slot */
+/* app.json 开启 defaultContentBox=true，因此显式 border-box：
+   height 72rpx 已包含上下内边距与边框，输入框不会把父容器撑宽。 */
 .s-input {
   flex: 1;
   width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   height: 72rpx;
+  box-sizing: border-box;
   background: var(--glass-input);
   border: 1rpx solid var(--glass-input-border);
   border-radius: 36rpx;
   padding: 0 24rpx;
+  overflow: hidden;
 }
 .s-input__icon {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   margin-right: 12rpx;
 }
+/* 普通搜索输入：与容器同高、行高一致，垂直居中且不裁切 */
 .s-input__field {
   flex: 1;
+  min-width: 0;
+  height: 72rpx;
+  line-height: 72rpx;
+  padding: 0;
+  box-sizing: border-box;
   font-size: 28rpx;
   color: var(--text-primary);
-  min-width: 0;
 }
 .s-input__ph {
   color: var(--text-faint);
 }
 .s-input__clear {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   padding-left: 12rpx;
@@ -76,12 +88,14 @@
   align-items: center;
   justify-content: center;
   height: 56rpx;
+  box-sizing: border-box;
   padding: 0 28rpx;
   border-radius: 28rpx;
   background: var(--pill-bg);
   border: 1rpx solid var(--pill-border);
   color: var(--text-secondary);
   font-size: 25rpx;
+  white-space: nowrap;
 }
 .f-chip--active {
   background: var(--primary-tint);

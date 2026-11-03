@@ -26,6 +26,13 @@ page {
   --space-page: 32rpx;
   --space-card: 28rpx;
 
+  /* 输入框垂直规格（v1.3.5 移动端兼容）：
+     普通输入 = 商户 / 备注 / 名称；紧凑输入 = 周期间隔 / Emoji；大金额 = 记账 / 日价。
+     明确 height + line-height，避免不同系统原生 input baseline 差异造成文字偏移或裁切。 */
+  --input-h-normal: 60rpx;
+  --input-h-compact: 64rpx;
+  --input-h-amount: 100rpx;
+
   font-size: 28rpx;
   line-height: 1.5;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
@@ -323,6 +330,7 @@ page, .theme-dark {
 .glass-pill {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   background: var(--pill-bg);
   border: 1rpx solid var(--pill-border);
   border-radius: var(--r-pill);

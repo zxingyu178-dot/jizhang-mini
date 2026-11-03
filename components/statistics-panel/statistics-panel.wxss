@@ -49,11 +49,17 @@
   margin: 8rpx 0 20rpx;
 }
 .month-title__text {
+  flex: 1;
+  min-width: 0;
   font-size: 36rpx;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .month-arrow {
+  flex-shrink: 0;
   width: 64rpx;
   height: 64rpx;
   display: flex;
@@ -155,8 +161,11 @@
   text-overflow: ellipsis;
 }
 .largest__amount {
+  flex-shrink: 0;
+  margin-left: 12rpx;
   font-size: 34rpx;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 /* ---- 分类占比列表（v1.3.0） ---- */
@@ -197,10 +206,13 @@
   text-overflow: ellipsis;
 }
 .share-row__amount {
+  flex-shrink: 0;
   font-size: 26rpx;
   font-weight: 600;
+  white-space: nowrap;
 }
 .share-row__percent {
+  flex-shrink: 0;
   width: 80rpx;
   text-align: right;
   font-size: 24rpx;

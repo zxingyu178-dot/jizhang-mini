@@ -31,6 +31,8 @@ Page({
     filtersHeight: 0,
     resultsTop: 0,
     themeClass: 'theme-dark',
+    // 搜索框 placeholder：窄屏用短文案，避免被输入框裁掉后半句
+    searchPlaceholder: '搜索商户、备注、分类或金额',
     kw: '',
     // 筛选条件
     type: 'all',
@@ -62,6 +64,14 @@ Page({
     // Filter Chips 区固定高度（144rpx），换算 px，结果区 top 相应下移
     const filtersHeight = Math.round((144 * info.windowWidth) / 750);
     const resultsTop = info.headerHeight + filtersHeight;
+    // 搜索框位于 page-header 中间栏，右侧还要避让微信胶囊；窄屏时缩短 placeholder，
+    // 防止「搜索商户、备注、分类或金额」被输入框裁成半句。
+    const menuPad = info.menu
+      ? Math.round(info.windowWidth - info.menu.left + info.gap)
+      : 16;
+    const searchPlaceholder = info.windowWidth - menuPad < 290
+      ? '搜商户/备注/分类/金额'
+      : '搜索商户、备注、分类或金额';
     const now = new Date();
     const thisYear = now.getFullYear();
     // 最近月份（当前月、前月、前前月）
@@ -102,6 +112,7 @@ Page({
       headerHeight: info.headerHeight,
       filtersHeight,
       resultsTop,
+      searchPlaceholder,
       thisYear,
       recentMonths,
       catList,

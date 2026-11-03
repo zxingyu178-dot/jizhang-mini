@@ -51,8 +51,10 @@
 }
 .bf-amount__input {
   flex: 1;
-  height: 100rpx;
-  line-height: 100rpx;
+  height: var(--input-h-amount);
+  line-height: var(--input-h-amount);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 68rpx;
   font-weight: 700;
   color: var(--text-primary);
@@ -76,6 +78,7 @@
 }
 .bf-cat {
   width: 25%;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -120,19 +123,29 @@
 }
 .bf-row__label {
   width: 120rpx;
+  flex-shrink: 0;
   font-size: 28rpx;
   color: var(--text-secondary);
 }
 .bf-row__value {
   flex: 1;
+  min-width: 0;
   font-size: 28rpx;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+/* 普通输入（商户 / 备注）：统一高度与行高，垂直居中，不随系统原生 baseline 漂移。 */
 .bf-row__input {
   flex: 1;
+  min-width: 0;
+  height: var(--input-h-normal);
+  line-height: var(--input-h-normal);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 28rpx;
   color: var(--text-primary);
-  min-width: 0;
 }
 .bf-row__ph {
   color: var(--text-faint);

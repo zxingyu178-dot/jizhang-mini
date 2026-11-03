@@ -28,12 +28,12 @@
 
   <block wx:if="{{!protection}}">
   <!-- 自定义 Header -->
-  <view class="header" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
+  <view class="header {{headerCompact?'header--compact':''}}" style="padding-top:{{statusBarHeight}}px;height:{{headerHeight}}px;">
     <view class="header__bar" style="height:{{navBarHeight}}px;padding-right:{{menuPad}}px;">
       <text class="header__title">随时随地大小记</text>
       <view class="header__actions">
         <view class="glass-pill header__search" bindtap="onSearch">
-          <dv-icon name="search" size="14" tone="secondary" class="header__search-icon" />
+          <dv-icon name="search" size="{{headerCompact ? 12 : 14}}" tone="secondary" class="header__search-icon" />
           <text class="header__search-text">搜索账单</text>
         </view>
         <view class="header__setting" bindtap="onSettings">

@@ -1,0 +1,197 @@
+{
+  "prefix": "w414",
+  "shots": [
+    "main",
+    "bill-form",
+    "daily-form",
+    "search",
+    "recurring-editor",
+    "category-editor-emoji",
+    "budget-settings",
+    "import",
+    "backup-restore",
+    "statistics",
+    "main-light",
+    "bill-form-light",
+    "search-light"
+  ],
+  "measures": {
+    "header.title": {
+      "width": 139.1999969482422,
+      "height": 24,
+      "left": 13.300000190734863,
+      "top": 28
+    },
+    "header.search": {
+      "width": 110.5999984741211,
+      "height": 31,
+      "left": 163.5,
+      "top": 24.600000381469727
+    },
+    "header.searchText": {
+      "width": 53,
+      "height": 13,
+      "left": 193.60000610351562,
+      "top": 33.599998474121094
+    },
+    "header.setting": {
+      "width": 31,
+      "height": 31,
+      "left": 285.1000061035156,
+      "top": 24.600000381469727
+    },
+    "bill.amount": {
+      "width": 362.20001220703125,
+      "height": 55.20000076293945
+    },
+    "bill.rowInputs": [
+      {
+        "width": 308.1000061035156,
+        "height": 33.20000076293945
+      },
+      {
+        "width": 308.1000061035156,
+        "height": 33.20000076293945
+      }
+    ],
+    "bill.catName": {
+      "width": 31,
+      "height": 18
+    },
+    "dv.amount": {
+      "width": 362.20001220703125,
+      "height": 55.20000076293945
+    },
+    "dv.rowInputs": [
+      {
+        "width": 302.5,
+        "height": 33.20000076293945
+      },
+      {
+        "width": 302.5,
+        "height": 33.20000076293945
+      }
+    ],
+    "dv.catName": {
+      "width": 31,
+      "height": 18
+    },
+    "search.input": {
+      "width": 265.29998779296875,
+      "height": 39.79999923706055,
+      "left": 50.79999923706055,
+      "top": 20.200000762939453
+    },
+    "search.field": {
+      "width": 215,
+      "height": 39.79999923706055,
+      "left": 87.30000305175781,
+      "top": 20.30000114440918
+    },
+    "recurring.amount": {
+      "width": 359.70001220703125,
+      "height": 55.20000076293945,
+      "left": 36.79999923706055,
+      "top": 201.90000915527344
+    },
+    "recurring.interval": {
+      "width": 53,
+      "height": 35.400001525878906,
+      "left": 36.599998474121094,
+      "top": 359.29998779296875
+    },
+    "recurring.note": {
+      "width": 383.1000061035156,
+      "height": 33.20000076293945,
+      "left": 15.5,
+      "top": 657.2999877929688
+    },
+    "category.emoji": {
+      "width": 383.1000061035156,
+      "height": 35.400001525878906,
+      "left": 15.5,
+      "top": 461.79998779296875
+    },
+    "category.name": {
+      "width": 321.29998779296875,
+      "height": 33.20000076293945,
+      "left": 73,
+      "top": 588.9000244140625
+    },
+    "budget.amount": {
+      "width": 306,
+      "height": 44.20000076293945,
+      "left": 48.599998474121094,
+      "top": 136.90000915527344
+    },
+    "budget.unit": {
+      "width": 24.799999237060547,
+      "height": 22,
+      "left": 360,
+      "top": 148
+    },
+    "import.historyName": {
+      "width": 187.3000030517578,
+      "height": 23,
+      "left": 29.299999237060547,
+      "top": 630.2000122070312
+    },
+    "import.historyMeta": {
+      "width": 159.39999389648438,
+      "height": 20,
+      "left": 225.40000915527344,
+      "top": 631.7000122070312
+    },
+    "import.primaryButton": {
+      "width": 171.1999969482422,
+      "height": 46.29999923706055,
+      "left": 211.60000610351562,
+      "top": 211.5
+    },
+    "statistics.monthTitle": null,
+    "header.searchTextLight": {
+      "width": 53,
+      "height": 13,
+      "left": 193.60000610351562,
+      "top": 33.599998474121094
+    }
+  },
+  "checks": [
+    {
+      "name": "main.header.rightEdgeBeforeCapsule",
+      "pass": true,
+      "detail": {
+        "rightEdge": 316.1000061035156,
+        "capsuleLeft": 320
+      }
+    },
+    {
+      "name": "main.header.titleSingleLine",
+      "pass": true,
+      "detail": {
+        "height": 24,
+        "compact": false
+      }
+    },
+    {
+      "name": "search.input.rightEdgeBeforeCapsule",
+      "pass": true,
+      "detail": {
+        "rightEdge": 316.0999870300293,
+        "capsuleLeft": 320
+      }
+    }
+  ],
+  "window": {
+    "windowWidth": 414,
+    "windowHeight": 736,
+    "statusBarHeight": 20,
+    "menu": {
+      "left": 320,
+      "right": 407,
+      "top": 24,
+      "width": 87,
+      "height": 32
+    }
+  }
+}

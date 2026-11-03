@@ -43,43 +43,85 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-sizing: border-box;
   padding: 0 24rpx;
 }
+/* 标题允许在极窄屏收缩并省略，但绝不允许换行（两行会把 Header 顶破）。 */
 .header__title {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: 36rpx;
+  line-height: 1.2;
   font-weight: 700;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .header__actions {
   display: flex;
   align-items: center;
-  flex: 1;
+  flex: 1 1 auto;
   justify-content: flex-end;
   margin-left: 20rpx;
   min-width: 0;
 }
+/* 搜索胶囊：明确最小宽度、border-box 与单行约束，避免窄屏被压成两行。
+   右侧设置按钮固定尺寸、禁止收缩。 */
 .header__search {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 160rpx;
+  max-width: 300rpx;
   height: 56rpx;
+  box-sizing: border-box;
   padding: 0 20rpx;
   margin-right: 8rpx;
-  max-width: 300rpx;
+  overflow: hidden;
 }
 .header__search-icon {
+  flex-shrink: 0;
   margin-right: 8rpx;
   display: flex;
   align-items: center;
 }
 .header__search-text {
+  flex-shrink: 0;
   font-size: 24rpx;
+  line-height: 1;
+  white-space: nowrap;
 }
 .header__setting {
+  flex: 0 0 auto;
   width: 56rpx;
   height: 56rpx;
   margin-left: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 紧凑 Header：仅当「屏幕宽度 - 微信胶囊占位」不足时由 main.js 计算启用。
+   不是按屏幕总宽度硬切，而是按真实可用宽度收口。 */
+.header--compact .header__title {
+  font-size: 30rpx;
+}
+.header--compact .header__actions {
+  margin-left: 8rpx;
+}
+.header--compact .header__search {
+  min-width: 140rpx;
+  max-width: 200rpx;
+  padding: 0 12rpx;
+  margin-right: 2rpx;
+}
+.header--compact .header__search-icon {
+  margin-right: 4rpx;
+}
+.header--compact .header__search-text {
+  font-size: 22rpx;
+}
+.header--compact .header__setting {
+  margin-left: 4rpx;
 }
 
 /* ---- 顶部 Tabs ---- */

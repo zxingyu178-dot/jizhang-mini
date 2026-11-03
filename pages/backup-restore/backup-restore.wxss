@@ -70,16 +70,25 @@
   padding: 24rpx 0;
 }
 .br-info__label {
+  flex-shrink: 0;
   font-size: 26rpx;
   color: var(--text-secondary);
 }
 .br-info__val {
+  min-width: 0;
+  margin-left: 20rpx;
   font-size: 26rpx;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .br-tip {
   padding: 24rpx 40rpx 60rpx;
+}
+.br-tip:last-child {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 40rpx);
 }
 .br-tip__text {
   font-size: 22rpx;

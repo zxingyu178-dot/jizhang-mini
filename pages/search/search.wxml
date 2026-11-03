@@ -9,7 +9,7 @@
       <dv-icon class="s-input__icon" name="search" size="16" tone="faint"></dv-icon>
       <input
         class="s-input__field"
-        placeholder="搜索商户、备注、分类或金额"
+        placeholder="{{searchPlaceholder}}"
         placeholder-class="s-input__ph"
         value="{{kw}}"
         bindinput="onInput"

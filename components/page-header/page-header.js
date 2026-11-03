@@ -12,6 +12,7 @@ Component({
   data: {
     statusBarHeight: 20,
     headerHeight: 64,
+    menuPad: 16, // 右侧避让系统胶囊（px），与主 Header 同口径
   },
   lifetimes: {
     attached() {
@@ -19,6 +20,9 @@ Component({
       this.setData({
         statusBarHeight: info.statusBarHeight,
         headerHeight: info.headerHeight,
+        menuPad: info.menu
+          ? Math.round(info.windowWidth - info.menu.left + info.gap)
+          : 16,
       });
     },
   },

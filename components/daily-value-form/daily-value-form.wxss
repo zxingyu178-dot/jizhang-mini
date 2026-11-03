@@ -19,14 +19,23 @@
 }
 .df-row__value {
   flex: 1;
+  min-width: 0;
   font-size: 28rpx;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+/* 普通输入（名称 / 备注）：与记账表单同一规格（60rpx + 行高 60rpx）。 */
 .df-row__input {
   flex: 1;
+  min-width: 0;
+  height: var(--input-h-normal);
+  line-height: var(--input-h-normal);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 28rpx;
   color: var(--text-primary);
-  min-width: 0;
 }
 .df-row__ph {
   color: var(--text-faint);
@@ -50,8 +59,10 @@
 }
 .df-amount__input {
   flex: 1;
-  height: 100rpx;
-  line-height: 100rpx;
+  height: var(--input-h-amount);
+  line-height: var(--input-h-amount);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 68rpx;
   font-weight: 700;
   color: var(--text-primary);
@@ -75,12 +86,14 @@
 }
 .df-cat {
   width: 25%;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 14rpx 0;
   border-radius: 16rpx;
+  overflow: hidden;
   transition: all 0.18s ease;
 }
 .df-cat--active {
@@ -92,9 +105,16 @@
   align-items: center;
   justify-content: center;
 }
+/* 与记账表单 .bf-cat__name 统一：单行省略，避免 8 字分类名把格子撑高、上下错位。 */
 .df-cat__name {
+  max-width: 100%;
+  padding: 0 6rpx;
+  box-sizing: border-box;
   font-size: 22rpx;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .df-cat--active .df-cat__name {
   color: var(--text-primary);

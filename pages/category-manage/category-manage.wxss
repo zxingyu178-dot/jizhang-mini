@@ -55,6 +55,7 @@
 }
 .cm-row__icon {
   width: 44rpx;
+  flex-shrink: 0;
   margin-right: 18rpx;
   display: flex;
   align-items: center;
@@ -63,15 +64,23 @@
 .cm-row__icon--off {
   opacity: 0.4;
 }
+/* 分类名最长 8 字；单行省略，避免窄屏被右侧归档按钮挤压后换行撑高行。 */
 .cm-row__name {
+  flex: 1;
+  min-width: 0;
   font-size: 28rpx;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cm-row__name--off {
   color: var(--text-faint);
 }
 .cm-row__archive,
 .cm-row__restore {
+  flex-shrink: 0;
+  margin-left: 12rpx;
   font-size: 24rpx;
   color: var(--text-secondary);
   padding: 8rpx 20rpx;
@@ -107,7 +116,11 @@
   color: var(--text-secondary);
 }
 
-/* 编辑器 */
+/* 编辑器：与记账 / 日价表单统一左右内边距，Emoji 输入框不再贴着屏幕边缘。 */
+.ce {
+  padding: 0 28rpx 28rpx;
+  box-sizing: border-box;
+}
 .ce__tabs {
   display: flex;
   gap: 12rpx;
@@ -162,9 +175,11 @@
   justify-content: center;
   gap: 24rpx;
 }
+/* 紧凑输入：固定 64rpx 高度 + 同值行高，Emoji 垂直居中。 */
 .ce__emoji-input {
   width: 100%;
-  height: 80rpx;
+  height: var(--input-h-compact);
+  line-height: var(--input-h-compact);
   padding: 0 24rpx;
   box-sizing: border-box;
   border-radius: 14rpx;
@@ -187,15 +202,19 @@
   border-bottom: 1rpx solid var(--divider);
 }
 .ce__label {
+  flex-shrink: 0;
   font-size: 28rpx;
   color: var(--text-secondary);
   width: 96rpx;
 }
+/* 普通输入：统一 60rpx 高度 + 同值行高，文字垂直居中。 */
 .ce__name {
   flex: 1;
   min-width: 0;
-  height: 72rpx;
-  line-height: 72rpx;
+  height: var(--input-h-normal);
+  line-height: var(--input-h-normal);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 30rpx;
   color: var(--text-primary);
 }

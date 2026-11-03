@@ -7,6 +7,22 @@ const viewport = require('../../utils/viewport.js');
 // 顶部 Tabs 导航高度（px）
 const TABS_HEIGHT = 44;
 
+/**
+ * Header 紧凑模式判定（v1.3.5 移动端兼容）。
+ * 只看屏幕总宽度不够：真实内容区右侧还要给微信胶囊让位（menuPad，单位 px，
+ * 不随 rpx 缩放），窄屏时胶囊占比更大。常规布局所需最小宽度按 rpx 估算：
+ * 左内边距 24 + 标题 8 字 36rpx×0.875 + actions 左间距 20 + 搜索左右内边距 40 +
+ * 图标右间距 8 + 文案 4 字×24rpx + 搜索右间距 8 + 设置按钮 56 + 设置左间距 12
+ * = 516rpx，另加 dv-icon 固定 14px；再留 2px 安全余量。
+ */
+function computeHeaderCompact(info, menuPad) {
+  const width = info.windowWidth || 375;
+  const scale = width / 750;
+  const normalNeed = scale * 516 + 14 + 2;
+  const available = width - menuPad;
+  return normalNeed > available;
+}
+
 // 数据层自检账单的清理统一走 utils/test-registry：按持久化账单 ID 精确删除 +
 // 命名空间前缀（__TEST__:<runId>）兜底，不再仅凭裸备注文本认定，避免误删真实账单。
 
@@ -22,6 +38,7 @@ Page({
   data: {
     current: 1, // 默认进入「记账」
     windowHeight: 667,
+    windowWidth: 375,
     statusBarHeight: 20,
     navBarHeight: 44,
     headerHeight: 64,
@@ -30,6 +47,7 @@ Page({
     swiperHeight: 500,
     safeBottom: 0,
     menuPad: 16, // 自定义 Header 右侧避让系统胶囊的内边距（px）
+    headerCompact: false, // 窄屏 / 胶囊占比过大时启用紧凑 Header
     sheetShow: false,
     sheetTitle: '记一笔',
     // 日价新增表单（日价 Tab 的 FAB）
@@ -66,11 +84,13 @@ Page({
       : 16;
     this.setData({
       windowHeight: info.windowHeight,
+      windowWidth: info.windowWidth,
       statusBarHeight: info.statusBarHeight,
       navBarHeight: info.navBarHeight,
       headerHeight: info.headerHeight,
       safeBottom: info.safeBottom,
       menuPad,
+      headerCompact: computeHeaderCompact(info, menuPad),
       swiperTop: info.headerHeight + TABS_HEIGHT,
       swiperHeight: info.windowHeight - info.headerHeight - TABS_HEIGHT,
     });
@@ -93,11 +113,13 @@ Page({
         : 16;
       this.setData({
         windowHeight: info.windowHeight,
+        windowWidth: info.windowWidth,
         statusBarHeight: info.statusBarHeight,
         navBarHeight: info.navBarHeight,
         headerHeight: info.headerHeight,
         safeBottom: info.safeBottom,
         menuPad,
+        headerCompact: computeHeaderCompact(info, menuPad),
         swiperTop: info.headerHeight + TABS_HEIGHT,
         swiperHeight: info.windowHeight - info.headerHeight - TABS_HEIGHT,
       });
@@ -109,6 +131,33 @@ Page({
     if (!this.data.protection) {
       this.activatePanel(this.data.current);
       this._ready = true;
+      this.checkHeaderOverflow();
+    }
+  },
+  /**
+   * 渲染后兜底检查：系统字体放大等无法预知的场景下，如果标题或搜索文案仍被换成
+   * 两行，则强制进入紧凑 Header。阈值按单行高度的 1.7 倍判断，避免把正常行高误判。
+   * 已在紧凑模式时不重复 setData。
+   */
+  checkHeaderOverflow() {
+    if (this.data.headerCompact) return;
+    try {
+      const q = wx.createSelectorQuery();
+      q.select('.header__title').boundingClientRect();
+      q.select('.header__search-text').boundingClientRect();
+      q.exec((res) => {
+        const title = res && res[0];
+        const text = res && res[1];
+        if (!title || !text) return;
+        const scale = (this.data.windowWidth || 375) / 750;
+        const titleLine = 36 * scale * 1.2;
+        const textLine = 24 * scale;
+        if (title.height > titleLine * 1.7 || text.height > textLine * 1.7) {
+          this.setData({ headerCompact: true });
+        }
+      });
+    } catch (e) {
+      /* 尺寸查询失败时保持 CSS 的 nowrap + ellipsis 兜底，不影响功能 */
     }
   },
   onShow() {

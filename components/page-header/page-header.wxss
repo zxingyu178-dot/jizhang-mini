@@ -1,5 +1,7 @@
 /* 统一二级页 Header：盒模型与各页旧实现一致（border-box，height 已含状态栏），
-   三栏布局：[返回] [中间标题 / 自定义 slot] [右侧操作 slot]。 */
+   三栏布局：[返回] [中间标题 / 自定义 slot] [右侧操作 slot]。
+   右侧 padding-right 由 page-header.js 按微信胶囊真实位置注入（menuPad px），
+   避免标题 / 搜索框伸到胶囊下方。 */
 .ph {
   position: absolute;
   left: 0;
@@ -48,7 +50,7 @@
   text-overflow: ellipsis;
 }
 
-/* 右侧操作栏（如编辑按钮），不与胶囊重叠由 max-width 控制 */
+/* 右侧操作栏（如编辑按钮）；胶囊避让已由 .ph 的 padding-right 完成 */
 .ph__right {
   flex-shrink: 0;
   display: flex;

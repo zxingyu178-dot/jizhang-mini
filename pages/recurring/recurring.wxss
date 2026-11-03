@@ -130,6 +130,11 @@
 }
 
 /* ===== 编辑器 ===== */
+/* 与记账 / 日价表单统一左右内边距，金额与日期行不再贴屏幕边缘。 */
+.re {
+  padding: 0 28rpx 28rpx;
+  box-sizing: border-box;
+}
 .re-type {
   display: flex;
   background: var(--surface);
@@ -162,10 +167,14 @@
   color: var(--text-secondary);
   margin-right: 12rpx;
 }
+/* 大金额：与记账 / 日价同一垂直规格（100rpx），保留大字体。 */
 .re-amount__input {
   flex: 1;
   min-width: 0;
-  height: 90rpx;
+  height: var(--input-h-amount);
+  line-height: var(--input-h-amount);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 56rpx;
   font-weight: 700;
   color: var(--text-primary);
@@ -209,10 +218,14 @@
   font-size: 26rpx;
   color: var(--text-secondary);
 }
+/* 紧凑输入：固定宽高 + 同值行高，内容严格居中。 */
 .re-interval__input {
   width: 96rpx;
-  height: 64rpx;
+  height: var(--input-h-compact);
+  line-height: var(--input-h-compact);
   margin: 0 12rpx;
+  padding: 0;
+  box-sizing: border-box;
   text-align: center;
   font-size: 28rpx;
   color: var(--text-primary);
@@ -280,8 +293,12 @@
 .re-field {
   margin-top: 14rpx;
 }
+/* 普通输入：备注与记账表单同规格（60rpx + 行高 60rpx）。 */
 .re-field__input {
-  height: 76rpx;
+  height: var(--input-h-normal);
+  line-height: var(--input-h-normal);
+  padding: 0;
+  box-sizing: border-box;
   font-size: 28rpx;
   color: var(--text-primary);
 }

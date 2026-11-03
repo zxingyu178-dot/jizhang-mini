@@ -94,12 +94,18 @@
   display: flex;
   margin-top: 22rpx;
 }
+/* 窄屏下两个按钮等分，文字单行省略，不因长文案把卡片撑破。 */
 .btn {
   flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
   text-align: center;
-  padding: 22rpx 0;
+  padding: 22rpx 12rpx;
   font-size: 26rpx;
   border-radius: 14rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .btn--ghost {
   color: var(--text-secondary);
@@ -131,13 +137,22 @@
 .imp-hist__row:last-child {
   border-bottom: none;
 }
+/* 长文件名必须单行省略，右侧统计信息固定不收缩。 */
 .imp-hist__name {
+  flex: 1;
+  min-width: 0;
   font-size: 28rpx;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .imp-hist__meta {
+  flex-shrink: 0;
+  margin-left: 16rpx;
   font-size: 24rpx;
   color: var(--text-faint);
+  white-space: nowrap;
 }
 .imp-hist--empty {
   padding: 28rpx 24rpx;
@@ -150,7 +165,7 @@
 }
 
 .imp-foot {
-  padding: 24rpx 40rpx 60rpx;
+  padding: 24rpx 40rpx calc(env(safe-area-inset-bottom) + 40rpx);
 }
 .imp-foot__text {
   font-size: 22rpx;

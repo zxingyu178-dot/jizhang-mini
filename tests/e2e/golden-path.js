@@ -1199,4 +1199,51 @@ module.exports = async function goldenPath(ctx) {
     await panel.callMethod('refresh');
     await sleep(800);
   });
+
+  // ---------------- T25 移动端 Header / 搜索框胶囊避让 ----------------
+  await ctx.test('T25 移动端 Header：标题与搜索单行、设置按钮不进入胶囊、搜索框不压胶囊', async () => {
+    const page = await ctx.home();
+    await page.setData({ current: 1 }).catch(() => {});
+    await sleep(700);
+    const win = await mp.evaluate(() => {
+      const w = wx.getWindowInfo();
+      const m = wx.getMenuButtonBoundingClientRect();
+      return {
+        windowWidth: w.windowWidth,
+        menuLeft: m.left,
+        menuRight: m.right,
+      };
+    });
+    const scale = win.windowWidth / 750;
+
+    const title = await page.$('.header__title');
+    ctx.truthy(title, '主 Header 标题存在');
+    const ts = await title.size();
+    const to = await title.offset();
+    ctx.ok(Number(ts.height) <= 36 * scale * 1.2 * 1.7, '标题保持单行（高度=' + ts.height + '）');
+    ctx.ok(to.left + Number(ts.width) <= win.menuLeft + 0.5, '标题右边界不越过胶囊左边界');
+
+    const text = await page.$('.header__search-text');
+    ctx.truthy(text, '搜索文案存在');
+    const xs = await text.size();
+    ctx.ok(Number(xs.height) <= 24 * scale * 1.7, '「搜索账单」保持单行（高度=' + xs.height + '）');
+
+    const setting = await page.$('.header__setting');
+    ctx.truthy(setting, '设置按钮存在');
+    const ss = await setting.size();
+    const so = await setting.offset();
+    ctx.ok(so.left + Number(ss.width) <= win.menuLeft + 0.5, '设置按钮右边界不进入胶囊');
+    ctx.ok(Number(ss.width) >= 56 * scale - 1, '设置按钮未被挤压（宽=' + ss.width + '）');
+
+    const search = await page.$('.header__search');
+    const sh = await search.size();
+    ctx.ok(Number(sh.width) >= 140 * scale - 1, '搜索胶囊保留最小宽度（宽=' + sh.width + '）');
+
+    const sp = await ctx.goto('/pages/search/search', '.s-input');
+    const input = await sp.$('.s-input');
+    const is = await input.size();
+    const io = await input.offset();
+    ctx.ok(io.left + Number(is.width) <= win.menuLeft + 0.5, '搜索页输入框右边界不进入胶囊');
+    await ctx.shot('e2e_search_header_compat');
+  });
 };
