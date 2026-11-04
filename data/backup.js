@@ -10,6 +10,9 @@
  * V2 相对 V1：bills 完整保存 title / ledgerImpact / dailyValue。
  * 恢复兼容 V1 + V2 + V3：旧备份缺失的 recurringRules 按空处理。
  * 完整恢复（非普通账单导入）：恢复前写安全点，失败可回滚。
+ * QA-01：恢复 / 回滚清空月份分片之前，先把「存在但不可解析」的分片原始字节
+ *        隔离转存到 <USER_DATA_PATH>/quarantine/<时间戳>/（见 data/quarantine.js），
+ *        避免损坏月被当成空数据删除后永久丢失；该步失败不影响恢复 / 回滚。
  */
 const fs = require('./fs');
 const paths = require('./paths');
@@ -19,6 +22,7 @@ const settings = require('./settings');
 const recurringStore = require('./recurring/store');
 const backupValidator = require('./backup-validator');
 const backupMigration = require('./backup-migration');
+const quarantine = require('./quarantine');
 const health = require('./health');
 const theme = require('../utils/theme');
 const { APP_VERSION } = require('../utils/version');
@@ -80,6 +84,12 @@ function restoreBackup(input, options) {
   fs.writeJSONAtomic(safety, buildBackup());
 
   try {
+    // 1.5 QA-01 删前隔离：把「存在但不可解析」的分片原始字节抄一份到 quarantine/。
+    //     安全点来自 rangeBills()，损坏月会被读成空 → 若直接删除，该月原始字节
+    //     与 buildRawExport() 的抢救材料就永久丢失。此步失败绝不阻断恢复
+    //     （quarantine 内部整段 try/catch，只记警告）。
+    quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.RESTORE);
+
     // 2. 清空现有月份分片
     ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
 
@@ -136,6 +146,9 @@ function restoreBackup(input, options) {
 function rollback(safetyPath) {
   const saved = fs.readJSON(safetyPath, null);
   if (!saved || !saved.data) return;
+  // QA-01 删前隔离（同源问题：回滚同样先删后写）：此刻被删的分片若无安全点覆盖，
+  // 原始字节就是最后一次可抢救机会。内部失败只记警告，绝不让回滚本身失败。
+  quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.IMPORT_ROLLBACK);
   ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
   ledger.addBills(saved.data.bills || []);
   fs.writeJSONAtomic(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);

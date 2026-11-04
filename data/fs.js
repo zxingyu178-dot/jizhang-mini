@@ -173,6 +173,12 @@ function readBuffer(path) {
   return getFS().readFileSync(path);
 }
 
+/** 写原始字节（隔离转存用：按读到的原始数据落盘，不做任何编码 / 换行转换） */
+function writeBuffer(path, buf) {
+  ensureDir(parentDir(path));
+  getFS().writeFileSync(path, buf);
+}
+
 /** 删除文件；成功返回 true */
 function remove(path) {
   try {
@@ -214,6 +220,7 @@ module.exports = {
   readText,
   writeText,
   readBuffer,
+  writeBuffer,
   remove,
   listDir,
   copy,
