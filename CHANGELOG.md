@@ -3,6 +3,37 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.4.0] — 2026-11-04
+
+Final Stabilization（最终稳定性收口）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器（Skyline + glass-easel 原样）。两条主修：**统计圆环在 Skyline 下不显示**（P0）与**弹层内容超高时滚不动**（P1）。
+
+### 修复
+- **统计圆环在 Skyline 下不可见（P0，主修）**：根因是 SVG 里的 `hsl()` 颜色会让 Skyline 把对应的 `<circle>` 整条丢弃。对照实验 A–M 每步只改一个变量，同一份 SVG 只把颜色从 hex 换成 `hsl()`，画面由「完整彩色圆环」变成「全空白」；而 `imgStatus` 仍是 `load`、无报错，所以现场表现为「控制台干净、画面只剩灰环」。修复：SVG 属性用色一律走 `#RRGGBB`（`data/statistics/donut.js` 新增 `hslToHex()` / `parseSvgColor()` / `svgColor()`），轨道透明度拆成 `stroke-opacity`，根节点补 `width` / `height` / `preserveAspectRatio`。对外颜色合同不变（`getCategoryColor()` 仍返回 `hsl()`），图例、面板与对比度审计口径一行未动。
+- **圆环脏数据防护**：`buildDonutArcs()` 对 ratio 加 `Number.isFinite` + `> 0` + `Math.min(1)` 钳制，`rest` 与 offset 全部防非有限值 —— 一条 NaN 弧线会让整个圆环消失且现场极难定位。
+- **弹层内容超高时既不滚也不裁、底部按钮不可达（UI-01，P1，主修）**：Skyline WXSS 不支持 `overflow: scroll`，原 `view` + `overflow-y: auto` 在内容超高时整块溢出面板。修复：内容区改 `scroll-view` + JS 高度预算（新增 `utils/sheet-scroll.js`），装得下时高度 = 内容高（观感与改造前逐像素一致），装不下时 = 可用空间（保存 / 确认按钮可滚到）；量不到视口高度时退回「不做高度干预」的既有行为，**绝不把面板压成 0 高**。
+- **四处保存入口统一防连点锁（P1）**：记账、日价、周期三处保存原先没有防连点锁，连点两次 = 写两条脏数据。新增 `utils/submit-guard.js`，四处保存入口（含预算设置）统一走同一把锁。
+- **周期间隔逐键钳制时机（P2）**：改为失焦 / 提交时钳制，输入过程中不再边打边夹数字。
+- **「完成」按钮热区（P2）**：金额输入的页面内「完成」按钮热区放大，避免点不中。
+- **安卓键盘收起后页面高度不回落（C7/P2）**：搜索页与预算设置页补订阅 viewport 恢复，与其他页面口径一致。
+- **分类管理底部安全区（UI-03/P2）**：列表滚到底留白 4.2px → 38.2px，不再贴住 Home 指示条。
+
+### 数据安全
+- **回滚前隔离转存不可解析分片（QA-01）**：存储完整性检查命中不可解析分片时，先在回滚 / 修复前把原始内容隔离转存，再执行修复，避免「修坏了连证据一起丢」。转存与清理均带 try/finally 与失败标记。
+
+### 性能
+- 与 v1.3.6 逐项交错对照（同机 3 轮交错取样，规避先后顺序造成的系统性偏差）：**无退化**，所有差异落在本机抖动带内，且两版在测得的关键路径上代码几乎完全相同。
+- 圆环 SVG 只换了颜色字面量与根节点属性，未增加分段数、未引入逐帧计算；弹层高度预算每次打开只算一次纯算术，不监听滚动。
+
+### 测试
+- 新增测试套件：`donut-render`（圆环 SVG 合同与脏数据钳制）、`sheet-scroll`（五档屏幕高度预算）、`submit-guard`（防连点锁）、`gate4-gap`（Gate4 回归补齐）、`quarantine-rollback`（隔离转存）；`ui-layout` / `keyboard-viewport` / `statistics` 扩充。`npm test` 44/44 套件全绿。
+- E2E 27/27 通过，含 T20–T24 圆环真实触摸与钻取 / 「其他」聚合 / 切主题状态保持，T25 布局，T26 金额「完成」，T27 搜索 confirm。
+- `theme:audit`、`contrast:audit`（dark worst 3.145 / light worst 3.249，均 ≥ 3:1，与修复前数值一致）、`release:check` 0 FAIL。
+- 模拟器截图：圆环修复前后对照、深 / 浅主题、主要页面与弹层；**真机 iPhone / Android 验收由用户按交付包 `10_DEVICE_ACCEPTANCE.md` 执行**，未测项在交付文档中明确标注。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1 均不升级；金额 / 日价 / 预算 / 周期计算与生成规则、CSV 导入、备份格式、主题系统、统计算法、Bottom Sheet 动画机制均未改动；不新增依赖，不新增业务功能。
+- 渲染器保持 `skyline` + `glass-easel`，基础库 3.17.4，未做降级回退。
+
 ## [1.3.6] — 2026-11-04
 
 Keyboard & Input Reliability（输入交互可靠性）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖，只统一所有输入框的收键盘方式，解决 iPhone 微信小程序「金额输完后数字键盘无法主动收起」的痛点。
