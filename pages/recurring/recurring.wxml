@@ -78,12 +78,15 @@
       <!-- 间隔 -->
       <view class="re-interval">
         <text class="re-interval__t">每</text>
-        <input class="re-interval__input" type="number" value="{{interval}}" bindinput="onInterval" bindfocus="onIntervalFocus" bindblur="onIntervalBlur" focus="{{intervalFocused}}"/>
+        <input class="re-interval__input" type="number" value="{{intervalText}}" bindinput="onInterval" bindfocus="onIntervalFocus" bindblur="onIntervalBlur" focus="{{intervalFocused}}"/>
         <text class="re-interval__t" wx:if="{{frequency==='daily'}}">天</text>
         <text class="re-interval__t" wx:elif="{{frequency==='weekly'}}">周</text>
         <text class="re-interval__t" wx:elif="{{frequency==='monthly'}}">月</text>
         <text class="re-interval__t" wx:else>年</text>
-        <view class="re-interval__done" hover-class="re-interval__done--hover" hover-stay-time="60" catchtap="onIntervalDone">完成</view>
+        <!-- 热区外壳：可见按钮尺寸不变，可点区域撑到 88rpx(44px)；唯一收键盘入口，别删 catchtap -->
+        <view class="re-interval__hit" catchtap="onIntervalDone">
+          <view class="re-interval__done" hover-class="re-interval__done--hover" hover-stay-time="60" catchtap="onIntervalDone">完成</view>
+        </view>
       </view>
 
       <!-- 周期日期：weekly -->

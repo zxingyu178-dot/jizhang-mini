@@ -7,6 +7,7 @@ const money = require('../../data/money');
 const util = require('../../utils/util');
 const theme = require('../../utils/theme');
 const keyboard = require('../../utils/keyboard');
+const submitGuard = require('../../utils/submit-guard');
 
 Page({
   data: {
@@ -80,22 +81,36 @@ Page({
     this.setData({ canSave });
   },
   onSave() {
-    if (this._saving) return;
     const cents = money.parseAmountToCents(this.data.amountText);
     if (this.data.enabled && !cents) return;
     const effectiveFrom = this.data.effectiveDate;
     if (effectiveFrom > this.data.todayStr) return; // 提交层：不允许未来
-    // 先收键盘再保存；_saving 防连点导致重复保存 / 提前返回。
-    this._saving = true;
+    // 防连点（v1.4.0：与记账 / 日价 / 周期共用 utils/submit-guard.js）
+    const guard = this._guard();
+    if (!guard.begin()) return;
+    // 先收键盘再保存。
     this.setData({ amountFocused: false });
     keyboard.hideKeyboard().then(() => {
-      store.saveBudgetRule({
-        enabled: this.data.enabled,
-        dailyCents: this.data.enabled ? cents : 0,
-        effectiveFrom,
-      });
+      try {
+        store.saveBudgetRule({
+          enabled: this.data.enabled,
+          dailyCents: this.data.enabled ? cents : 0,
+          effectiveFrom,
+        });
+      } catch (err) {
+        // 失败必须复位（P2-02）：否则本页保存按钮永久失效
+        guard.end();
+        console.error('保存预算失败', err);
+        wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+        return;
+      }
       wx.showToast({ title: '已保存', icon: 'success' });
       setTimeout(() => wx.navigateBack({ delta: 1 }), 500);
     });
+  },
+  /** 保存防连点锁（页面级，懒创建）：详见 utils/submit-guard.js */
+  _guard() {
+    if (!this._submitGuard) this._submitGuard = submitGuard.createSubmitGuard();
+    return this._submitGuard;
   },
 });

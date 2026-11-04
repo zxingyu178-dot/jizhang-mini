@@ -6,6 +6,7 @@ const store = require('../../data/index');
 const money = require('../../data/money');
 const util = require('../../utils/util');
 const keyboard = require('../../utils/keyboard');
+const submitGuard = require('../../utils/submit-guard');
 
 const RECENT_LIMIT = 5;
 
@@ -85,8 +86,15 @@ Component({
     },
   },
   methods: {
+    /** 保存防连点锁（实例级，懒创建）：详见 utils/submit-guard.js */
+    _guard() {
+      if (!this._submitGuard) this._submitGuard = submitGuard.createSubmitGuard();
+      return this._submitGuard;
+    },
     /** 新增模式：重置为默认（今天/支出） */
     reset() {
+      // 重新进入表单 = 上一笔的提交流程已结束，解锁（见 utils/submit-guard.js）
+      this._guard().end();
       const dateStr = util.formatDate(new Date());
       const defaultId = defaultCategoryId('expense');
       this.setData({
@@ -110,6 +118,8 @@ Component({
     },
     /** 编辑模式：填充已有账单 */
     edit(id) {
+      // 重新进入表单 = 上一笔的提交流程已结束，解锁
+      this._guard().end();
       const bill = store.getBill(id);
       if (!bill) {
         this.reset();
@@ -231,6 +241,9 @@ Component({
       if (!this.data.canSubmit) return;
       const cents = Math.abs(money.parseAmountToCents(this.data.amountText));
       if (!cents) return;
+      // 防连点：上一笔还在写 / Sheet 还在关闭动画中，直接丢弃本次点击
+      const guard = this._guard();
+      if (!guard.begin()) return;
       const isEditing = !!this.data.editingId;
       // 提交层兜底：日期不允许未来（UI picker 已限制，此处双保险），夹取到今天。
       const todayStr = this.data.todayStr || util.formatDate(new Date());
@@ -257,10 +270,26 @@ Component({
         payload.dailyValue = null;
       }
       if (this.data.editingId) {
-        store.updateBill(this.data.editingId, payload);
-        this.triggerEvent('saved', { id: this.data.editingId });
+        try {
+          store.updateBill(this.data.editingId, payload);
+          this.triggerEvent('saved', { id: this.data.editingId });
+        } catch (err) {
+          // 失败必须解锁，否则本次会话再也保存不了（P2-02 同源问题）
+          guard.end();
+          console.error('保存账单失败', err);
+          wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+        }
       } else {
-        const bill = store.addBill(payload);
+        let bill = null;
+        try {
+          bill = store.addBill(payload);
+        } catch (err) {
+          guard.end();
+          console.error('保存账单失败', err);
+          wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+          return;
+        }
+        // 成功路径保持占用：父页关 Sheet 的这段时间里按钮仍可被点（见 utils/submit-guard.js）
         this.triggerEvent('saved', { id: bill.id });
       }
     },

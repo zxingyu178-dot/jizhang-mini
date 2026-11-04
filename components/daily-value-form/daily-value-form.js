@@ -12,6 +12,7 @@ const money = require('../../data/money');
 const util = require('../../utils/util');
 const dvForm = require('../../data/daily-value/form');
 const keyboard = require('../../utils/keyboard');
+const submitGuard = require('../../utils/submit-guard');
 
 const EXPENSE_CATS = [
   'c-food', 'c-transport', 'c-shopping', 'c-fun', 'c-life',
@@ -44,8 +45,15 @@ Component({
     },
   },
   methods: {
+    /** 保存防连点锁（实例级，懒创建）：详见 utils/submit-guard.js */
+    _guard() {
+      if (!this._submitGuard) this._submitGuard = submitGuard.createSubmitGuard();
+      return this._submitGuard;
+    },
     /** 新增模式 */
     reset() {
+      // 重新进入表单 = 上一次提交流程已结束，解锁
+      this._guard().end();
       this.setData({
         editingId: null,
         editingLedgerImpact: 'normal',
@@ -63,6 +71,8 @@ Component({
     },
     /** 编辑模式：回显已有日价物品，并记录作用域与原交易时间 */
     edit(id) {
+      // 重新进入表单 = 上一次提交流程已结束，解锁
+      this._guard().end();
       const bill = store.getBill(id);
       if (!bill) {
         this.reset();
@@ -145,36 +155,55 @@ Component({
         this.setData({ canSubmit: false });
         return;
       }
+      // 防连点：上一次还在写 / Sheet 还在关闭动画中，直接丢弃本次点击
+      const guard = this._guard();
+      if (!guard.begin()) return;
       // 提交层兜底：起算日期不允许未来（UI picker 已限制，此处双保险），夹取到今天。
       const todayStr = this.data.todayStr || util.formatDate(new Date());
       let startDate = this.data.startDate;
       if (startDate > todayStr) startDate = todayStr;
       if (this.data.editingId) {
-        const patch = dvForm.buildEditPatch({
-          title,
-          amountCents: cents,
-          categoryId: this.data.categoryId,
-          note: this.data.note.trim(),
-          startDate,
-          ledgerImpact: this.data.editingLedgerImpact,
-          originalOccurredAt: this.data.editingOccurredAt,
-        });
-        store.updateBill(this.data.editingId, patch);
-        this.triggerEvent('saved', { id: this.data.editingId });
+        try {
+          const patch = dvForm.buildEditPatch({
+            title,
+            amountCents: cents,
+            categoryId: this.data.categoryId,
+            note: this.data.note.trim(),
+            startDate,
+            ledgerImpact: this.data.editingLedgerImpact,
+            originalOccurredAt: this.data.editingOccurredAt,
+          });
+          store.updateBill(this.data.editingId, patch);
+          this.triggerEvent('saved', { id: this.data.editingId });
+        } catch (err) {
+          // 失败必须解锁，否则本次会话再也保存不了（P2-02 同源问题）
+          guard.end();
+          console.error('保存日价物品失败', err);
+          wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+        }
       } else {
         // 新增：仅日价作用域，不进账本 / 统计
         const occurredAt = dvForm.startOfLocalDay(startDate);
-        const bill = store.addBill({
-          title,
-          type: 'expense',
-          amountCents: cents,
-          categoryId: this.data.categoryId,
-          occurredAt,
-          note: this.data.note.trim(),
-          source: 'manual',
-          ledgerImpact: 'daily-value-only',
-          dailyValue: { enabled: true, mode: 'elapsed', startDate },
-        });
+        let bill = null;
+        try {
+          bill = store.addBill({
+            title,
+            type: 'expense',
+            amountCents: cents,
+            categoryId: this.data.categoryId,
+            occurredAt,
+            note: this.data.note.trim(),
+            source: 'manual',
+            ledgerImpact: 'daily-value-only',
+            dailyValue: { enabled: true, mode: 'elapsed', startDate },
+          });
+        } catch (err) {
+          guard.end();
+          console.error('保存日价物品失败', err);
+          wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+          return;
+        }
+        // 成功路径保持占用：父页关 Sheet 的这段时间里按钮仍可被点（见 utils/submit-guard.js）
         this.triggerEvent('saved', { id: bill.id });
       }
     },

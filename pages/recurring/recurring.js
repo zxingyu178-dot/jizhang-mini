@@ -5,6 +5,7 @@ const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
 const theme = require('../../utils/theme');
 const keyboard = require('../../utils/keyboard');
+const submitGuard = require('../../utils/submit-guard');
 const store = require('../../data/index');
 const money = require('../../data/money');
 const { pickCategoryVisual } = require('../../data/category-icons');
@@ -86,6 +87,8 @@ Page({
     note: '',
     frequency: 'monthly',
     interval: 1,
+    // 间隔输入框的显示串（可为空；夹取结果回写到 interval，见 applyInterval）
+    intervalText: '1',
     weekDay: 1,
     monthDay: 1,
     yearMonth: 1,
@@ -152,8 +155,16 @@ Page({
 
   noop() {},
 
+  /** 保存防连点锁（页面级，懒创建）：详见 utils/submit-guard.js */
+  _guard() {
+    if (!this._submitGuard) this._submitGuard = submitGuard.createSubmitGuard();
+    return this._submitGuard;
+  },
+
   /** 新建：重置编辑器 */
   onAdd() {
+    // 重新进入编辑器 = 上一次保存流程已结束，解锁
+    this._guard().end();
     const now = new Date();
     const cats = store.getActiveCategories();
     const categoryId = this.defaultCategoryId('expense', cats);
@@ -169,6 +180,7 @@ Page({
       note: '',
       frequency: 'monthly',
       interval: 1,
+      intervalText: '1',
       weekDay: now.getDay(),
       monthDay: now.getDate(),
       yearMonth: now.getMonth() + 1,
@@ -181,6 +193,8 @@ Page({
 
   /** 编辑：回填 */
   onEdit(e) {
+    // 重新进入编辑器 = 上一次保存流程已结束，解锁
+    this._guard().end();
     const id = e.currentTarget.dataset.id;
     const rule = store.recurring.getRule(id);
     if (!rule) return;
@@ -202,6 +216,7 @@ Page({
       note: rule.note,
       frequency: rule.frequency,
       interval: rule.interval,
+      intervalText: String(rule.interval),
       weekDay: core.resolveWeeklyDay(rule),
       monthDay: rule.day,
       yearMonth: rule.month != null ? rule.month : sc.m,
@@ -288,25 +303,42 @@ Page({
   onFrequency(e) {
     this.setData({ frequency: e.currentTarget.dataset.f });
   },
-  /** 周期间隔夹取：1–999，输入 / 失焦共用 */
+  /**
+   * 间隔夹取（1–999）：**只在失焦 / 完成 / 保存前调用**，输入过程中不夹取。
+   * 同时把显示串回写成夹取后的结果，保证「看到的」=「要保存的」。
+   */
   applyInterval(v) {
     let n = parseInt(v, 10);
     if (!Number.isFinite(n)) n = 1;
     n = Math.min(999, Math.max(1, n));
-    this.setData({ interval: n });
+    const patch = {};
+    if (this.data.interval !== n) patch.interval = n;
+    if (this.data.intervalText !== String(n)) patch.intervalText = String(n);
+    if (Object.keys(patch).length) this.setData(patch);
   },
+  /**
+   * 输入中：只过滤非数字，**不夹取、允许暂时为空**（v1.4.0 P2-04）。
+   * 旧实现在每个按键上夹取，导致「删空→立刻被回写成 1→再输 5 变成 15」。
+   * 取值语义与 parseInt 对齐：只认开头连续数字，后面出现任何字符即截断。
+   */
   onInterval(e) {
-    this.applyInterval(e.detail.value);
+    const raw = e && e.detail && e.detail.value != null ? String(e.detail.value) : '';
+    const m = /^[0-9]*/.exec(raw);
+    const digits = m ? m[0] : '';
+    if (digits !== String(this.data.intervalText)) this.setData({ intervalText: digits });
   },
   onIntervalFocus() {
     this.setData({ intervalFocused: true });
   },
   onIntervalBlur(e) {
-    // 失焦只同步最终值，不主动收键盘。
-    this.applyInterval(e.detail.value);
+    // 失焦：这里才夹取回 1–999（只同步值，不主动收键盘）。
+    const v = e && e.detail && e.detail.value != null ? e.detail.value : this.data.intervalText;
+    this.applyInterval(v);
     this.setData({ intervalFocused: false });
   },
   onIntervalDone() {
+    // 完成 = 结束输入：先夹取到合法值，再收键盘（键盘收起后不再有输入事件）
+    this.applyInterval(this.data.intervalText);
     keyboard.releaseInputFocus(this, 'intervalFocused');
   },
   onWeekDay(e) {
@@ -358,27 +390,41 @@ Page({
 
   /** 保存（新增：startDate 在过去时先提示补记；编辑：只影响未来） */
   onSave() {
+    // P2-04：保存前把间隔夹取到 1–999（输入过程中不夹取，避免删空被回写成 1 后变 15）
+    this.applyInterval(this.data.intervalText);
     const d = this.data;
     const amountCents = Math.abs(money.parseAmountToCents(d.amountText));
     if (!amountCents || !d.categoryId || !d.startDate) return;
+    // 防连点：上一次保存/补记确认还在进行，直接丢弃本次点击
+    const guard = this._guard();
+    if (!guard.begin()) return;
     const rule = this.buildRule();
     const now = new Date();
 
     const doSave = () => {
-      if (d.editingId) {
-        // 编辑：scheduleEffectiveAt=now，只影响之后 occurrence，不回填历史
-        store.recurring.editRule(d.editingId, {
-          ...rule,
-          scheduleEffectiveAt: Date.now(),
-        });
-      } else {
-        store.recurring.createRule(rule);
+      try {
+        if (d.editingId) {
+          // 编辑：scheduleEffectiveAt=now，只影响之后 occurrence，不回填历史
+          store.recurring.editRule(d.editingId, {
+            ...rule,
+            scheduleEffectiveAt: Date.now(),
+          });
+        } else {
+          store.recurring.createRule(rule);
+        }
+      } catch (err) {
+        // 失败必须解锁，否则本次会话再也保存不了（P2-02 同源问题）
+        guard.end();
+        console.error('保存周期规则失败', err);
+        wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+        return;
       }
       // 无论新建 / 编辑，保存后立即重算 nextOccurrence / 补齐到期账单，再刷新列表，
       // 不能等下一次 onShow（否则编辑后「下次」仍停留在旧值）。
       Promise.resolve(store.recurring.runRecurringGenerator())
         .catch((err) => console.error('保存后周期补齐失败', err))
         .then(() => {
+          // 成功路径保持占用，直到 onAdd / onEdit / 关闭编辑器（见 utils/submit-guard.js）
           this.setData({ editorShow: false });
           this.load();
         });
@@ -400,6 +446,8 @@ Page({
             cancelText: '取消',
             success: (res) => {
               if (res.confirm) doSave();
+              // 取消：不保存，必须解锁，否则用户再也点不了保存
+              else guard.end();
             },
           });
         });
@@ -410,6 +458,8 @@ Page({
   },
 
   onEditorClose() {
+    // 关闭编辑器 = 本次保存流程结束，解锁
+    this._guard().end();
     this.setData({ editorShow: false });
   },
 });
