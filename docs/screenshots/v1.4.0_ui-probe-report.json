@@ -1,0 +1,566 @@
+{
+  "startedAt": "2026-11-04T06:14:25.167Z",
+  "stageDir": "C:\\Users\\30566\\AppData\\Local\\Temp\\jizhang-mini-ui-probe",
+  "systemInfo": {
+    "windowWidth": 390,
+    "windowHeight": 844,
+    "statusBarHeight": 47,
+    "navBarHeight": 40,
+    "headerHeight": 87,
+    "menuPad": 98,
+    "headerCompact": false
+  },
+  "pages": {
+    "main": {
+      "windowWidth": 390,
+      "rects": {
+        ".header": {
+          "l": 0,
+          "t": 0,
+          "w": 390,
+          "h": 87,
+          "r": 390,
+          "b": 87
+        },
+        ".header__bar": {
+          "l": 0,
+          "t": 47,
+          "w": 390,
+          "h": 40,
+          "r": 390,
+          "b": 87
+        },
+        ".header__title": {
+          "l": 12.5,
+          "t": 56,
+          "w": 131.1,
+          "h": 22,
+          "r": 143.6,
+          "b": 78
+        },
+        ".header__search": {
+          "l": 154,
+          "t": 52.5,
+          "w": 98.5,
+          "h": 29.2,
+          "r": 252.5,
+          "b": 81.7
+        },
+        ".header__search-text": {
+          "l": 183.1,
+          "t": 61.1,
+          "w": 50,
+          "h": 12,
+          "r": 233.1,
+          "b": 73.1
+        },
+        ".header__setting": {
+          "l": 262.9,
+          "t": 52.5,
+          "w": 29.2,
+          "h": 29.2,
+          "r": 292.1,
+          "b": 81.7
+        },
+        ".tabs": {
+          "l": 0,
+          "t": 87,
+          "w": 390,
+          "h": 44.6,
+          "r": 390,
+          "b": 131.6
+        }
+      },
+      "overflow": []
+    },
+    "mainTabSwitchFrameChanged": true,
+    "statistics": {
+      "windowWidth": 390,
+      "rects": {
+        ".month-title__text": null,
+        ".hero__big": null,
+        ".hero__half": null,
+        ".share-row__amount": null,
+        ".share-row__percent": null,
+        ".cmp-val": null,
+        ".pace__val": null,
+        ".seg__item": null
+      },
+      "overflow": []
+    },
+    "accounting": {
+      "windowWidth": 390,
+      "rects": {
+        ".hero__expense": null,
+        ".hero__sub-val": null,
+        ".tl-item__amount": null,
+        ".fab-wrap": {
+          "l": 310,
+          "t": 728.7,
+          "w": 61.4,
+          "h": 61.4,
+          "r": 371.4,
+          "b": 790.1
+        }
+      },
+      "overflow": []
+    },
+    "budget": {
+      "windowWidth": 390,
+      "rects": {
+        ".bs2-amount__input": {
+          "l": 45.7,
+          "t": 163.4,
+          "w": 232.2,
+          "h": 41.7,
+          "r": 277.9,
+          "b": 205.1
+        },
+        ".bs2-amount__unit": {
+          "l": 283.1,
+          "t": 174.2,
+          "w": 23.3,
+          "h": 20,
+          "r": 306.4,
+          "b": 194.2
+        },
+        ".bs2-amount__done": {
+          "l": 312.6,
+          "t": 161.3,
+          "w": 50,
+          "h": 45.8,
+          "r": 362.6,
+          "b": 207.1
+        },
+        ".bs2-row__val": {
+          "l": 278.7,
+          "t": 236.2,
+          "w": 83.8,
+          "h": 20,
+          "r": 362.5,
+          "b": 256.2
+        },
+        ".bs2-save": {
+          "l": 14.6,
+          "t": 338.2,
+          "w": 360.9,
+          "h": 47.9,
+          "r": 375.5,
+          "b": 386.1
+        }
+      },
+      "overflow": []
+    },
+    "search": {
+      "windowWidth": 390,
+      "rects": {
+        ".s-input": {
+          "l": 47.9,
+          "t": 48.3,
+          "w": 244.2,
+          "h": 37.5,
+          "r": 292.1,
+          "b": 85.8
+        },
+        ".s-filters__row": {
+          "l": 12.5,
+          "t": 92.3,
+          "w": 365.1,
+          "h": 29.2,
+          "r": 377.6,
+          "b": 121.5
+        },
+        ".f-chip": {
+          "l": 12.5,
+          "t": 92.3,
+          "w": 56.2,
+          "h": 29.2,
+          "r": 68.7,
+          "b": 121.5
+        },
+        ".f-chip--wide": {
+          "l": 12.5,
+          "t": 127.7,
+          "w": 178.4,
+          "h": 29.2,
+          "r": 190.9,
+          "b": 156.9
+        }
+      },
+      "overflow": []
+    },
+    "recurring": {
+      "windowWidth": 390,
+      "rects": {
+        ".rc-card__amount": null,
+        ".rc-card__sub": null,
+        ".rc-add": null
+      },
+      "overflow": [],
+      "footHeight": 65.2
+    },
+    "category": {
+      "windowWidth": 390,
+      "rects": {
+        ".cm-row__name": {
+          "l": 59.9,
+          "t": 139.9,
+          "w": 302.7,
+          "h": 22,
+          "r": 362.6,
+          "b": 161.9
+        },
+        ".cm-add": {
+          "l": 14.6,
+          "t": 788.2,
+          "w": 360.9,
+          "h": 48.9,
+          "r": 375.5,
+          "b": 837.1
+        },
+        ".ce": {
+          "l": 0,
+          "t": 896.8,
+          "w": 390,
+          "h": 362.5,
+          "r": 390,
+          "b": 1259.3
+        }
+      },
+      "overflow": [],
+      "addBtnBottomGap": 6.9
+    },
+    "settings": {
+      "windowWidth": 390,
+      "rects": {
+        ".row__label": {
+          "l": 27.6,
+          "t": 142,
+          "w": 314.9,
+          "h": 22,
+          "r": 342.5,
+          "b": 164
+        },
+        ".row__hint": {
+          "l": 277.2,
+          "t": 290.8,
+          "w": 62.2,
+          "h": 20,
+          "r": 339.4,
+          "b": 310.8
+        },
+        ".row__right": {
+          "l": 277.2,
+          "t": 290.8,
+          "w": 85.4,
+          "h": 20,
+          "r": 362.6,
+          "b": 310.8
+        }
+      },
+      "overflow": [],
+      "lastCardBottomGap": 73.4
+    },
+    "backup": {
+      "windowWidth": 390,
+      "rects": {
+        ".br-action__sub": {
+          "l": 27.6,
+          "t": 166.2,
+          "w": 263.2,
+          "h": 17,
+          "r": 290.8,
+          "b": 183.2
+        },
+        ".br-info__val": null
+      },
+      "overflow": []
+    },
+    "mainReady": {
+      "windowWidth": 390,
+      "headerCompact": false,
+      "menuPad": 98,
+      "rects": {
+        ".header__bar": {
+          "l": 0,
+          "t": 47,
+          "w": 390,
+          "h": 40,
+          "r": 390,
+          "b": 87
+        },
+        ".header__title": {
+          "l": 12.5,
+          "t": 56,
+          "w": 131.1,
+          "h": 22,
+          "r": 143.6,
+          "b": 78
+        },
+        ".header__search": {
+          "l": 154,
+          "t": 52.5,
+          "w": 98.5,
+          "h": 29.2,
+          "r": 252.5,
+          "b": 81.7
+        },
+        ".header__search-text": {
+          "l": 183.1,
+          "t": 61.1,
+          "w": 50,
+          "h": 12,
+          "r": 233.1,
+          "b": 73.1
+        },
+        ".header__setting": {
+          "l": 262.9,
+          "t": 52.5,
+          "w": 29.2,
+          "h": 29.2,
+          "r": 292.1,
+          "b": 81.7
+        }
+      },
+      "overflow": [],
+      "contentRightVsCapsule": -0.1
+    }
+  },
+  "sheets": {
+    "billForm": {
+      "data": {
+        "visible": true,
+        "closed": false,
+        "show": true,
+        "title": "记一笔"
+      },
+      "panel": {
+        "t": 159,
+        "h": 685.1,
+        "b": 844.1
+      },
+      "body": {
+        "h": 598.4
+      },
+      "rects": {
+        ".bf-submit": null,
+        ".bf-amount__input": null,
+        ".bf-cat": null
+      },
+      "overflow": []
+    },
+    "recurring": {
+      "data": {
+        "visible": true,
+        "closed": false,
+        "show": true,
+        "title": "新建周期"
+      },
+      "panel": {
+        "t": 159.8,
+        "h": 684.3,
+        "b": 844.1
+      },
+      "body": {
+        "t": 212.5,
+        "h": 597.6,
+        "b": 810.1
+      },
+      "rects": {
+        ".re-save": {
+          "l": 14.6,
+          "t": 741.5,
+          "w": 360.9,
+          "h": 47.9,
+          "r": 375.5,
+          "b": 789.4
+        },
+        ".re-delete": null,
+        ".re-chips": {
+          "l": 14.6,
+          "t": 486.1,
+          "w": 360.9,
+          "h": 37.5,
+          "r": 375.5,
+          "b": 523.6
+        }
+      },
+      "saveBottomVsPanel": -54.7
+    },
+    "category": {
+      "data": {
+        "visible": true,
+        "closed": false,
+        "show": true,
+        "title": "添加分类"
+      },
+      "panel": {
+        "t": 374.2,
+        "h": 469.9,
+        "b": 844.1
+      },
+      "rects": {
+        ".ce__save": {
+          "l": 18.8,
+          "t": 727,
+          "w": 352.6,
+          "h": 47.9,
+          "r": 371.4,
+          "b": 774.9
+        },
+        ".ce__emoji-input": null,
+        ".ce__tab": {
+          "l": 14.6,
+          "t": 431.1,
+          "w": 177.4,
+          "h": 33.3,
+          "r": 192,
+          "b": 464.4
+        }
+      },
+      "saveBottomVsPanel": -69.2
+    }
+  },
+  "shots": [
+    {
+      "name": "v1.4.0_main_firstframe_simulator",
+      "sha1": "d04931634296"
+    },
+    {
+      "name": "v1.4.0_statistics_dark_simulator",
+      "sha1": "07dccd05f1ef"
+    },
+    {
+      "name": "v1.4.0_accounting_dark_simulator",
+      "sha1": "a066516fe4ea"
+    },
+    {
+      "name": "v1.4.0_billform_dark_simulator",
+      "sha1": "ec8cd198d1e1"
+    },
+    {
+      "name": "v1.4.0_budget_dark_simulator",
+      "sha1": "2c495ad3c746"
+    },
+    {
+      "name": "v1.4.0_search_dark_simulator",
+      "sha1": "0221924130f5"
+    },
+    {
+      "name": "v1.4.0_recurring_dark_simulator",
+      "sha1": "a0ef2c922e16"
+    },
+    {
+      "name": "v1.4.0_recurring_sheet_dark_simulator",
+      "sha1": "ed7f5a112e70"
+    },
+    {
+      "name": "v1.4.0_category_dark_simulator",
+      "sha1": "08a66f18c918"
+    },
+    {
+      "name": "v1.4.0_category_sheet_dark_simulator",
+      "sha1": "d2f72b4bd7d8"
+    },
+    {
+      "name": "v1.4.0_settings_dark_simulator",
+      "sha1": "64193831bdae"
+    },
+    {
+      "name": "v1.4.0_backup_dark_simulator",
+      "sha1": "3e14c7ee7bc5"
+    },
+    {
+      "name": "v1.4.0_budget_light_simulator",
+      "sha1": "820df514feff"
+    },
+    {
+      "name": "v1.4.0_recurring_light_simulator",
+      "sha1": "e00d0750e46f"
+    },
+    {
+      "name": "v1.4.0_search_light_simulator",
+      "sha1": "14aaf12d3157"
+    },
+    {
+      "name": "v1.4.0_main_light_simulator",
+      "sha1": "1eac9f6226b4"
+    },
+    {
+      "name": "v1.4.0_main_dark_simulator",
+      "sha1": "d61760c2fdd1"
+    }
+  ],
+  "consoleLogs": [
+    "{\"type\":\"info\",\"args\":[\"Lazy code loading is enabled. Only injecting required components.\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf] App.onLaunch took 331ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 203ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/search/search] Page.onLoad took 71ms\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 215ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":3,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 219ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":4,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/category-manage/category-manage] Page.onLoad took 53ms\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 214ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":5,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"info\",\"args\":[\"preloadSubpackages: importer\"]}",
+    "{\"type\":\"info\",\"args\":[\"preloadSubpackages: success\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 208ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":6,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 215ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":7,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":9,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":9,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 117ms\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 219ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":10,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 204ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":11,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/search/search] Page.onLoad took 75ms\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 204ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":12,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":14,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":14,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 125ms\"]}"
+  ],
+  "exceptions": [],
+  "error": null,
+  "lightSwitch": {
+    "themeMode": "light",
+    "themeClass": "theme-light",
+    "options": 3
+  },
+  "lightMainFrameChanged": true,
+  "themeRestored": {
+    "themeMode": "dark",
+    "themeClass": "theme-dark"
+  },
+  "logs": [
+    "启动 IDE 自动化:",
+    "小程序首页已就绪：pages/main/main",
+    "窗口：390×844 · headerCompact=false · menuPad=98",
+    "  截图 v1.4.0_main_firstframe sha1=d04931634296",
+    "  截图 v1.4.0_statistics_dark sha1=07dccd05f1ef",
+    "  截图 v1.4.0_accounting_dark sha1=a066516fe4ea",
+    "  截图 v1.4.0_billform_dark sha1=ec8cd198d1e1",
+    "  截图 v1.4.0_budget_dark sha1=2c495ad3c746",
+    "  截图 v1.4.0_search_dark sha1=0221924130f5",
+    "  截图 v1.4.0_recurring_dark sha1=a0ef2c922e16",
+    "  截图 v1.4.0_recurring_sheet_dark sha1=ed7f5a112e70",
+    "  截图 v1.4.0_category_dark sha1=08a66f18c918",
+    "  截图 v1.4.0_category_sheet_dark sha1=d2f72b4bd7d8",
+    "  截图 v1.4.0_settings_dark sha1=64193831bdae",
+    "  截图 v1.4.0_backup_dark sha1=3e14c7ee7bc5",
+    "浅色切换：{\"themeMode\":\"light\",\"themeClass\":\"theme-light\",\"options\":3}",
+    "  截图 v1.4.0_budget_light sha1=820df514feff",
+    "  截图 v1.4.0_recurring_light sha1=e00d0750e46f",
+    "  截图 v1.4.0_search_light sha1=14aaf12d3157",
+    "  截图 v1.4.0_main_light sha1=1eac9f6226b4",
+    "主题复原：{\"themeMode\":\"dark\",\"themeClass\":\"theme-dark\"}",
+    "  截图 v1.4.0_main_dark sha1=d61760c2fdd1"
+  ]
+}

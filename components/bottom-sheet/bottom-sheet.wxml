@@ -5,7 +5,12 @@
     <view class="bs-handle"><view class="bs-handle__bar"></view></view>
     <view class="bs-title" wx:if="{{title}}">{{title}}</view>
     <view class="bs-body">
-      <slot></slot>
+      <!-- Skyline 下只有 scroll-view 能纵向滚动，且它必须有确定高度（给 auto / 只给 max-height
+           会塌成 0，只剩拖拽条 + 标题）。高度由 JS 预算后内联（utils/sheet-scroll.js）：
+           内容装得下时 = 内容高（观感与改造前一致），装不下时 = 可用空间（可滚到底部按钮）。 -->
+      <scroll-view class="bs-scroll" scroll-y="{{scrollable}}" enhanced show-scrollbar="{{false}}" style="height:{{bodyH}}px">
+        <view class="bs-body__inner"><slot></slot></view>
+      </scroll-view>
     </view>
   </view>
 </view>

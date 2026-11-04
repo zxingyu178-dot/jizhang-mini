@@ -1,0 +1,134 @@
+{
+  "tag": "before",
+  "startedAt": "2026-11-04T06:27:55.020Z",
+  "stageDir": "C:\\Users\\30566\\AppData\\Local\\Temp\\jizhang-mini-sheet-probe",
+  "logs": [
+    "启动 IDE 自动化:",
+    "小程序首页已就绪：pages/main/main",
+    "视口：390×844 · safeBottom=34",
+    "  截图 sheet_normal sha1=ced63998caa2",
+    "常规态：面板 h=685.1 · 滚动区 h=null · 内容自然高=null · 保存按钮距面板底=-48.5 · bodyH=undefined scrollable=undefined",
+    "已 mock wx.getWindowInfo → windowHeight=568（等价矮屏视口）",
+    "  截图 sheet_overflow_top sha1=ced63998caa2",
+    "超高态（未滚）：面板 h=685.1 · 滚动区 h=null · 内容自然高=null · 保存按钮 t=747.7 b=795.6 · bodyH=undefined scrollable=undefined",
+    "  截图 sheet_overflow_scrolled sha1=ced63998caa2",
+    "超高态（滚到底）：面板 h=685.1 · 保存按钮 t=747.7 b=795.6 · 距面板底=-48.5 · scrollTo=false",
+    "保存按钮滚动后可达：是",
+    "已还原 wx.getWindowInfo"
+  ],
+  "error": null,
+  "viewport": {
+    "w": 390,
+    "h": 844,
+    "safeBottom": 34
+  },
+  "normal": {
+    "panel": {
+      "l": 0,
+      "t": 159,
+      "w": 390,
+      "h": 685.1,
+      "r": 390,
+      "b": 844.1
+    },
+    "body": {
+      "l": 0,
+      "t": 211.7,
+      "w": 390,
+      "h": 598.4,
+      "r": 390,
+      "b": 810.1
+    },
+    "scroll": null,
+    "inner": null,
+    "save": {
+      "l": 14.6,
+      "t": 747.7,
+      "w": 360.9,
+      "h": 47.9,
+      "r": 375.5,
+      "b": 795.6
+    },
+    "state": {
+      "visible": true
+    },
+    "saveBottomVsPanel": -48.5,
+    "scrollOverflow": null,
+    "sha1": "ced63998caa2"
+  },
+  "overflowTop": {
+    "panel": {
+      "l": 0,
+      "t": 159,
+      "w": 390,
+      "h": 685.1,
+      "r": 390,
+      "b": 844.1
+    },
+    "body": {
+      "l": 0,
+      "t": 211.7,
+      "w": 390,
+      "h": 598.4,
+      "r": 390,
+      "b": 810.1
+    },
+    "scroll": null,
+    "inner": null,
+    "save": {
+      "l": 14.6,
+      "t": 747.7,
+      "w": 360.9,
+      "h": 47.9,
+      "r": 375.5,
+      "b": 795.6
+    },
+    "state": {
+      "visible": true
+    },
+    "saveBottomVsPanel": -48.5,
+    "scrollOverflow": null,
+    "sha1": "ced63998caa2"
+  },
+  "overflowScrolled": {
+    "panel": {
+      "l": 0,
+      "t": 159,
+      "w": 390,
+      "h": 685.1,
+      "r": 390,
+      "b": 844.1
+    },
+    "body": {
+      "l": 0,
+      "t": 211.7,
+      "w": 390,
+      "h": 598.4,
+      "r": 390,
+      "b": 810.1
+    },
+    "scroll": null,
+    "inner": null,
+    "save": {
+      "l": 14.6,
+      "t": 747.7,
+      "w": 360.9,
+      "h": 47.9,
+      "r": 375.5,
+      "b": 795.6
+    },
+    "state": {
+      "visible": true
+    },
+    "saveBottomVsPanel": -48.5,
+    "scrollOverflow": null,
+    "scrollOk": false,
+    "sha1": "ced63998caa2"
+  },
+  "reachable": true,
+  "console": [
+    "{\"type\":\"info\",\"args\":[\"Lazy code loading is enabled. Only injecting required components.\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf] App.onLaunch took 339ms\"]}",
+    "{\"type\":\"warn\",\"args\":[\"检测到 NodesRef.boundingClientRect 不能立即回调，可能由于 scroll-view 的按需加载特性，使得不在屏的节点无法立即取到节点相关信息\"]}"
+  ]
+}

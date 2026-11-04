@@ -25,6 +25,12 @@
   left: 0; right: 0; bottom: 0;
 }
 
+/* 列表底部留白：固定 60rpx（约 31px）小于 iPhone 安全区 34px，
+   叠 safe-area 后最后一张规则卡不会被 Home 指示条压住。 */
+.rc-foot {
+  height: calc(env(safe-area-inset-bottom) + 60rpx);
+}
+
 /* 空态（empty-state 组件）顶部留白 */
 .rc-list-empty {
   display: block;

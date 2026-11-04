@@ -7,6 +7,7 @@
 
 const theme = require('../../utils/theme');
 const money = require('../../data/money');
+const env = require('../../utils/env');
 const { b64encodeAscii } = require('../../utils/b64');
 const {
   buildDonutSVG,
@@ -41,17 +42,24 @@ Component({
     dispAmount: '', // 中心主金额
     dispLabel: '', // 中心标签（分类名 / 总支出）
     dispSub: '', // 中心副信息（占比 / 聚合分类数）
+    // 诊断态（v1.4.0）：image 是否真的加载出了位图。bindload 触发 ≠ 有可见像素，
+    // 但 binderror 为空且 load 成功时，问题必然在 SVG 内容 / 渲染而不是 URI 传输。
+    imgStatus: 'idle', // idle | load | error
+    imgErr: '',
   },
   lifetimes: {
     attached() {
       try { theme.init(); } catch (e) { /* 忽略 */ }
       this._offTheme = theme.subscribe(() => this.refresh());
       this._gSeq = 0;
+      this._renderSeq = 0;
+      this._attached = true;
       this._clearGestureState();
       this.resetDisplay();
       this.refresh();
     },
     detached() {
+      this._attached = false;
       if (this._offTheme) { this._offTheme(); this._offTheme = null; }
       this.cancelGesture(); // 销毁：取消手势，使在途异步回调失效
     },
@@ -84,8 +92,12 @@ Component({
         this.data.selectedIndex,
         themeKey
       );
+      this._lastSvg = svg;
+      this._renderSeq = (this._renderSeq || 0) + 1;
       const uri = 'data:image/svg+xml;base64,' + b64encodeAscii(svg);
-      this.setData({ uri });
+      this.setData({ uri }, () => {
+        this.diagLog('render');
+      });
     },
     /** 未选中态中心信息回到外部传入的总额 */
     resetDisplay() {
@@ -94,6 +106,61 @@ Component({
         dispLabel: this.data.centerLabel,
         dispSub: '',
       });
+    },
+
+    /* ================= 渲染诊断（v1.4.0，仅开发环境） ================= */
+
+    /** image 加载成功：说明 data-URI 被解析、位图已产出（≠ 一定有可见像素，仍需看画面） */
+    onImgLoad() {
+      this.setData({ imgStatus: 'load', imgErr: '' });
+      this.diagLog('image load');
+    },
+    /** image 加载失败：errMsg 是判断「URI 不合法 / SVG 被拒」的第一手证据 */
+    onImgError(e) {
+      const msg = (e && e.detail && e.detail.errMsg) || 'unknown';
+      this.setData({ imgStatus: 'error', imgErr: String(msg) });
+      this.diagLog('image error');
+    },
+    /**
+     * 渲染诊断快照：只含结构 / 体积 / 属性等元信息，
+     * 绝不含账单金额、备注、Base64 全文（正式环境也不输出）。
+     */
+    diagSnapshot() {
+      const svg = this._lastSvg || '';
+      const w = /<svg[^>]*\swidth="([^"]*)"/.exec(svg);
+      const h = /<svg[^>]*\sheight="([^"]*)"/.exec(svg);
+      const par = /<svg[^>]*\spreserveAspectRatio="([^"]*)"/.exec(svg);
+      const segs = this.data.segments || [];
+      return {
+        renderSeq: this._renderSeq || 0,
+        attached: !!this._attached,
+        theme: this.effectiveThemeKey(),
+        segCount: segs.length,
+        sumRatio: Math.round(segs.reduce((a, s) => a + (Number(s.ratio) || 0), 0) * 1e6) / 1e6,
+        svgLen: svg.length,
+        uriLen: (this.data.uri || '').length,
+        svgWidth: w ? w[1] : '(缺失)',
+        svgHeight: h ? h[1] : '(缺失)',
+        preserveAspectRatio: par ? par[1] : '(缺失)',
+        imgStatus: this.data.imgStatus,
+        imgErr: this.data.imgErr,
+        size: this.data.size,
+        hasRgba: /rgba\(/.test(svg),
+        hasHsl: /hsl\(/.test(svg),
+        hasOpacityAttr: /\sopacity="/.test(svg),
+        hasNaN: /NaN|Infinity/.test(svg),
+        selectedIndex: this.data.selectedIndex,
+        hasSelection: !!this.data.hasSelection,
+      };
+    },
+    /** 开发环境输出诊断；正式环境直接返回 null，不做任何日志。 */
+    diagLog(tag) {
+      let dev = false;
+      try { dev = env.isDevEnv(); } catch (e) { dev = false; }
+      if (!dev) return null;
+      const snap = this.diagSnapshot();
+      console.log('[category-donut] ' + tag + ' ' + JSON.stringify(snap));
+      return snap;
     },
 
     /* ================= 手势识别（v1.3.2） ================= */

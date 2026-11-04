@@ -1,0 +1,182 @@
+{
+  "variants": [],
+  "panel": {
+    "mode": "month",
+    "shareSegments": 5,
+    "shareList": 5
+  },
+  "geometry": {
+    "left": 120.0999984741211,
+    "top": 180.10000610351562,
+    "width": 150,
+    "height": 150
+  },
+  "gate0": {
+    "diagSnapshot": {
+      "renderSeq": 2,
+      "attached": true,
+      "theme": "dark",
+      "segCount": 5,
+      "sumRatio": 1,
+      "svgLen": 1293,
+      "uriLen": 1750,
+      "svgWidth": "100",
+      "svgHeight": "100",
+      "preserveAspectRatio": "xMidYMid meet",
+      "imgStatus": "load",
+      "imgErr": "",
+      "size": 150,
+      "hasRgba": false,
+      "hasHsl": false,
+      "hasOpacityAttr": true,
+      "hasNaN": false,
+      "selectedIndex": -1,
+      "hasSelection": false
+    },
+    "dataKeys": {
+      "uriLen": 1750,
+      "imgStatus": "load",
+      "imgErr": "",
+      "size": 150
+    },
+    "segmentsLen": 5
+  },
+  "shots": [
+    {
+      "phase": "month",
+      "sha1": "7a65da1820a3"
+    },
+    {
+      "phase": "selected",
+      "sha1": "cbfb958fc85b"
+    },
+    {
+      "phase": "year",
+      "sha1": "84b9948c8596"
+    },
+    {
+      "phase": "light",
+      "sha1": "e466d681c8d0"
+    }
+  ],
+  "yearSegments": 5,
+  "phases": [
+    {
+      "phase": "month",
+      "renderSeq": 2,
+      "attached": true,
+      "theme": "dark",
+      "segCount": 5,
+      "sumRatio": 1,
+      "svgLen": 1293,
+      "uriLen": 1750,
+      "svgWidth": "100",
+      "svgHeight": "100",
+      "preserveAspectRatio": "xMidYMid meet",
+      "imgStatus": "load",
+      "imgErr": "",
+      "size": 150,
+      "hasRgba": false,
+      "hasHsl": false,
+      "hasOpacityAttr": true,
+      "hasNaN": false,
+      "selectedIndex": -1,
+      "hasSelection": false
+    },
+    {
+      "phase": "selected",
+      "renderSeq": 3,
+      "attached": true,
+      "theme": "dark",
+      "segCount": 5,
+      "sumRatio": 1,
+      "svgLen": 1305,
+      "uriLen": 1766,
+      "svgWidth": "100",
+      "svgHeight": "100",
+      "preserveAspectRatio": "xMidYMid meet",
+      "imgStatus": "load",
+      "imgErr": "",
+      "size": 150,
+      "hasRgba": false,
+      "hasHsl": false,
+      "hasOpacityAttr": true,
+      "hasNaN": false,
+      "selectedIndex": 0,
+      "hasSelection": true
+    },
+    {
+      "phase": "year",
+      "renderSeq": 4,
+      "attached": false,
+      "theme": "dark",
+      "segCount": 5,
+      "sumRatio": 1,
+      "svgLen": 1293,
+      "uriLen": 1750,
+      "svgWidth": "100",
+      "svgHeight": "100",
+      "preserveAspectRatio": "xMidYMid meet",
+      "imgStatus": "load",
+      "imgErr": "",
+      "size": 150,
+      "hasRgba": false,
+      "hasHsl": false,
+      "hasOpacityAttr": true,
+      "hasNaN": false,
+      "selectedIndex": -1,
+      "hasSelection": false
+    },
+    {
+      "phase": "light",
+      "renderSeq": 4,
+      "attached": true,
+      "theme": "light",
+      "segCount": 5,
+      "sumRatio": 1,
+      "svgLen": 1294,
+      "uriLen": 1754,
+      "svgWidth": "100",
+      "svgHeight": "100",
+      "preserveAspectRatio": "xMidYMid meet",
+      "imgStatus": "load",
+      "imgErr": "",
+      "size": 150,
+      "hasRgba": false,
+      "hasHsl": false,
+      "hasOpacityAttr": true,
+      "hasNaN": false,
+      "selectedIndex": -1,
+      "hasSelection": false
+    }
+  ],
+  "consoleLogs": [
+    "{\"type\":\"info\",\"args\":[\"Lazy code loading is enabled. Only injecting required components.\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf] App.onLaunch took 347ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":2,\\\"sumRatio\\\":1,\\\"svgLen\\\":645,\\\"uriLen\\\":886,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":2,\\\"sumRatio\\\":1,\\\"svgLen\\\":645,\\\"uriLen\\\":886,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":2,\\\"sumRatio\\\":1,\\\"svgLen\\\":645,\\\"uriLen\\\":886,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":3,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1305,\\\"uriLen\\\":1766,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":0,\\\"hasSelection\\\":true}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":3,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1305,\\\"uriLen\\\":1766,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":0,\\\"hasSelection\\\":true}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":4,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":4,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1292,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1292,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1292,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":2,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":4,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":4,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":4,\\\"attached\\\":true,\\\"theme\\\":\\\"light\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1294,\\\"uriLen\\\":1754,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 116ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":6,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":6,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] image load {\\\"renderSeq\\\":6,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"load\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 112ms\"]}"
+  ],
+  "exceptions": []
+}

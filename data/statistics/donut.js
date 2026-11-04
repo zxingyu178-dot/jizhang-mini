@@ -19,6 +19,88 @@ const OUTER_R = RADIUS + STROKE / 2; // 46
 /** 聚合「其他」的专用中性色（独立于真实分类颜色，语义中性、两主题可读，不随主题变化） */
 const AGGREGATE_COLOR = '#8D94A8';
 
+// —— v1.4.0 Skyline SVG 颜色兼容 ——
+// 实测（微信开发者工具 2.02 + Skyline + 基础库 3.17.4，证据见 docs/V1.4.0_AUDIT.md）：
+//   · SVG 里出现 hsl() 颜色的 <circle> 会被**整条丢弃**（同图里 rgba 轨道环照常绘制，
+//     只有 hue 分段消失 → 用户看到的是一圈灰环 + 空白）；
+//   · 官方 Skyline 兼容性文档亦明确 svg「不支持 rgba 格式，可使用 fill-opacity 替代」。
+// 因此：**发到 SVG 属性前统一转成确定性 #RRGGBB（+ 独立透明度属性）**。
+// 对外颜色合同不变：getCategoryColor / resolveSegmentColors 仍返回 hsl，
+// 图例、面板、对比度审计（npm run contrast:audit）一行都不用改。
+const FALLBACK_HEX = AGGREGATE_COLOR;
+const HEX6_RE = /^#([0-9a-f]{6})$/i;
+const HEX3_RE = /^#([0-9a-f]{3})$/i;
+const RGB_FN_RE = /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*(?:,\s*([0-9.]+)\s*)?\)$/i;
+const HSL_FN_RE = /^hsla?\(\s*(-?[0-9.]+)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%\s*(?:,\s*([0-9.]+)\s*)?\)$/i;
+
+/** 单通道钳制到 0..255 并转两位大写十六进制 */
+function hex2(v) {
+  const n = Number.isFinite(v) ? Math.max(0, Math.min(255, Math.round(v))) : 0;
+  return (n < 16 ? '0' : '') + n.toString(16).toUpperCase();
+}
+
+/**
+ * HSL → #RRGGBB。与 data/statistics/contrast.js 的 hslToRgb 同一套公式，
+ * 保证「圆环渲染色」和「对比度审计算出的色」是同一个颜色。
+ */
+function hslToHex(h, s, l) {
+  const sat = s / 100;
+  const lig = l / 100;
+  const c = (1 - Math.abs(2 * lig - 1)) * sat;
+  const hp = ((((h % 360) + 360) % 360)) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+  if (hp >= 0 && hp < 1) { r1 = c; g1 = x; b1 = 0; }
+  else if (hp < 2) { r1 = x; g1 = c; b1 = 0; }
+  else if (hp < 3) { r1 = 0; g1 = c; b1 = x; }
+  else if (hp < 4) { r1 = 0; g1 = x; b1 = c; }
+  else if (hp < 5) { r1 = x; g1 = 0; b1 = c; }
+  else { r1 = c; g1 = 0; b1 = x; }
+  const m = lig - c / 2;
+  return '#' + hex2((r1 + m) * 255) + hex2((g1 + m) * 255) + hex2((b1 + m) * 255);
+}
+
+/**
+ * 把任意合法 CSS 颜色（hex / rgb() / rgba() / hsl() / hsla()）解析成
+ * { hex:'#RRGGBB', alpha:0..1 }；无法识别返回 null（由调用方兜底）。
+ * 只做确定性转换，不做四舍五入之外的任何视觉调整。
+ */
+function parseSvgColor(color) {
+  const s = String(color == null ? '' : color).trim();
+  if (!s) return null;
+  if (HEX6_RE.test(s)) return { hex: s.toUpperCase(), alpha: 1 };
+  const h3 = HEX3_RE.exec(s);
+  if (h3) {
+    const d = h3[1];
+    return { hex: ('#' + d[0] + d[0] + d[1] + d[1] + d[2] + d[2]).toUpperCase(), alpha: 1 };
+  }
+  const rgb = RGB_FN_RE.exec(s);
+  if (rgb) {
+    const a = rgb[4] === undefined ? 1 : Number(rgb[4]);
+    return {
+      hex: '#' + hex2(Number(rgb[1])) + hex2(Number(rgb[2])) + hex2(Number(rgb[3])),
+      alpha: Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1,
+    };
+  }
+  const hsl = HSL_FN_RE.exec(s);
+  if (hsl) {
+    const a = hsl[4] === undefined ? 1 : Number(hsl[4]);
+    return {
+      hex: hslToHex(Number(hsl[1]), Number(hsl[2]), Number(hsl[3])),
+      alpha: Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1,
+    };
+  }
+  return null;
+}
+
+/** SVG 属性用色：一律 #RRGGBB（不认识的颜色回退中性色，绝不输出 hsl()/rgba()） */
+function svgColor(color) {
+  const p = parseSvgColor(color);
+  return p ? p.hex : FALLBACK_HEX;
+}
+
 // —— 确定性 HSL 配色参数 ——
 // 黄金角：让不同 hash 的色相在色轮上均匀散开，相邻 id 颜色差异大、可辨识度高。
 const GOLDEN_ANGLE = 137.50776405003785;
@@ -86,9 +168,13 @@ function buildDonutArcs(segments, theme) {
   const colored = resolveSegmentColors(segments, theme);
   let acc = 0;
   return colored.map((s, i) => {
-    const ratio = s.ratio > 0 ? s.ratio : 0;
+    // 防脏数据：NaN / Infinity / 负数 / 超 1 的 ratio 一律安全归零或钳制，
+    // 绝不让 NaN 进 dasharray（SVG 数值非法会让整条弧线消失，且很难在现场定位）。
+    const raw = Number(s.ratio);
+    const ratio = Number.isFinite(raw) && raw > 0 ? Math.min(raw, 1) : 0;
     const dash = ratio * CIRCUMFERENCE;
-    const offset = -acc * CIRCUMFERENCE; // 负 offset 沿顺时针推进到累计起点
+    const rest = Math.max(0, CIRCUMFERENCE - dash);
+    const offset = Number.isFinite(acc) ? -acc * CIRCUMFERENCE : 0; // 负 offset 沿顺时针推进到累计起点
     acc += ratio;
     return {
       index: i,
@@ -96,7 +182,8 @@ function buildDonutArcs(segments, theme) {
       aggregate: !!s.aggregate,
       ratio,
       color: s.color,
-      dashArray: dash + ' ' + (CIRCUMFERENCE - dash),
+      svgColor: svgColor(s.color),
+      dashArray: dash + ' ' + rest,
       dashOffset: offset,
     };
   });
@@ -136,8 +223,15 @@ function hitSegment(segments, vx, vy) {
 
 /**
  * 生成完整圆环 SVG（含背景轨道与各分段，支持选中态）。
+ *
+ * v1.4.0 Skyline 兼容约束（每条都由实测证据支撑，见 docs/V1.4.0_AUDIT.md）：
+ *   1. 颜色属性一律输出 #RRGGBB（hsl() 会导致元素被丢弃）；
+ *   2. 透明度走 opacity / stroke-opacity 属性，不写 rgba()；
+ *   3. 根节点显式声明 width/height（svg 不支持百分比单位）+ preserveAspectRatio，
+ *      不依赖宿主推断固有尺寸。
+ *
  * @param {Array} segments computeCategoryShare().segments
- * @param {string} trackColor 背景轨道颜色（组件按主题传入）
+ * @param {string|{color:string,opacity:number}} trackColor 背景轨道颜色（可写 hex/rgba/hsl，内部统一转 hex）
  * @param {number} [selectedIndex] 选中分段 index；缺省 / -1 表示无选中（全部正常）
  * @param {string} [theme] 分段颜色主题 'dark' | 'light'
  * @returns {string}
@@ -145,6 +239,13 @@ function hitSegment(segments, vx, vy) {
 function buildDonutSVG(segments, trackColor, selectedIndex, theme) {
   const arcs = buildDonutArcs(segments, theme);
   const hasSel = typeof selectedIndex === 'number' && selectedIndex >= 0;
+  const track = parseSvgColor(
+    trackColor && typeof trackColor === 'object' ? trackColor.color : trackColor
+  ) || { hex: FALLBACK_HEX, alpha: 1 };
+  const trackAlpha = trackColor && typeof trackColor === 'object' && Number.isFinite(Number(trackColor.opacity))
+    ? Math.max(0, Math.min(1, Number(trackColor.opacity)))
+    : track.alpha;
+
   let circles = '';
   arcs.forEach((a) => {
     const active = hasSel && a.index === selectedIndex;
@@ -152,15 +253,17 @@ function buildDonutSVG(segments, trackColor, selectedIndex, theme) {
     const sw = active ? STROKE + 3 : STROKE; // 选中段略微外扩
     circles +=
       '<circle cx="' + CENTER + '" cy="' + CENTER + '" r="' + RADIUS + '" fill="none" ' +
-      'stroke="' + a.color + '" stroke-width="' + sw + '" ' +
+      'stroke="' + a.svgColor + '" stroke-width="' + sw + '" ' +
       'stroke-dasharray="' + a.dashArray + '" stroke-dashoffset="' + a.dashOffset + '" ' +
       'opacity="' + opacity + '" ' +
       'transform="rotate(-90 ' + CENTER + ' ' + CENTER + ')"/>';
   });
   return (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" ' +
+    'width="100" height="100" preserveAspectRatio="xMidYMid meet">' +
     '<circle cx="' + CENTER + '" cy="' + CENTER + '" r="' + RADIUS + '" fill="none" ' +
-    'stroke="' + trackColor + '" stroke-width="' + STROKE + '"/>' +
+    'stroke="' + track.hex + '" stroke-width="' + STROKE + '" ' +
+    'stroke-opacity="' + trackAlpha + '"/>' +
     circles +
     '</svg>'
   );
@@ -181,6 +284,9 @@ module.exports = {
   hashId,
   categoryHue,
   getCategoryColor,
+  hslToHex,
+  parseSvgColor,
+  svgColor,
   resolveSegmentColors,
   buildDonutArcs,
   localToViewBox,

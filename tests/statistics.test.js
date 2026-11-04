@@ -429,7 +429,9 @@ console.log('环形图圆弧 buildDonutArcs / buildDonutSVG');
   eq(svg.indexOf('<svg'), 0, 'SVG 以 <svg 开头');
   eq(svg.indexOf('</svg>'), svg.length - 6, 'SVG 以 </svg> 结尾');
   eq((svg.match(/<circle/g) || []).length, 4, 'SVG 含 1 轨道 + 3 分段 circle');
-  assert(svg.indexOf('rgba(0,0,0,0.1)') >= 0, 'SVG 含轨道颜色');
+  assert(svg.indexOf('#000000') >= 0, 'SVG 含轨道颜色（rgba 已转 hex）');
+  assert(svg.indexOf('stroke-opacity="0.1"') >= 0, '轨道透明度走 stroke-opacity 属性');
+  assert(svg.indexOf('rgba(') < 0, 'SVG 不得出现 rgba（Skyline 不支持）');
 
   // 空 segments
   eq(D.buildDonutArcs([]).length, 0, '空 segments 无圆弧');

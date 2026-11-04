@@ -122,6 +122,11 @@
   right: 0;
   bottom: 0;
 }
+/* 底部安全区：结果列表滚到底时最后一张日卡不能被 Home 指示条压住。
+   scroll-view 的 padding 在 Skyline 下不生效（实测），留白压在最后一张卡自己的 margin 上。 */
+.day-card:last-child {
+  margin-bottom: calc(env(safe-area-inset-bottom) + 20rpx);
+}
 .s-section-label {
   padding: 16rpx 32rpx 12rpx;
   font-size: 24rpx;

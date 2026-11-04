@@ -97,8 +97,11 @@
 }
 
 /* 添加分类 */
+/* 底部安全区：实测 390×844 时该按钮底边距屏底仅 6.9px（安全区 34px），会被 Home
+   指示条压住。scroll-view 的 padding 在 Skyline 下不生效（实测补 padding 后间距不变），
+   因此把留白加在最后一个元素自身的 margin 上。 */
 .cm-add {
-  margin: 16rpx 28rpx 8rpx;
+  margin: 16rpx 28rpx calc(env(safe-area-inset-bottom) + 8rpx);
   height: 92rpx;
   border-radius: 20rpx;
   border: 1rpx dashed var(--card-border-hi);

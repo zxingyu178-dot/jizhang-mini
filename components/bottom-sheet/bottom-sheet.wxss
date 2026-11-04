@@ -27,7 +27,8 @@
 }
 
 /* 玻璃面板：半透明深色 + 顶部轻紫光 + 背景模糊 + 边缘高光。
-   不依赖固定高度，按内容自然出现；max-height 作为上限。 */
+   面板高度由内容驱动（不固定），max-height 作为上限；
+   内容区高度由 JS 预算后内联给内部 scroll-view（见 bottom-sheet.wxml / utils/sheet-scroll.js）。 */
 .bs-panel {
   position: absolute;
   left: 0;
@@ -70,9 +71,18 @@
   flex-shrink: 0;
 }
 
-/* 内容区按自然高度（不强制增长），内容超高时纵向滚动 */
+/* 内容区外壳：只负责排版，不参与滚动、不收缩（flex:0 1 auto 实测会把面板压塌）。
+   高度全部来自内部 scroll-view 的确定 px 高度，内容装得下时不会多出一像素留白。 */
 .bs-body {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
+}
+.bs-scroll {
+  display: block;
+  width: 100%;
+}
+/* 滚动内容的自然高度盒：JS 用它量内容高（装得下 → 高度即内容高） */
+.bs-body__inner {
+  display: block;
+  width: 100%;
 }

@@ -1,0 +1,195 @@
+{
+  "tag": "after",
+  "startedAt": "2026-11-04T06:33:04.316Z",
+  "stageDir": "C:\\Users\\30566\\AppData\\Local\\Temp\\jizhang-mini-sheet-probe",
+  "logs": [
+    "启动 IDE 自动化:",
+    "小程序首页已就绪：pages/main/main",
+    "视口：390×844 · safeBottom=34",
+    "  截图 sheet_normal sha1=0305ca19ffd2",
+    "常规态：面板 h=685.7 · 滚动区 h=599 · 内容自然高=598.4 · 保存按钮距面板底=-49.1 · bodyH=599 scrollable=false",
+    "临时超高页：pages/__sheetdebug/sheet-debug",
+    "  截图 sheet_overflow_top sha1=df8415e7e019",
+    "超高态（未滚）：面板 h=742.7 · 滚动区 h=656 · 内容自然高=992.2 · 保存按钮 t=1100.6 b=1146.4 · bodyH=656 scrollable=true",
+    "  截图 sheet_overflow_scrolled sha1=6a61125e26b6",
+    "超高态（滚到底）：面板 h=742.7 · 保存按钮 t=764.4 b=810.2 · 距面板底=-33.9 · scrollTo=true",
+    "判定：面板高 742.7（上限 742.7，符合=true）· 滚动区 656 / 内容 992.2 · 滚动位移 336.2 · 按钮落在面板内=true",
+    "保存按钮滚动后可达：是"
+  ],
+  "error": null,
+  "viewport": {
+    "w": 390,
+    "h": 844,
+    "safeBottom": 34
+  },
+  "normal": {
+    "panel": {
+      "l": 0,
+      "t": 158.4,
+      "w": 390,
+      "h": 685.7,
+      "r": 390,
+      "b": 844.1
+    },
+    "body": {
+      "l": 0,
+      "t": 211.1,
+      "w": 390,
+      "h": 599,
+      "r": 390,
+      "b": 810.1
+    },
+    "scroll": {
+      "l": 0,
+      "t": 211.1,
+      "w": 390,
+      "h": 599,
+      "r": 390,
+      "b": 810.1
+    },
+    "inner": {
+      "l": 0,
+      "t": 211.1,
+      "w": 390,
+      "h": 598.4,
+      "r": 390,
+      "b": 809.5
+    },
+    "save": {
+      "l": 14.6,
+      "t": 747.1,
+      "w": 360.9,
+      "h": 47.9,
+      "r": 375.5,
+      "b": 795
+    },
+    "state": {
+      "bodyH": 599,
+      "scrollable": false,
+      "visible": true
+    },
+    "saveBottomVsPanel": -49.1,
+    "scrollOverflow": -0.6,
+    "sha1": "0305ca19ffd2"
+  },
+  "overflowTop": {
+    "panel": {
+      "l": 0,
+      "t": 101.4,
+      "w": 390,
+      "h": 742.7,
+      "r": 390,
+      "b": 844.1
+    },
+    "body": {
+      "l": 0,
+      "t": 154.1,
+      "w": 390,
+      "h": 656,
+      "r": 390,
+      "b": 810.1
+    },
+    "scroll": {
+      "l": 0,
+      "t": 154.1,
+      "w": 390,
+      "h": 656,
+      "r": 390,
+      "b": 810.1
+    },
+    "inner": {
+      "l": 0,
+      "t": 154.1,
+      "w": 390,
+      "h": 992.2,
+      "r": 390,
+      "b": 1146.3
+    },
+    "save": {
+      "l": 16.7,
+      "t": 1100.6,
+      "w": 356.8,
+      "h": 45.8,
+      "r": 373.5,
+      "b": 1146.4
+    },
+    "state": {
+      "bodyH": 656,
+      "scrollable": true,
+      "visible": true
+    },
+    "saveBottomVsPanel": 302.3,
+    "scrollOverflow": 336.2,
+    "sha1": "df8415e7e019"
+  },
+  "overflowScrolled": {
+    "panel": {
+      "l": 0,
+      "t": 101.4,
+      "w": 390,
+      "h": 742.7,
+      "r": 390,
+      "b": 844.1
+    },
+    "body": {
+      "l": 0,
+      "t": 154.1,
+      "w": 390,
+      "h": 656,
+      "r": 390,
+      "b": 810.1
+    },
+    "scroll": {
+      "l": 0,
+      "t": 154.1,
+      "w": 390,
+      "h": 656,
+      "r": 390,
+      "b": 810.1
+    },
+    "inner": {
+      "l": 0,
+      "t": -182.1,
+      "w": 390,
+      "h": 992.2,
+      "r": 390,
+      "b": 810.1
+    },
+    "save": {
+      "l": 16.7,
+      "t": 764.4,
+      "w": 356.8,
+      "h": 45.8,
+      "r": 373.5,
+      "b": 810.2
+    },
+    "state": {
+      "bodyH": 656,
+      "scrollable": true,
+      "visible": true
+    },
+    "saveBottomVsPanel": -33.9,
+    "scrollOverflow": 336.2,
+    "scrollOk": true,
+    "sha1": "6a61125e26b6"
+  },
+  "checks": {
+    "viewportH": 844,
+    "panelCap": 742.7,
+    "panelFitsCap": true,
+    "panelHeight": 742.7,
+    "scrollAreaH": 656,
+    "contentNaturalH": 992.2,
+    "needsScroll": true,
+    "scrollDelta": 336.2,
+    "saveInsidePanel": true
+  },
+  "reachable": true,
+  "console": [
+    "{\"type\":\"info\",\"args\":[\"Lazy code loading is enabled. Only injecting required components.\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf] App.onLaunch took 389ms\"]}",
+    "{\"type\":\"warn\",\"args\":[\"[Perf][pages/main/main] Page.onShow took 206ms\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}",
+    "{\"type\":\"log\",\"args\":[\"[category-donut] render {\\\"renderSeq\\\":1,\\\"attached\\\":true,\\\"theme\\\":\\\"dark\\\",\\\"segCount\\\":5,\\\"sumRatio\\\":1,\\\"svgLen\\\":1293,\\\"uriLen\\\":1750,\\\"svgWidth\\\":\\\"100\\\",\\\"svgHeight\\\":\\\"100\\\",\\\"preserveAspectRatio\\\":\\\"xMidYMid meet\\\",\\\"imgStatus\\\":\\\"idle\\\",\\\"imgErr\\\":\\\"\\\",\\\"size\\\":150,\\\"hasRgba\\\":false,\\\"hasHsl\\\":false,\\\"hasOpacityAttr\\\":true,\\\"hasNaN\\\":false,\\\"selectedIndex\\\":-1,\\\"hasSelection\\\":false}\"]}"
+  ]
+}

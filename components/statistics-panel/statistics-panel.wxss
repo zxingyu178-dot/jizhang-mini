@@ -401,11 +401,15 @@
 .cmp-fill--inc {
   background: var(--income);
 }
+/* 金额列不再写死 140rpx：7 位以上金额（¥1,234,567.89）在 320px 屏 + tabular-nums
+   下会顶满 140rpx 甚至折行。改为「最小宽度 + 不收缩 + 单行」，由中间的进度条让位。 */
 .cmp-val {
-  width: 140rpx;
+  flex-shrink: 0;
+  min-width: 140rpx;
   text-align: right;
   font-size: 24rpx;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* ---- 极值 ---- */

@@ -49,7 +49,8 @@
       <text class="rc-add__icon">+</text>
       <text class="rc-add__text">新建周期</text>
     </view>
-    <view style="height:60rpx;"></view>
+    <!-- 底部留白：叠加安全区，最后一张规则卡不被 Home 指示条压住 -->
+    <view class="rc-foot"></view>
   </scroll-view>
 
   <!-- 编辑器 Sheet -->

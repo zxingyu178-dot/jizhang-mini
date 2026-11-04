@@ -175,6 +175,216 @@ has(statCss['.month-title__text'], 'text-overflow', 'ellipsis', '统计月份标
 has(statCss['.share-row__percent'], 'flex-shrink', '0', '统计占比列禁止收缩');
 has(statCss['.share-row__amount'], 'flex-shrink', '0', '统计金额列禁止收缩');
 
+/* ============================================================
+   13. 五档宽度预算校验（320 / 360 / 375 / 390 / 414）
+   ============================================================
+   思路：不依赖模拟器，把「一行内的固定宽度元素之和 + 最坏文本宽度」按 rpx→px
+   换算到 5 个真实屏宽，逐档断言放得下。
+     · rpx→px 系数 = 屏宽 / 750（小程序标准）
+     · 文本宽度按偏大值估算：CJK/全角 1em、数字 0.6em、字母 0.62em、标点 0.34em
+   这样任何一档超限都会在单测里暴露，而不是等真机截图才发现。 */
+const WIDTHS = [320, 360, 375, 390, 414];
+const px = (rpxVal, w) => (rpxVal * w) / 750;
+
+function textEm(str) {
+  let em = 0;
+  for (const ch of String(str)) {
+    if (/[\u3000-\u303f\u4e00-\u9fa5\uff00-\uffef]/.test(ch)) em += 1; // CJK / 全角
+    else if (/[0-9]/.test(ch)) em += 0.6;
+    else if (/[a-zA-Z]/.test(ch)) em += 0.62;
+    else em += 0.34; // 空格 / 半角标点 / ¥ . , : ; ( ) % + -
+  }
+  return em;
+}
+
+/** 一个「行」的宽度预算：avail 可用宽度(rpx)；fixed 固定 rpx 之和；
+ *  texts = [{t:'文本', f:字号rpx}] 或 [{px: 固定像素}] */
+function needsPx(b, w) {
+  const fixed = px(b.fixed || 0, w);
+  const text = (b.texts || []).reduce((s, t) => {
+    if (t.px != null) return s + t.px;
+    return s + textEm(t.t) * px(t.f, w);
+  }, 0);
+  return fixed + text;
+}
+
+function checkRow(b) {
+  WIDTHS.forEach((w) => {
+    const avail = b.availPx != null ? b.availPx : b.avail === 'full' ? w : px(b.avail, w);
+    const need = needsPx(b, w);
+    check(
+      need <= avail + 0.5,
+      `[${w}px] ${b.name} 需要 ${need.toFixed(1)}px > 可用 ${avail.toFixed(1)}px` +
+        (b.hint ? ` —— ${b.hint}` : '')
+    );
+  });
+}
+
+/* --- 13.1 主界面 Header：胶囊占位 102px（iOS 最坏）+ 固定部分必须放得下 --- */
+// 紧凑档固定部分：左内边距 24 + actions 左间距 8 + 搜索最小宽 140 + 设置 56 + 设置左间距 4
+// + 右内边距 24，加搜索图标固定 12px（dv-icon 走 px，不随 rpx 缩放）。
+// 标题 flex:0 1 auto + min-width:0 + ellipsis 可压缩，故不计入固定部分。
+const HEADER_MENU_PAD = 102;
+WIDTHS.forEach((w) => {
+  const compactFixed = px(24 + 8 + 140 + 56 + 4 + 24, w) + 12;
+  const avail = w - HEADER_MENU_PAD;
+  check(
+    compactFixed <= avail,
+    `[${w}px] 主 Header 紧凑档固定部分 ${compactFixed.toFixed(1)}px > 胶囊外可用 ${avail}px`
+  );
+});
+
+/* --- 13.2 逐页行预算（每个数字都对应 wxss 里的一行真实布局） --- */
+[
+  {
+    name: '统计·分类占比行（图标44+点26+百分比80+金额）',
+    avail: 750 - 2 * 28,
+    fixed: 14 + 12 + 44 + 12 + 12 + 80,
+    texts: [{ t: '¥123,456.78', f: 26 }],
+    hint: 'share-row__percent 80rpx 固定 + share-row__amount 禁收缩',
+  },
+  {
+    name: '统计·最大单笔卡（图标56+金额）',
+    avail: 750 - 2 * 28,
+    fixed: 56 + 16 + 16 + 12,
+    texts: [{ t: '¥123,456.78', f: 34 }],
+  },
+  {
+    name: '统计·收支对比行（标签72+进度条最小+金额140）',
+    avail: 750 - 2 * 28,
+    fixed: 72 + 16 + 16,
+    texts: [{ t: '¥123,456.78', f: 24 }],
+    hint: 'cmp-val 已改 min-width + 不收缩，进度条让位',
+  },
+  {
+    name: '记账·时间线行（图标76+两侧间距+金额）',
+    avail: 750 - 2 * 28 - 2 * 8 - 2 * 2,
+    fixed: 76 + 18 + 18,
+    texts: [{ t: '¥123,456.78', f: 30 }],
+  },
+  {
+    name: '记账·Hero 大金额 lg（8 字 64rpx）',
+    avail: 750 - 2 * 28 - 2 * 32,
+    fixed: 0,
+    texts: [{ t: '¥12,345.6', f: 64 }],
+    hint: 'accounting-panel .hero__expense--lg',
+  },
+  {
+    name: '记账·Hero 大金额 md（11 字 54rpx）',
+    avail: 750 - 2 * 28 - 2 * 32,
+    fixed: 0,
+    texts: [{ t: '¥123,456.78', f: 54 }],
+  },
+  {
+    name: '记账·Hero 大金额 sm（14 字 44rpx）',
+    avail: 750 - 2 * 28 - 2 * 32,
+    fixed: 0,
+    texts: [{ t: '¥1,234,567.89', f: 44 }],
+  },
+  {
+    name: '预算·金额行（¥ + 输入 + /天 + 完成）',
+    avail: 750 - 2 * 28 - 2 * 24,
+    fixed: 40 + 10 + 10 + 96 + 12,
+    texts: [{ t: ' / 天', f: 26 }],
+    hint: '预算金额输入至少保留 200rpx 给 8 位数字',
+  },
+  {
+    name: '导入·历史行（文件名 + 统计 meta）',
+    avail: 750 - 2 * 28 - 2 * 24,
+    fixed: 16,
+    texts: [{ t: '1234 笔 · 5 处异常', f: 24 }],
+  },
+  {
+    name: '导入预览·底部双按钮（各占一半）',
+    avail: (750 - 2 * 28 - 20) / 2,
+    fixed: 2 * 16,
+    texts: [{ t: '确认导入 999 笔', f: 30 }],
+  },
+  {
+    name: '周期·规则卡头（金额 + 开关）',
+    avail: 750 - 2 * 28 - 2 * 26,
+    fixed: 60,
+    texts: [{ t: '+¥123,456.78', f: 48 }],
+  },
+  {
+    name: '日价·列表行（图标76+右侧日价+箭头）',
+    avail: 750 - 2 * 28 - 2 * 10,
+    fixed: 76 + 18 + 18 + 6 + 34,
+    texts: [{ t: '¥12,345.67', f: 30 }],
+  },
+  {
+    name: '搜索·账单行（分类图标 + 金额）',
+    avail: 750 - 2 * 28 - 2 * 24,
+    fixed: 64 + 16 + 16,
+    texts: [{ t: '¥123,456.78', f: 28 }],
+  },
+  {
+    name: '分类管理·行（图标 + 名称 + 归档按钮）',
+    avail: 750 - 2 * 28 - 2 * 24,
+    fixed: 44 + 18 + 12 + 40,
+    texts: [{ t: '归档', f: 24 }],
+  },
+  {
+    name: '日价详情·Hero lg（8 字 72rpx）',
+    avail: 750 - 2 * 28 - 2 * 32,
+    fixed: 0,
+    texts: [{ t: '¥12,345.6', f: 72 }],
+  },
+  {
+    name: '日价详情·Hero md（11 字 60rpx）',
+    avail: 750 - 2 * 28 - 2 * 32,
+    fixed: 0,
+    texts: [{ t: '¥123,456.78', f: 60 }],
+  },
+  {
+    name: '日价详情·Hero sm（14 字 48rpx）',
+    avail: 750 - 2 * 28 - 2 * 32,
+    fixed: 0,
+    texts: [{ t: '¥1,234,567.89', f: 48 }],
+  },
+  {
+    name: '设置·行（标签 + 右侧提示 + 箭头）',
+    avail: 750 - 2 * 28 - 2 * 24,
+    fixed: 6 + 24,
+    texts: [{ t: '已开启 ¥1,234.56/天', f: 26 }],
+  },
+].forEach(checkRow);
+
+/* ============================================================
+   14. 平台差异契约（Skyline）
+   ============================================================ */
+// 14.1 Bottom Sheet 面板：高度随内容自适应 + 上限 88% + 底部安全区。
+// 说明（实测）：Skyline 不支持 overflow 滚动，内容区必须是 scroll-view 才能滚；
+// 而 scroll-view 必须有**确定高度**（给 auto / 只给 max-height 会塌成 0，
+// 面板只剩标题、内容整块溢出屏外，v1.4.0 已实测复现并回滚）。
+// 因此契约是：scroll-view + JS 预算后内联 px 高度（utils/sheet-scroll.js）。
+const bsCss = cssRules(read('components/bottom-sheet/bottom-sheet.wxss'));
+has(bsCss['.bs-panel'], 'max-height', '88%', '弹层面板高度上限');
+check(/padding-bottom\s*:\s*env\(safe-area-inset-bottom\)/.test(bsCss['.bs-panel'] || ''),
+  '弹层面板需要 padding-bottom: env(safe-area-inset-bottom)');
+has(bsCss['.bs-body'], 'min-height', '0', '弹层内容区可被 flex 压缩（否则面板会被撑破）');
+const bsWxml = read('components/bottom-sheet/bottom-sheet.wxml');
+check(/<scroll-view[^>]*scroll-y[^>]*style="height:\{\{bodyH\}\}px"/.test(bsWxml),
+  '弹层内容区必须用 scroll-view 且带确定 px 高度（Skyline 下无确定高度会塌成 0，见 v1.4.0 UI 审计 UI-01）');
+check(fs.existsSync(path.join(ROOT, 'utils/sheet-scroll.js')), '弹层高度预算模块 utils/sheet-scroll.js 必须存在');
+
+// 14.2 底部安全区：内容可滚到底的页面必须在最后一个元素上留 safe-area。
+// Skyline 下 scroll-view 的 padding 不生效（实测：补 padding-bottom:env(...) 后间距不变），
+// 所以留白必须压到最后一个元素自己的 margin / height 上。
+const cmAdd = cssRules(read('pages/category-manage/category-manage.wxss'))['.cm-add'];
+check(/safe-area-inset-bottom/.test(cmAdd), '分类管理「添加分类」按钮需 safe-area 下边距（实测底边距屏底 6.9px）');
+const dayCardLast = cssRules(read('pages/search/search.wxss'))['.day-card:last-child'];
+check(/safe-area-inset-bottom/.test(dayCardLast), '搜索页最后一张日卡需 safe-area 下边距');
+const rcFoot = cssRules(read('pages/recurring/recurring.wxss'))['.rc-foot'];
+check(/safe-area-inset-bottom/.test(rcFoot), '周期记账列表底部留白需叠加 safe-area');
+check(/class="rc-foot"/.test(read('pages/recurring/recurring.wxml')), '周期记账页应使用 .rc-foot 留白（不再写死 60rpx）');
+
+// 14.3 金额列不得写死宽度把数字挤出去（统计收支对比行）
+const cmpVal = cssRules(read('components/statistics-panel/statistics-panel.wxss'))['.cmp-val'];
+has(cmpVal, 'min-width', '140rpx', '统计对比金额列最小宽度');
+has(cmpVal, 'flex-shrink', '0', '统计对比金额列禁止收缩');
+has(cmpVal, 'white-space', 'nowrap', '统计对比金额列单行');
+
 console.log('\nui-layout tests: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
 console.log('ALL UI LAYOUT TESTS PASSED');
