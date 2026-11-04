@@ -174,6 +174,6 @@ npm run contrast:audit
 
 ## 7. Git
 
-- 实现提交：`<见提交后回填>`
-- 文档提交：`<见提交后回填>`
-- 远端：`origin/main`，推送后本地与远程 SHA 一致（见回填）。
+- 实现提交：`a6bbbddb86ef013175e2c20d37a8b8ba6d7d9325`（v1.3.6 源码 / 测试 / 文档主体）
+- 文档回填提交：本文件 SHA 更新所在提交（`git log -1 --format=%H` 即为交付 HEAD）
+- 远端：`origin/main`，推送后本地与远程 SHA 一致（以推送后 `git rev-parse origin/main` 为准）
