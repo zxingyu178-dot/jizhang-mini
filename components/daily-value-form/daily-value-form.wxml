@@ -4,12 +4,14 @@
     <text class="df-row__label">名称</text>
     <input
       class="df-row__input"
+      type="text"
       placeholder="如：MacBook Pro / 咖啡机"
       placeholder-class="df-row__ph"
       maxlength="30"
       value="{{title}}"
       bindinput="onTitle"
-      focus="{{autoFocus}}"
+      confirm-type="done"
+      bindconfirm="onTitleConfirm"
     />
   </view>
 
@@ -23,8 +25,17 @@
       placeholder-class="df-amount__ph"
       value="{{amountText}}"
       bindinput="onAmount"
+      bindfocus="onAmountFocus"
+      bindblur="onAmountBlur"
       adjust-position="{{false}}"
+      focus="{{amountFocused}}"
     />
+    <view
+      class="df-amount__done"
+      hover-class="df-amount__done--hover"
+      hover-stay-time="60"
+      catchtap="onAmountDone"
+    >完成</view>
   </view>
 
   <!-- 分类（换行网格） -->
@@ -53,7 +64,7 @@
   <!-- 备注 -->
   <view class="df-row">
     <text class="df-row__label">备注</text>
-    <input class="df-row__input" placeholder="可选，补充说明" placeholder-class="df-row__ph" value="{{note}}" bindinput="onNote" />
+    <input class="df-row__input" type="text" placeholder="可选，补充说明" placeholder-class="df-row__ph" value="{{note}}" bindinput="onNote" confirm-type="done" bindconfirm="onNoteConfirm" />
   </view>
 
   <!-- 作用域说明 -->

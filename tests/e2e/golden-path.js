@@ -29,6 +29,7 @@ const AGG_OTHER_ID = '__aggregate_other__';
 
 const TEST_NOTE = 'E2E回归';
 const TEST_BILL_NOTE = 'E2E账单回归';
+const T26_NOTE = 'E2E输入完成回归';
 const DV_TITLE = 'E2E日价回归物品';
 
 /**
@@ -1245,5 +1246,108 @@ module.exports = async function goldenPath(ctx) {
     const io = await input.offset();
     ctx.ok(io.left + Number(is.width) <= win.menuLeft + 0.5, '搜索页输入框右边界不进入胶囊');
     await ctx.shot('e2e_search_header_compat');
+  });
+
+  // ---------------- T26 金额完成 → 继续填写 → 保存（v1.3.6） ----------------
+  await ctx.test('T26 金额完成：收键盘后金额保留，可继续填商户/备注并保存', async () => {
+    const page = await ctx.home();
+    await ensureTab(page, 1);
+    await sleep(300);
+
+    // 幂等：清理上轮残留同备注账单
+    const stale = await findBillIdByNote(page, T26_NOTE);
+    if (stale) {
+      await page.callMethod('onTapBill', { detail: { id: stale } });
+      await sleep(700);
+      const f0 = await page.$('#billForm');
+      await mp.mockWxMethod('showModal', { confirm: true, cancel: false });
+      await f0.callMethod('onDelete');
+      await sleep(1000);
+      await mp.restoreWxMethod('showModal');
+      await sleep(400);
+    }
+
+    await ctx.tap(page, '.fab-wrap');
+    await sleep(700);
+    ctx.eq((await page.data()).sheetShow, true, '记账 Sheet 打开');
+
+    const form = await page.$('#billForm');
+    let fd = await form.data();
+    ctx.eq(fd.editingId, null, '新增模式');
+
+    // 输入金额 → 聚焦 → 点「完成」
+    await form.callMethod('onAmount', { detail: { value: '23.45' } });
+    await form.callMethod('onAmountFocus');
+    await sleep(250);
+    fd = await form.data();
+    ctx.eq(fd.amountFocused, true, '金额输入框已聚焦');
+    ctx.eq(fd.amountText, '23.45', '输入金额 23.45');
+
+    await form.callMethod('onAmountDone');
+    await sleep(500); // 等键盘收起（hideKeyboard 120ms 兜底）
+    fd = await form.data();
+    ctx.eq(fd.amountText, '23.45', '完成后金额不丢失');
+    ctx.eq(fd.amountFocused, false, '完成后焦点标记释放');
+    ctx.eq((await page.data()).sheetShow, true, '完成后 Sheet 保持打开');
+
+    // 继续填写商户 / 备注
+    await form.callMethod('onMerchant', { detail: { value: 'T26商户' } });
+    await form.callMethod('onNote', { detail: { value: T26_NOTE } });
+    await sleep(200);
+    fd = await form.data();
+    ctx.eq(fd.merchant, 'T26商户', '完成后可继续填商户');
+    ctx.eq(fd.note, T26_NOTE, '完成后可继续填备注');
+    ctx.eq(fd.canSubmit, true, '完成后仍可提交');
+
+    // 再次点击金额可重新聚焦
+    await form.callMethod('onAmountFocus');
+    await sleep(200);
+    ctx.eq((await form.data()).amountFocused, true, '再次点击金额可重新聚焦');
+    await form.callMethod('onAmountBlur', { detail: { value: '23.45' } });
+    await sleep(200);
+    ctx.eq((await form.data()).amountFocused, false, '失焦释放焦点');
+    ctx.eq((await form.data()).amountText, '23.45', '失焦后金额保持不变');
+
+    await form.callMethod('onSubmit');
+    await sleep(1100);
+    ctx.eq((await page.data()).sheetShow, false, '保存后 Sheet 关闭');
+
+    const id = await findBillIdByNote(page, T26_NOTE);
+    ctx.truthy(id, '账单（含商户/备注）已进入时间线');
+
+    // 回读：金额 / 商户 / 备注均正确落盘
+    await page.callMethod('onTapBill', { detail: { id } });
+    await sleep(800);
+    const form2 = await page.$('#billForm');
+    fd = await form2.data();
+    ctx.eq(fd.amountText, '23.45', '回读金额 23.45');
+    ctx.eq(fd.merchant, 'T26商户', '回读商户');
+    ctx.eq(fd.note, T26_NOTE, '回读备注');
+
+    // 清理（弹窗自动确认）
+    await mp.mockWxMethod('showModal', { confirm: true, cancel: false });
+    await form2.callMethod('onDelete');
+    await sleep(1100);
+    await mp.restoreWxMethod('showModal');
+    ctx.eq((await page.data()).sheetShow, false, '删除后 Sheet 关闭');
+    await sleep(300);
+    ctx.ok(!(await findBillIdByNote(page, T26_NOTE)), '测试账单已清理');
+  });
+
+  // ---------------- T27 搜索 confirm（v1.3.6） ----------------
+  await ctx.test('T27 搜索 confirm：关键词保留并立即筛选（不依赖系统完成按钮）', async () => {
+    const sp = await ctx.goto('/pages/search/search', '.s-input');
+    // confirm-type 属于输入法行为，Skyline 下 automator 不暴露该属性；
+    // 静态接线契约由 tests/input-interaction.test.js 覆盖，这里只验证 confirm 行为。
+    let d = await sp.data();
+    ctx.eq(d.showRecent, true, '初始显示最近账单');
+
+    await sp.callMethod('onSearchConfirm', { detail: { value: 'zzz_t27_no_match' } });
+    await sleep(400);
+    d = await sp.data();
+    ctx.eq(d.kw, 'zzz_t27_no_match', 'confirm 后关键词保留');
+    ctx.eq(d.showRecent, false, 'confirm 立即执行筛选（退出最近列表）');
+    ctx.eq(d.resultCount, 0, '无匹配关键词结果为空');
+    await ctx.shot('e2e_search_confirm');
   });
 };

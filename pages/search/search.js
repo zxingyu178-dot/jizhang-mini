@@ -6,6 +6,7 @@ const store = require('../../data/index');
 const search = require('../../data/search/index');
 const device = require('../../utils/device');
 const theme = require('../../utils/theme');
+const keyboard = require('../../utils/keyboard');
 const dateUtil = require('../../data/date');
 
 const RECENT_LIMIT = 8;
@@ -151,6 +152,13 @@ Page({
     this.clearFilterTimer();
     this.setData({ kw: '' });
     this.applyFilters();
+  },
+  /** 系统搜索键：清未执行的防抖，立即按最新关键词筛选，再收键盘。 */
+  onSearchConfirm(e) {
+    this.clearFilterTimer();
+    this.setData({ kw: e.detail.value });
+    this.applyFilters();
+    keyboard.hideKeyboard();
   },
   scheduleFilter() {
     this.clearFilterTimer();

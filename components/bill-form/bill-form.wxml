@@ -15,9 +15,17 @@
       placeholder-class="bf-amount__ph"
       value="{{amountText}}"
       bindinput="onAmount"
+      bindfocus="onAmountFocus"
+      bindblur="onAmountBlur"
       adjust-position="{{false}}"
-      focus="{{autoFocus}}"
+      focus="{{amountFocused}}"
     />
+    <view
+      class="bf-amount__done"
+      hover-class="bf-amount__done--hover"
+      hover-stay-time="60"
+      catchtap="onAmountDone"
+    >完成</view>
   </view>
 
   <!-- 日期：不允许选择未来日期（end 上限今天，提交层另有校验） -->
@@ -61,13 +69,13 @@
   <!-- 商户 -->
   <view class="bf-row">
     <text class="bf-row__label">商户</text>
-    <input class="bf-row__input" placeholder="如：瑞幸咖啡" placeholder-class="bf-row__ph" value="{{merchant}}" bindinput="onMerchant" />
+    <input class="bf-row__input" type="text" placeholder="如：瑞幸咖啡" placeholder-class="bf-row__ph" value="{{merchant}}" bindinput="onMerchant" confirm-type="done" bindconfirm="onMerchantConfirm" />
   </view>
 
   <!-- 备注 -->
   <view class="bf-row">
     <text class="bf-row__label">备注</text>
-    <input class="bf-row__input" placeholder="添加备注" placeholder-class="bf-row__ph" value="{{note}}" bindinput="onNote" />
+    <input class="bf-row__input" type="text" placeholder="添加备注" placeholder-class="bf-row__ph" value="{{note}}" bindinput="onNote" confirm-type="done" bindconfirm="onNoteConfirm" />
   </view>
 
   <!-- 删除（仅编辑模式） -->

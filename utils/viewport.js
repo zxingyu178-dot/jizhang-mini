@@ -81,6 +81,11 @@ function reset() {
   device.reset();
 }
 
+/** 只读：当前键盘是否处于打开状态（复用既有高度监听，不新增监听） */
+function isKeyboardOpen() {
+  return lastKeyboardHeight > 0;
+}
+
 /** 测试辅助：重置模块内部状态（仅测试用） */
 function _resetForTest() {
   started = false;
@@ -95,6 +100,7 @@ function _resetForTest() {
 module.exports = {
   start,
   reset,
+  isKeyboardOpen,
   onRecover,
   _resetForTest,
 };

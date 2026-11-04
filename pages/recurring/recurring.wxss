@@ -182,6 +182,26 @@
 .re-ph {
   color: var(--text-faint);
 }
+/* 数字键盘完成：金额行右侧，88rpx 高度（约 44px 触控），不挤压金额。 */
+.re-amount__done {
+  flex-shrink: 0;
+  min-width: 96rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  margin-left: 16rpx;
+  padding: 0 20rpx;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+  border-radius: 14rpx;
+}
+.re-amount__done--hover {
+  background: var(--selected-bg);
+  color: var(--text-primary);
+}
 
 .re-label {
   font-size: 24rpx;
@@ -231,6 +251,26 @@
   color: var(--text-primary);
   background: var(--glass-input);
   border-radius: 12rpx;
+}
+/* 间隔完成：紧凑尺寸，与 interval 输入同高，点击区不压缩备注区。 */
+.re-interval__done {
+  flex-shrink: 0;
+  min-width: 80rpx;
+  height: var(--input-h-compact);
+  line-height: var(--input-h-compact);
+  margin-left: 12rpx;
+  padding: 0 14rpx;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+  border-radius: 12rpx;
+}
+.re-interval__done--hover {
+  background: var(--selected-bg);
+  color: var(--text-primary);
 }
 
 .re-chips {

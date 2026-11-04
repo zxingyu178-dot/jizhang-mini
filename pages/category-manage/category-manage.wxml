@@ -86,7 +86,7 @@
       <view wx:else class="ce__emoji-wrap">
         <input class="ce__emoji-input" type="text" placeholder="输入一个 Emoji"
           placeholder-class="ce-ph" value="{{iconType==='emoji'?iconValue:''}}"
-          bindinput="onEmoji" maxlength="4"/>
+          bindinput="onEmoji" bindconfirm="onEmojiConfirm" confirm-type="done" maxlength="4"/>
         <view class="ce__emoji-preview" wx:if="{{iconType==='emoji'&&iconValue}}">
           <category-icon icon-type="emoji" icon-value="{{iconValue}}" size="30"/>
         </view>
@@ -96,7 +96,7 @@
       <view class="ce__field">
         <text class="ce__label">名称</text>
         <input class="ce__name {{editingBuiltin?'ce__name--locked':''}}" type="text" placeholder="分类名称，1-8 个字"
-          placeholder-class="ce-ph" value="{{name}}" bindinput="onName" maxlength="8" disabled="{{editingBuiltin}}"/>
+          placeholder-class="ce-ph" value="{{name}}" bindinput="onName" bindconfirm="onNameConfirm" confirm-type="done" maxlength="8" disabled="{{editingBuiltin}}"/>
         <text wx:if="{{editingBuiltin}}" class="ce__lock-hint">系统分类名称不可修改，仅可更换图标</text>
       </view>
 

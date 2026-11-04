@@ -91,6 +91,53 @@ async function run() {
   // 恢复 mock（供其它用例）
   global.wx.hideKeyboard = (opts) => { if (hideKeyboardImpl) hideKeyboardImpl(opts); };
 
+  /* ========== keyboard.releaseInputFocus（v1.3.6） ========== */
+
+  // 5.1 先把 focus 标记置 false，再收键盘
+  {
+    let order = [];
+    const inst = {
+      data: { amountFocused: true },
+      setData(patch, cb) {
+        order.push('setData:' + patch.amountFocused);
+        Object.assign(inst.data, patch);
+        if (cb) cb();
+      },
+    };
+    hideKeyboardImpl = (opts) => { order.push('hideKeyboard'); opts.complete(); };
+    await keyboard.releaseInputFocus(inst, 'amountFocused', 5);
+    eq(inst.data.amountFocused, false, 'releaseInputFocus 应释放 focus 标记');
+    eq(order[0], 'setData:false', 'releaseInputFocus 应先 setData');
+    eq(order[1], 'hideKeyboard', 'releaseInputFocus 应在 setData 后收键盘');
+  }
+
+  // 5.2 组件缺失 / setData 异常仍能收键盘
+  {
+    let calls = 0;
+    hideKeyboardImpl = (opts) => { calls++; opts.complete(); };
+    await keyboard.releaseInputFocus(null, 'amountFocused', 5);
+    eq(calls, 1, '无组件时仍应调用 hideKeyboard');
+    const bad = { setData() { throw new Error('boom'); } };
+    await keyboard.releaseInputFocus(bad, 'amountFocused', 5);
+    eq(calls, 2, 'setData 抛错时仍应调用 hideKeyboard');
+  }
+
+  // 5.3 连续完成安全：每次都会释放焦点并收键盘
+  {
+    let calls = 0;
+    const inst = {
+      data: { intervalFocused: true },
+      setData(patch, cb) { Object.assign(inst.data, patch); if (cb) cb(); },
+    };
+    hideKeyboardImpl = (opts) => { calls++; opts.complete(); };
+    await Promise.all([
+      keyboard.releaseInputFocus(inst, 'intervalFocused', 5),
+      keyboard.releaseInputFocus(inst, 'intervalFocused', 5),
+    ]);
+    eq(inst.data.intervalFocused, false, '连续完成应保持焦点释放');
+    eq(calls, 2, '连续完成每次都应调用键盘工具');
+  }
+
   /* ========== viewport ========== */
 
   // 6. start 幂等：重复 start 只注册一次监听
@@ -102,6 +149,13 @@ async function run() {
   eq(kbCbs.length, 1, 'start 应幂等，只注册一个键盘监听');
   eq(resizeCbs.length, 1, 'start 应幂等，只注册一个窗口监听');
   const kbCb = kbCbs[0];
+
+  // 6.1 isKeyboardOpen：初始关闭 → 高度 >0 打开 → 归零关闭
+  eq(viewport.isKeyboardOpen(), false, '初始键盘应视为关闭');
+  kbCb({ height: 300 });
+  eq(viewport.isKeyboardOpen(), true, '键盘高度 >0 时应视为打开');
+  kbCb({ height: 0 });
+  eq(viewport.isKeyboardOpen(), false, '键盘高度归零后应视为关闭');
 
   // 7. 键盘高度从有到无 → 触发恢复，通知 onRecover
   let recovered = 0;

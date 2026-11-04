@@ -91,6 +91,26 @@
   color: var(--text-faint);
   font-weight: 600;
 }
+/* 数字键盘完成：位于「/ 天」右侧，88rpx 高度（约 44px 触控），保持金额列不挤压。 */
+.bs2-amount__done {
+  flex-shrink: 0;
+  min-width: 96rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  margin-left: 12rpx;
+  padding: 0 18rpx;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+  border-radius: 14rpx;
+}
+.bs2-amount__done--hover {
+  background: var(--selected-bg);
+  color: var(--text-primary);
+}
 
 /* 说明 */
 .bs2-note {

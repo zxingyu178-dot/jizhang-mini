@@ -64,6 +64,26 @@
   color: var(--text-faint);
   font-weight: 700;
 }
+/* 数字键盘完成：轻玻璃胶囊，88rpx 高度（约 44px 触控），不挤压金额。 */
+.bf-amount__done {
+  flex-shrink: 0;
+  min-width: 96rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  margin-left: 16rpx;
+  padding: 0 20rpx;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+  border-radius: 14rpx;
+}
+.bf-amount__done--hover {
+  background: var(--selected-bg);
+  color: var(--text-primary);
+}
 
 /* 分类：最近使用 + 更多（换行网格，不横向滚动） */
 .bf-cats-label {

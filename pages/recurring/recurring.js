@@ -4,6 +4,7 @@
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
 const theme = require('../../utils/theme');
+const keyboard = require('../../utils/keyboard');
 const store = require('../../data/index');
 const money = require('../../data/money');
 const { pickCategoryVisual } = require('../../data/category-icons');
@@ -78,6 +79,8 @@ Page({
     dayOptions: Array.from({ length: 31 }, (_, i) => i + 1),
     type: 'expense',
     amountText: '',
+    amountFocused: false,
+    intervalFocused: false,
     cats: [],
     categoryId: '',
     note: '',
@@ -159,6 +162,8 @@ Page({
       editingId: null,
       type: 'expense',
       amountText: '',
+      amountFocused: false,
+      intervalFocused: false,
       cats,
       categoryId,
       note: '',
@@ -190,6 +195,8 @@ Page({
       editingId: id,
       type: rule.type,
       amountText: money.formatCents(rule.amountCents),
+      amountFocused: false,
+      intervalFocused: false,
       cats,
       categoryId: rule.categoryId,
       note: rule.note,
@@ -224,17 +231,20 @@ Page({
   /** 删除规则（已生成 Bill 保留） */
   onDelete(e) {
     const id = e.currentTarget.dataset.id;
-    wx.showModal({
-      title: '删除周期规则',
-      content: '删除后不再自动生成；已生成的账单全部保留。确定删除吗？',
-      confirmText: '删除',
-      confirmColor: '#ef606b',
-      success: (res) => {
-        if (!res.confirm) return;
-        store.recurring.deleteRule(id);
-        this.setData({ editorShow: false });
-        this.load();
-      },
+    // 先结束输入并收起键盘，再弹原生确认框；取消时表单与规则保持不变。
+    keyboard.hideKeyboard().then(() => {
+      wx.showModal({
+        title: '删除周期规则',
+        content: '删除后不再自动生成；已生成的账单全部保留。确定删除吗？',
+        confirmText: '删除',
+        confirmColor: '#ef606b',
+        success: (res) => {
+          if (!res.confirm) return;
+          store.recurring.deleteRule(id);
+          this.setData({ editorShow: false });
+          this.load();
+        },
+      });
     });
   },
 
@@ -246,9 +256,24 @@ Page({
     if (!cats.find((c) => c.id === categoryId)) categoryId = this.defaultCategoryId(type, cats);
     this.setData({ type, cats, categoryId });
   },
+  /** 金额规范化（输入 / 失焦共用） */
+  applyAmount(v) {
+    const val = typeof v === 'string' ? v : '';
+    this.setData({ amountText: val, canSave: money.parseAmountToCents(val) > 0 });
+  },
   onAmount(e) {
-    const v = e.detail.value;
-    this.setData({ amountText: v, canSave: money.parseAmountToCents(v) > 0 });
+    this.applyAmount(e.detail.value);
+  },
+  onAmountFocus() {
+    this.setData({ amountFocused: true });
+  },
+  onAmountBlur(e) {
+    // 失焦只同步最终值，不主动收键盘。
+    this.applyAmount(e.detail.value);
+    this.setData({ amountFocused: false });
+  },
+  onAmountDone() {
+    keyboard.releaseInputFocus(this, 'amountFocused');
   },
   onCategory(e) {
     this.setData({ categoryId: e.currentTarget.dataset.id });
@@ -256,14 +281,33 @@ Page({
   onNote(e) {
     this.setData({ note: e.detail.value });
   },
+  onNoteConfirm(e) {
+    this.onNote(e);
+    keyboard.hideKeyboard();
+  },
   onFrequency(e) {
     this.setData({ frequency: e.currentTarget.dataset.f });
   },
-  onInterval(e) {
-    let n = parseInt(e.detail.value, 10);
+  /** 周期间隔夹取：1–999，输入 / 失焦共用 */
+  applyInterval(v) {
+    let n = parseInt(v, 10);
     if (!Number.isFinite(n)) n = 1;
     n = Math.min(999, Math.max(1, n));
     this.setData({ interval: n });
+  },
+  onInterval(e) {
+    this.applyInterval(e.detail.value);
+  },
+  onIntervalFocus() {
+    this.setData({ intervalFocused: true });
+  },
+  onIntervalBlur(e) {
+    // 失焦只同步最终值，不主动收键盘。
+    this.applyInterval(e.detail.value);
+    this.setData({ intervalFocused: false });
+  },
+  onIntervalDone() {
+    keyboard.releaseInputFocus(this, 'intervalFocused');
   },
   onWeekDay(e) {
     this.setData({ weekDay: Number(e.currentTarget.dataset.v) });
@@ -347,14 +391,17 @@ Page({
           ? '历史到期记录超过 365 笔。为避免一次生成过多数据，本次最多补记 365 笔，剩余记录将在后续打开小程序时继续补齐。'
           : '从 ' + rule.startDate + ' 起共有 ' +
             due.count + ' 笔到期记录，保存后将补记 ' + due.count + ' 笔账单。';
-        wx.showModal({
-          title: '补记周期账单',
-          content,
-          confirmText: '补记',
-          cancelText: '取消',
-          success: (res) => {
-            if (res.confirm) doSave();
-          },
+        // 先结束输入并收起键盘，再弹补记确认；取消后编辑器保持打开、键盘保持收起。
+        keyboard.hideKeyboard().then(() => {
+          wx.showModal({
+            title: '补记周期账单',
+            content,
+            confirmText: '补记',
+            cancelText: '取消',
+            success: (res) => {
+              if (res.confirm) doSave();
+            },
+          });
         });
         return;
       }

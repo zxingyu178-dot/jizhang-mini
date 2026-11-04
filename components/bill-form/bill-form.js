@@ -5,6 +5,7 @@
 const store = require('../../data/index');
 const money = require('../../data/money');
 const util = require('../../utils/util');
+const keyboard = require('../../utils/keyboard');
 
 const RECENT_LIMIT = 5;
 
@@ -76,7 +77,7 @@ Component({
     // 计算日价开关（默认关；仅支出账单可开）
     dailyValueEnabled: false,
     canSubmit: false,
-    autoFocus: false,
+    amountFocused: false,
   },
   lifetimes: {
     attached() {
@@ -104,7 +105,7 @@ Component({
         note: '',
         dailyValueEnabled: false,
         canSubmit: false,
-        autoFocus: false,
+        amountFocused: false,
       });
     },
     /** 编辑模式：填充已有账单 */
@@ -133,7 +134,7 @@ Component({
         note: bill.note || '',
         dailyValueEnabled: Boolean(bill.dailyValue && bill.dailyValue.enabled),
         canSubmit: bill.amountCents !== 0,
-        autoFocus: false,
+        amountFocused: false,
       });
     },
     onType(e) {
@@ -162,12 +163,27 @@ Component({
     onShowAllCats() {
       this.setData({ showAllCats: true });
     },
+    /** 金额规范化：限制两位小数并同步 canSubmit（输入 / 失焦共用） */
+    applyAmount(v) {
+      let val = typeof v === 'string' ? v : '';
+      const dot = val.indexOf('.');
+      if (dot >= 0 && val.length - dot > 3) val = val.slice(0, dot + 3);
+      this.setData({ amountText: val, canSubmit: money.parseAmountToCents(val) !== 0 });
+    },
     onAmount(e) {
-      let v = e.detail.value;
-      // 限制小数位最多 2 位
-      const dot = v.indexOf('.');
-      if (dot >= 0 && v.length - dot > 3) v = v.slice(0, dot + 3);
-      this.setData({ amountText: v, canSubmit: money.parseAmountToCents(v) !== 0 });
+      this.applyAmount(e.detail.value);
+    },
+    onAmountFocus() {
+      this.setData({ amountFocused: true });
+    },
+    onAmountBlur(e) {
+      // 失焦只同步最终值，不主动收键盘（允许自然切换到商户 / 备注）。
+      this.applyAmount(e.detail.value);
+      this.setData({ amountFocused: false });
+    },
+    onAmountDone() {
+      // 完成后只释放焦点 / 收键盘：不清金额、不保存、不关闭 Sheet。
+      keyboard.releaseInputFocus(this, 'amountFocused');
     },
     onDate(e) {
       this.setData({ dateStr: e.detail.value });
@@ -178,6 +194,14 @@ Component({
     onNote(e) {
       this.setData({ note: e.detail.value });
     },
+    onMerchantConfirm(e) {
+      this.onMerchant(e);
+      keyboard.hideKeyboard();
+    },
+    onNoteConfirm(e) {
+      this.onNote(e);
+      keyboard.hideKeyboard();
+    },
     /** 切换「计算日价」开关（仅支出账单可交互） */
     onToggleDaily() {
       if (this.data.type === 'income') return;
@@ -186,18 +210,21 @@ Component({
     onDelete() {
       const id = this.data.editingId;
       if (!id) return;
-      wx.showModal({
-        title: '删除账单',
-        content: '删除后不可恢复，确定删除这笔账单吗？',
-        confirmText: '删除',
-        confirmColor: '#ff4d4d',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            store.deleteBill(id);
-            this.triggerEvent('deleted', { id });
-          }
-        },
+      // 先结束输入并收起键盘，再弹原生确认框；取消时表单内容保持不变。
+      keyboard.hideKeyboard().then(() => {
+        wx.showModal({
+          title: '删除账单',
+          content: '删除后不可恢复，确定删除这笔账单吗？',
+          confirmText: '删除',
+          confirmColor: '#ff4d4d',
+          cancelText: '取消',
+          success: (res) => {
+            if (res.confirm) {
+              store.deleteBill(id);
+              this.triggerEvent('deleted', { id });
+            }
+          },
+        });
       });
     },
     onSubmit() {

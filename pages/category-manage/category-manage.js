@@ -5,6 +5,7 @@
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
 const theme = require('../../utils/theme');
+const keyboard = require('../../utils/keyboard');
 const store = require('../../data/index');
 const categoryIcons = require('../../data/category-icons');
 
@@ -182,8 +183,16 @@ Page({
     const v = e.detail.value;
     this.setData({ iconType: 'emoji', iconValue: v, emoji: v }, this.recheck);
   },
+  onEmojiConfirm(e) {
+    this.onEmoji(e);
+    keyboard.hideKeyboard();
+  },
   onName(e) {
     this.setData({ name: e.detail.value }, this.recheck);
+  },
+  onNameConfirm(e) {
+    this.onName(e);
+    keyboard.hideKeyboard();
   },
   recheck() {
     const hasIcon = this.data.iconType === 'builtin'

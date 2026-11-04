@@ -20,8 +20,9 @@
       <view class="glass-card sec">
         <view class="bs2-amount">
           <text class="bs2-amount__cur">¥</text>
-          <input class="bs2-amount__input" type="digit" placeholder="0.00" placeholder-class="bs2-ph" value="{{amountText}}" bindinput="onAmount"/>
+          <input class="bs2-amount__input" type="digit" placeholder="0.00" placeholder-class="bs2-ph" value="{{amountText}}" bindinput="onAmount" bindfocus="onAmountFocus" bindblur="onAmountBlur" focus="{{amountFocused}}"/>
           <text class="bs2-amount__unit">/ 天</text>
+          <view class="bs2-amount__done" hover-class="bs2-amount__done--hover" hover-stay-time="60" catchtap="onAmountDone">完成</view>
         </view>
       </view>
 

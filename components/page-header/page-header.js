@@ -1,5 +1,6 @@
 const device = require('../../utils/device');
 const keyboard = require('../../utils/keyboard');
+const viewport = require('../../utils/viewport');
 
 Component({
   options: {
@@ -28,11 +29,16 @@ Component({
   },
   methods: {
     onBack() {
-      // 防双击锁：异步收键盘（最长约 120ms）期间连点可能退两级，锁定直到本次返回。
+      // 防双击锁：异步收键盘（最长约 120ms）期间连点可能退两级，锁定直到本次操作结束。
       if (this._backing) return;
       this._backing = true;
-      this.triggerEvent('back', {}, { bubbles: false, composed: false });
       const release = () => { this._backing = false; };
+      // 键盘打开时：第一次返回只收起键盘，第二次才真正返回（沿用原有导航逻辑）。
+      if (viewport.isKeyboardOpen()) {
+        keyboard.hideKeyboard().then(release).catch(release);
+        return;
+      }
+      this.triggerEvent('back', {}, { bubbles: false, composed: false });
       const pages = getCurrentPages();
       const goBack = () => {
         if (pages.length > 1) {

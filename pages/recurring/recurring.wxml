@@ -64,7 +64,8 @@
       <!-- 金额 -->
       <view class="re-amount">
         <text class="re-amount__sym">{{type==='income'?'+¥':'¥'}}</text>
-        <input class="re-amount__input" type="digit" placeholder="0.00" placeholder-class="re-ph" value="{{amountText}}" bindinput="onAmount"/>
+        <input class="re-amount__input" type="digit" placeholder="0.00" placeholder-class="re-ph" value="{{amountText}}" bindinput="onAmount" bindfocus="onAmountFocus" bindblur="onAmountBlur" focus="{{amountFocused}}"/>
+        <view class="re-amount__done" hover-class="re-amount__done--hover" hover-stay-time="60" catchtap="onAmountDone">完成</view>
       </view>
 
       <!-- 周期频率 -->
@@ -76,11 +77,12 @@
       <!-- 间隔 -->
       <view class="re-interval">
         <text class="re-interval__t">每</text>
-        <input class="re-interval__input" type="number" value="{{interval}}" bindinput="onInterval"/>
+        <input class="re-interval__input" type="number" value="{{interval}}" bindinput="onInterval" bindfocus="onIntervalFocus" bindblur="onIntervalBlur" focus="{{intervalFocused}}"/>
         <text class="re-interval__t" wx:if="{{frequency==='daily'}}">天</text>
         <text class="re-interval__t" wx:elif="{{frequency==='weekly'}}">周</text>
         <text class="re-interval__t" wx:elif="{{frequency==='monthly'}}">月</text>
         <text class="re-interval__t" wx:else>年</text>
+        <view class="re-interval__done" hover-class="re-interval__done--hover" hover-stay-time="60" catchtap="onIntervalDone">完成</view>
       </view>
 
       <!-- 周期日期：weekly -->
@@ -137,7 +139,7 @@
 
       <!-- 备注 -->
       <view class="re-field">
-        <input class="re-field__input" type="text" placeholder="备注（可选）" placeholder-class="re-ph" value="{{note}}" bindinput="onNote" maxlength="40"/>
+        <input class="re-field__input" type="text" placeholder="备注（可选）" placeholder-class="re-ph" value="{{note}}" bindinput="onNote" maxlength="40" confirm-type="done" bindconfirm="onNoteConfirm"/>
       </view>
 
       <view class="re-save {{canSave?'':'re-save--disabled'}}" bindtap="onSave">保存</view>

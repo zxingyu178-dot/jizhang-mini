@@ -11,6 +11,7 @@ const store = require('../../data/index');
 const money = require('../../data/money');
 const util = require('../../utils/util');
 const dvForm = require('../../data/daily-value/form');
+const keyboard = require('../../utils/keyboard');
 
 const EXPENSE_CATS = [
   'c-food', 'c-transport', 'c-shopping', 'c-fun', 'c-life',
@@ -35,7 +36,7 @@ Component({
     todayStr: '', // 起算日期 picker 上限（今天），不允许未来
     note: '',
     canSubmit: false,
-    autoFocus: false,
+    amountFocused: false,
   },
   lifetimes: {
     attached() {
@@ -57,7 +58,7 @@ Component({
         todayStr: util.formatDate(new Date()),
         note: '',
         canSubmit: false,
-        autoFocus: false,
+        amountFocused: false,
       });
     },
     /** 编辑模式：回显已有日价物品，并记录作用域与原交易时间 */
@@ -85,19 +86,39 @@ Component({
         todayStr: util.formatDate(new Date()),
         note: bill.note || '',
         canSubmit: dvForm.computeFormCanSubmit(title, Math.abs(bill.amountCents)),
-        autoFocus: false,
+        amountFocused: false,
       });
     },
     onTitle(e) {
       this.setData({ title: e.detail.value });
       this.recheck();
     },
-    onAmount(e) {
-      let v = e.detail.value;
-      const dot = v.indexOf('.');
-      if (dot >= 0 && v.length - dot > 3) v = v.slice(0, dot + 3);
-      this.setData({ amountText: v });
+    onTitleConfirm(e) {
+      this.onTitle(e);
+      keyboard.hideKeyboard();
+    },
+    /** 金额规范化：限制两位小数（输入 / 失焦共用） */
+    applyAmount(v) {
+      let val = typeof v === 'string' ? v : '';
+      const dot = val.indexOf('.');
+      if (dot >= 0 && val.length - dot > 3) val = val.slice(0, dot + 3);
+      this.setData({ amountText: val });
       this.recheck();
+    },
+    onAmount(e) {
+      this.applyAmount(e.detail.value);
+    },
+    onAmountFocus() {
+      this.setData({ amountFocused: true });
+    },
+    onAmountBlur(e) {
+      // 失焦只同步最终值，不主动收键盘（允许自然切换到名称 / 备注）。
+      this.applyAmount(e.detail.value);
+      this.setData({ amountFocused: false });
+    },
+    onAmountDone() {
+      // 完成后只释放焦点 / 收键盘：不清金额、不保存、不关闭 Sheet。
+      keyboard.releaseInputFocus(this, 'amountFocused');
     },
     onCategory(e) {
       this.setData({ categoryId: e.currentTarget.dataset.id });
@@ -107,6 +128,10 @@ Component({
     },
     onNote(e) {
       this.setData({ note: e.detail.value });
+    },
+    onNoteConfirm(e) {
+      this.onNote(e);
+      keyboard.hideKeyboard();
     },
     recheck() {
       this.setData({

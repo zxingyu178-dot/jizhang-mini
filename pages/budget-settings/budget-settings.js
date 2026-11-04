@@ -6,6 +6,7 @@ const store = require('../../data/index');
 const money = require('../../data/money');
 const util = require('../../utils/util');
 const theme = require('../../utils/theme');
+const keyboard = require('../../utils/keyboard');
 
 Page({
   data: {
@@ -18,6 +19,7 @@ Page({
     effectiveDate: '',
     todayStr: '',
     canSave: false,
+    amountFocused: false,
   },
   onLoad() {
     const info = device.get();
@@ -45,12 +47,27 @@ Page({
     this.setData({ enabled: !this.data.enabled });
     this.recheck();
   },
-  onAmount(e) {
-    let v = e.detail.value;
-    const dot = v.indexOf('.');
-    if (dot >= 0 && v.length - dot > 3) v = v.slice(0, dot + 3);
-    this.setData({ amountText: v });
+  /** 金额规范化：限制两位小数（输入 / 失焦共用） */
+  applyAmount(v) {
+    let val = typeof v === 'string' ? v : '';
+    const dot = val.indexOf('.');
+    if (dot >= 0 && val.length - dot > 3) val = val.slice(0, dot + 3);
+    this.setData({ amountText: val });
     this.recheck();
+  },
+  onAmount(e) {
+    this.applyAmount(e.detail.value);
+  },
+  onAmountFocus() {
+    this.setData({ amountFocused: true });
+  },
+  onAmountBlur(e) {
+    // 失焦只同步最终值，不主动收键盘。
+    this.applyAmount(e.detail.value);
+    this.setData({ amountFocused: false });
+  },
+  onAmountDone() {
+    keyboard.releaseInputFocus(this, 'amountFocused');
   },
   onDate(e) {
     this.setData({ effectiveDate: e.detail.value });
@@ -63,16 +80,22 @@ Page({
     this.setData({ canSave });
   },
   onSave() {
+    if (this._saving) return;
     const cents = money.parseAmountToCents(this.data.amountText);
     if (this.data.enabled && !cents) return;
     const effectiveFrom = this.data.effectiveDate;
     if (effectiveFrom > this.data.todayStr) return; // 提交层：不允许未来
-    store.saveBudgetRule({
-      enabled: this.data.enabled,
-      dailyCents: this.data.enabled ? cents : 0,
-      effectiveFrom,
+    // 先收键盘再保存；_saving 防连点导致重复保存 / 提前返回。
+    this._saving = true;
+    this.setData({ amountFocused: false });
+    keyboard.hideKeyboard().then(() => {
+      store.saveBudgetRule({
+        enabled: this.data.enabled,
+        dailyCents: this.data.enabled ? cents : 0,
+        effectiveFrom,
+      });
+      wx.showToast({ title: '已保存', icon: 'success' });
+      setTimeout(() => wx.navigateBack({ delta: 1 }), 500);
     });
-    wx.showToast({ title: '已保存', icon: 'success' });
-    setTimeout(() => wx.navigateBack({ delta: 1 }), 500);
   },
 });

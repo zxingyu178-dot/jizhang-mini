@@ -13,6 +13,7 @@
         placeholder-class="s-input__ph"
         value="{{kw}}"
         bindinput="onInput"
+        bindconfirm="onSearchConfirm"
         confirm-type="search"
       />
       <view class="s-input__clear" wx:if="{{kw}}" bindtap="onClear">

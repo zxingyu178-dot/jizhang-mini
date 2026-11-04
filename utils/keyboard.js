@@ -35,6 +35,35 @@ function hideKeyboard(fallbackMs) {
   });
 }
 
+/**
+ * 释放输入焦点并收起键盘（v1.3.6）。
+ * 先把组件内独立 focus 标记置 false（setData 回调后），再复用 hideKeyboard。
+ * hideKeyboard 的实现、120ms 超时兜底与原有调用契约保持不变。
+ */
+function releaseInputFocus(component, focusKey, fallbackMs) {
+  const key = focusKey || 'inputFocused';
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    try {
+      if (component && typeof component.setData === 'function') {
+        const patch = {};
+        patch[key] = false;
+        component.setData(patch, finish);
+        return;
+      }
+    } catch (e) {
+      /* setData 异常时仍继续收键盘 */
+    }
+    finish();
+  }).then(() => hideKeyboard(fallbackMs));
+}
+
 module.exports = {
   hideKeyboard,
+  releaseInputFocus,
 };

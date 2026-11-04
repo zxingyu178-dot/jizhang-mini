@@ -3,6 +3,29 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.3.6] — 2026-11-04
+
+Keyboard & Input Reliability（输入交互可靠性）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖，只统一所有输入框的收键盘方式，解决 iPhone 微信小程序「金额输完后数字键盘无法主动收起」的痛点。
+
+### 修复
+- **数字键盘可主动收起**：记账 / 日价 / 周期 / 预算四个金额输入框在输入行内新增独立「完成」按钮（`type="digit"` 保持不变），点击后先释放 focus 再由 `utils/keyboard.js` 统一收键盘，不依赖系统键盘的「完成」键。
+- **完成不丢值、不误操作**：完成按钮只收键盘，不同步保存、不关闭 Bottom Sheet、不触发提交；金额与 `canSubmit` 状态原样保留，再次点击金额可重新聚焦。
+- **文本输入走系统确认键**：商户 / 备注 / 日价名称 / 周期备注 / 分类名称与 Emoji 使用 `confirm-type="done"` + `bindconfirm`；搜索使用 `confirm-type="search"` + `bindconfirm`，确认后清掉防抖定时器、立即筛选并收键盘。
+- **失焦不再主动收键盘**：`bindblur` 只同步值与焦点状态，允许金额 → 商户 → 备注自然连续填写。
+- **弹窗前先收键盘**：删除账单、删除周期规则、周期补记确认统一先 `hideKeyboard()` 再 `wx.showModal`；取消后表单保持打开。
+- **Header 返回分层**：键盘打开时第一次返回只收键盘，第二次才 `navigateBack` / `reLaunch`；无键盘时保持原行为与 `_backing` 防连点。
+- **公共能力**：`utils/keyboard.js` 新增 `releaseInputFocus(component, focusKey, fallbackMs)`；`utils/viewport.js` 新增只读 `isKeyboardOpen()`，复用既有 `lastKeyboardHeight`，未新增第二套键盘高度监听。
+
+### 测试
+- 新增 `tests/input-interaction.test.js`：静态接线契约（13 个输入、无 textarea、金额未改成 text、完成按钮 / confirm 接线）+ 动态行为（完成保留值、失焦不收键盘、金额与间隔独立焦点、删除弹窗顺序、搜索 confirm），纳入 `npm test`（39 套件）。
+- 扩展 `tests/keyboard-viewport.test.js`：`releaseInputFocus` 顺序与兜底、连续完成、`isKeyboardOpen` 状态切换。
+- E2E 新增 T26（金额完成 → 继续填商户/备注 → 保存 → 回读 → 清理）与 T27（搜索 confirm 立即筛选），E2E 27/27 通过。
+- `release:check`、`theme:audit`、`contrast:audit` 通过。
+- 模拟器深浅主题 / 窄屏截图复核；真机 iPhone / Android 验收由用户执行，未测试项明确标注。
+
+### 冻结项
+- 数据合同：Bill V3、Backup V3、Recurring Store V1、Budget V1 均不升级；金额 / 日价 / 预算 / 周期计算与生成规则、CSV 导入、备份格式、主题系统、统计算法、Bottom Sheet 动画机制均未改动；不新增依赖。
+
 ## [1.3.5] — 2026-11-03
 
 Mobile UI Compatibility（移动端布局兼容与视觉收口）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖，只解决不同手机宽度、系统字体与原生输入控件造成的 Header、输入框与弹层布局问题。
