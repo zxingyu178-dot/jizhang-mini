@@ -7,6 +7,7 @@ const search = require('../../data/search/index');
 const device = require('../../utils/device');
 const theme = require('../../utils/theme');
 const keyboard = require('../../utils/keyboard');
+const viewport = require('../../utils/viewport');
 const dateUtil = require('../../data/date');
 
 const RECENT_LIMIT = 8;
@@ -62,9 +63,8 @@ Page({
   },
   onLoad(options) {
     const info = device.get();
-    // Filter Chips 区固定高度（144rpx），换算 px，结果区 top 相应下移
-    const filtersHeight = Math.round((144 * info.windowWidth) / 750);
-    const resultsTop = info.headerHeight + filtersHeight;
+    // 页面可用高度（Filter Chips 固定 144rpx 换算 px，结果区 top 相应下移）
+    const layout = this.layoutPatch(info);
     // 搜索框位于 page-header 中间栏，右侧还要避让微信胶囊；窄屏时缩短 placeholder，
     // 防止「搜索商户、备注、分类或金额」被输入框裁成半句。
     const menuPad = info.menu
@@ -108,11 +108,11 @@ Page({
     const preset = search.buildSearchQuery(rawOpts);
 
     this.setData({
-      windowHeight: info.windowHeight,
-      statusBarHeight: info.statusBarHeight,
-      headerHeight: info.headerHeight,
-      filtersHeight,
-      resultsTop,
+      windowHeight: layout.windowHeight,
+      statusBarHeight: layout.statusBarHeight,
+      headerHeight: layout.headerHeight,
+      filtersHeight: layout.filtersHeight,
+      resultsTop: layout.resultsTop,
       searchPlaceholder,
       thisYear,
       recentMonths,
@@ -124,15 +124,47 @@ Page({
       kw: preset.keyword,
     });
     this._offTheme = theme.bindPage(this);
+    // 键盘收起 / 窗口恢复后重算可用高度（复用 utils/viewport，不新增键盘监听）
+    this.bindViewportRecover();
     this.refreshLabels();
     this.applyFilters();
   },
   onUnload() {
     this.clearFilterTimer();
+    this.unbindViewportRecover();
     if (this._offTheme) {
       this._offTheme();
       this._offTheme = null;
     }
+  },
+
+  /* ---------- 布局与 viewport 恢复 ---------- */
+  /**
+   * 页面可用高度补丁：按传入的窗口信息重算。
+   * onLoad 与 viewport 恢复共用同一套算法，避免「键盘收起后只更新一半尺寸」。
+   */
+  layoutPatch(info) {
+    // Filter Chips 区固定高度（144rpx），换算 px，结果区 top 相应下移
+    const filtersHeight = Math.round((144 * info.windowWidth) / 750);
+    return {
+      windowHeight: info.windowHeight,
+      statusBarHeight: info.statusBarHeight,
+      headerHeight: info.headerHeight,
+      filtersHeight,
+      resultsTop: info.headerHeight + filtersHeight,
+    };
+  },
+  /** 订阅 viewport 恢复：重复调用先退订旧的，绝不叠加两条（页面被反复 push 也不泄漏） */
+  bindViewportRecover() {
+    if (typeof this._offRecover === 'function') this._offRecover();
+    this._offRecover = viewport.onRecover((vinfo) => {
+      this.setData(this.layoutPatch(vinfo));
+    });
+  },
+  /** 退订与订阅成对；置 null 后重复退订无副作用 */
+  unbindViewportRecover() {
+    if (typeof this._offRecover === 'function') this._offRecover();
+    this._offRecover = null;
   },
 
   /* ---------- 页面会话快照 ---------- */

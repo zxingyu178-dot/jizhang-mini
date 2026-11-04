@@ -6,9 +6,12 @@
  *   API 缺失 / 抛错也能 resolve，绝不卡住关闭流程。
  * - utils/viewport：键盘高度「从有到无」、窗口 resize 触发 device 重测并通知页面；
  *   start 幂等；onRecover 可取消；键盘一直为 0 不误触发。
+ * - 页面订阅契约（v1.4.0 C7/P2-01）：搜索页 / 预算设置页必须订阅 onRecover 且成对退订，
+ *   不许自己另开 wx.onKeyboardHeightChange 监听。
  *
  * 运行：node tests/keyboard-viewport.test.js
  */
+const fs = require('fs');
 const path = require('path');
 
 let pass = 0;
@@ -200,6 +203,51 @@ async function run() {
   kbCb({ height: 0 });
   await sleep(100);
   assert(lastInfo.windowHeight === 800, '恢复重测应读到更新后的窗口高度');
+
+  /* ========== 12. 页面订阅契约（静态扫描，v1.4.0 C7/P2-01） ==========
+     安卓键盘收起后，页面上依赖 windowHeight / headerHeight 的容器会停在「被键盘顶起」的
+     旧高度（底部露白 / 内容被挤）。修法是订阅 viewport.onRecover 重算一次可用高度；
+     这里锁住「必须订阅 + 成对退订 + 不自己新开键盘监听」三条，防回归。 */
+  function readPage(rel) {
+    return fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
+  }
+  /** 取 Page 对象里某个方法的函数体：从 name( 起配对花括号（不受缩进/换行影响） */
+  function methodBody(src, name) {
+    const start = src.indexOf('\n  ' + name + '(');
+    if (start < 0) return '';
+    const open = src.indexOf('{', start);
+    if (open < 0) return '';
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') {
+        depth--;
+        if (depth === 0) return src.slice(open, i + 1);
+      }
+    }
+    return '';
+  }
+
+  ['pages/search/search.js', 'pages/budget-settings/budget-settings.js'].forEach((rel) => {
+    const src = readPage(rel);
+    const onLoad = methodBody(src, 'onLoad');
+    const onUnload = methodBody(src, 'onUnload');
+    const bind = methodBody(src, 'bindViewportRecover');
+    const unbind = methodBody(src, 'unbindViewportRecover');
+    assert(/require\('\.\.\/\.\.\/utils\/viewport'\)/.test(src), rel + ' 应引入 utils/viewport');
+    assert(/this\.bindViewportRecover\(\)/.test(onLoad), rel + ' onLoad 必须订阅 viewport 恢复');
+    assert(/this\.unbindViewportRecover\(\)/.test(onUnload), rel + ' onUnload 必须退订（与订阅成对）');
+    assert(/this\._offRecover\s*=\s*viewport\.onRecover\(/.test(bind), rel + ' 订阅句柄应存入 this._offRecover');
+    assert(
+      /this\._offRecover\s*=\s*viewport\.onRecover/.test(bind) &&
+        /if \(typeof this\._offRecover === 'function'\) this\._offRecover\(\)/.test(bind),
+      rel + ' 重复订阅前必须先退订旧的（防止叠加两条）'
+    );
+    assert(/setData\(this\.layoutPatch\(vinfo\)\)/.test(bind), rel + ' 恢复回调应重算页面可用高度并 setData');
+    assert(/this\._offRecover\(\)/.test(unbind) && /this\._offRecover\s*=\s*null/.test(unbind),
+      rel + ' 退订后必须置 null（重复退订无副作用）');
+    assert(!/onKeyboardHeightChange/.test(src), rel + ' 不许自己新增键盘高度监听（复用 utils/viewport）');
+  });
 
   /* ========== 汇总 ========== */
   console.log('\nkeyboard/viewport: ' + pass + ' passed, ' + fail + ' failed');

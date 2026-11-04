@@ -7,6 +7,7 @@ const money = require('../../data/money');
 const util = require('../../utils/util');
 const theme = require('../../utils/theme');
 const keyboard = require('../../utils/keyboard');
+const viewport = require('../../utils/viewport');
 const submitGuard = require('../../utils/submit-guard');
 
 Page({
@@ -30,23 +31,46 @@ Page({
     // 回显今天适用的规则（如有）
     const state = store.getBudgetState();
     const cur = store.budget.resolveRuleForDate(state, today);
-    this.setData({
-      windowHeight: info.windowHeight,
-      statusBarHeight: info.statusBarHeight,
-      headerHeight: info.headerHeight,
+    this.setData(Object.assign(this.layoutPatch(info), {
       todayStr: today,
       effectiveDate: today,
       enabled: cur ? cur.enabled : false,
       amountText: cur && cur.dailyCents ? money.formatCents(cur.dailyCents) : '',
-    });
+    }));
+    // 键盘收起 / 窗口恢复后重算可用高度（复用 utils/viewport，不新增键盘监听）
+    this.bindViewportRecover();
     this.recheck();
   },
   onUnload() {
+    this.unbindViewportRecover();
     if (this._offTheme) { this._offTheme(); this._offTheme = null; }
   },
   onToggleEnabled() {
     this.setData({ enabled: !this.data.enabled });
     this.recheck();
+  },
+  /**
+   * 页面可用高度补丁：按传入的窗口信息重算。
+   * onLoad 与 viewport 恢复共用同一套算法，避免「键盘收起后只更新一半尺寸」。
+   */
+  layoutPatch(info) {
+    return {
+      windowHeight: info.windowHeight,
+      statusBarHeight: info.statusBarHeight,
+      headerHeight: info.headerHeight,
+    };
+  },
+  /** 订阅 viewport 恢复：重复调用先退订旧的，绝不叠加两条（页面被反复 push 也不泄漏） */
+  bindViewportRecover() {
+    if (typeof this._offRecover === 'function') this._offRecover();
+    this._offRecover = viewport.onRecover((vinfo) => {
+      this.setData(this.layoutPatch(vinfo));
+    });
+  },
+  /** 退订与订阅成对；置 null 后重复退订无副作用 */
+  unbindViewportRecover() {
+    if (typeof this._offRecover === 'function') this._offRecover();
+    this._offRecover = null;
   },
   /** 金额规范化：限制两位小数（输入 / 失焦共用） */
   applyAmount(v) {
