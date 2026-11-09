@@ -195,6 +195,7 @@ function runSize(count) {
   const t = { parse: [], adapt: [], validate: [], dedupe: [] };
   let status = null;
   let stats = null;
+  const heapBefore = process.memoryUsage().heapUsed;
   for (let r = 0; r < ROUNDS; r++) {
     let t0 = nowMs();
     const rows2 = csv.parseCSV(CSV_TEXT);
@@ -214,6 +215,7 @@ function runSize(count) {
     status = dedupe.countByStatus(classified);
     stats = dedupe.lastStats || stats;
   }
+  const heapAfter = process.memoryUsage().heapUsed;
 
   const med = (xs) => median(xs);
   return {
@@ -228,6 +230,9 @@ function runSize(count) {
     validateMs: med(t.validate),
     dedupeMs: med(t.dedupe),
     totalMs: med(t.parse) + med(t.adapt) + med(t.validate) + med(t.dedupe),
+    heapBeforeMB: Number((heapBefore / 1048576).toFixed(1)),
+    heapAfterMB: Number((heapAfter / 1048576).toFixed(1)),
+    heapDeltaMB: Number(((heapAfter - heapBefore) / 1048576).toFixed(1)),
     rounds: ROUNDS,
     raw: t,
   };
@@ -243,7 +248,8 @@ SIZES.forEach((n) => {
     '\n  parse=' + r.parseMs.toFixed(1) + 'ms  adapt=' + r.adaptMs.toFixed(1) +
     'ms  validate=' + r.validateMs.toFixed(1) + 'ms  dedupe=' + r.dedupeMs.toFixed(1) +
     'ms  合计=' + r.totalMs.toFixed(1) + 'ms' +
-    '\n  status=' + JSON.stringify(r.status)
+    '\n  status=' + JSON.stringify(r.status) +
+    '  heap=' + r.heapBeforeMB + '→' + r.heapAfterMB + 'MB（Δ' + r.heapDeltaMB + 'MB）'
   );
   if (r.indexStats) {
     console.log('  index=' + JSON.stringify(r.indexStats));
