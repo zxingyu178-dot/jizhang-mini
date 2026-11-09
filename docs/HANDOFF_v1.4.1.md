@@ -198,6 +198,7 @@ GUI 检查汇总：6/6 通过
 | Gate 2 | `f78b43629452d243c210845a907f6fbee3c9357b` |
 | Gate 3 | `a3cbf345a285c236b382101e28728a0022376d3e` |
 | Gate 4 | `45163fc8ad0ae134b5c0a6437c7fcd9b1d72b84f` |
-| Gate 5 | 本文件所在提交（`git log -1 --format=%H`） |
+| Gate 5 发布提交 | `6694753fba84bbb27b4719630c5cab079d2d1919` |
+| 文档回填提交 | 本文件所在提交（`git log -1 --format=%H`） |
 
-远端：`origin/main`，推送后以 `git rev-parse origin/main` 为准。
+远端：`origin/main` 已于 Gate 5 推送至 `6694753`；文档回填提交推送后，以 `git rev-parse origin/main` 为准。
