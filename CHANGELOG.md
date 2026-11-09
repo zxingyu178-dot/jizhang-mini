@@ -3,6 +3,38 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.4.1] — 2026-11-09
+
+Data Safety & Import Reliability（数据安全与导入可靠性）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器与紫黑毛玻璃视觉体系。
+
+### 数据安全
+- **隔离失败即中止（fail-closed）**：`data/quarantine.js` 由「失败降级」改为结构化结果 `safeToProceed`。目录创建失败、任一文件复制失败、回读字节不一致、`meta.json` 写入失败任一发生，调用方（恢复 / 回滚）立即中止，**不再删除任何原始损坏分片**。
+- **原始字节逐字节校验**：每个隔离文件写入后立即回读，用 `sameBytes()` 逐字节比较，不允许只比文件大小；`meta.json` 增加 `complete` / `verified`。
+- **恢复状态机**：恢复顺序改为「校验 → 删前隔离 → 安全点 → 修改」。隔离未完成抛 `QUARANTINE_INCOMPLETE`（不写安全点、不删除、不回滚）；安全点失败抛 `SAFETY_POINT_FAILED`（现有账本完全不变）；中途失败按安全点回滚，错误对象带 `mutationStarted / rollbackAttempted / rollbackCompleted`。
+- **回滚 fail-closed**：安全点不可读抛 `ROLLBACK_SAFETY_UNAVAILABLE`；回滚前隔离未完成抛 `ROLLBACK_QUARANTINE_INCOMPLETE`，不删除安全点、不谎报成功。导入失败后的救命回滚同样不再静默吞异常。
+
+### 导入性能
+- **去重索引**：疑似重复按 `type + amountCents + 5 分钟时间桶` 建多级 Map，只检查当前桶与前后各一桶；CSV 日价补全按 `type/amount/category/note/分钟` 建索引。索引只缩小候选集，最终仍执行原精确判断，`suspect` 不自动删除 / 合并，`zero/one/many` 语义不变。
+- **结果**：3,000 行导入预览 + 30,000 笔账本，中位耗时 **1,618 ms → 96.7 ms**（16.7×）；5,000 档 8.0×、15,000 档 6.7×。新旧算法在 17 类固定场景 + 30 组固定种子随机差分 + 极端分布下结果完全一致。
+
+### 导入流程
+- 新增 develop-only 文本注入入口 `__e2eImportText`（`env.isDevEnv()` 同步前置守卫、无 UI 暴露、不注册 app.json、解析后删除临时文件），用于自动化「预览 → 取消 → 确认 → 重复导入 → 回读」。
+- E2E 新增 T28（完整导入）、T29（跨来源疑似重复需确认）、T30（非法内容 / 压缩包不写账本）。
+- **E2E 截图非破坏化**：每轮写入 `artifacts/e2e/<runId>/`，不再清空或覆盖 `docs/screenshots/e2e/` 历史基线；`artifacts/` 已加入 `.gitignore`。
+
+### UI 与 SVG
+- 其他 SVG 组件（category-icon / icon / cumulative-trend）逐项审计：深 / 浅主题、颜色格式、根节点、data-URI、Skyline 实际显示均正常；不盲目替换 rgba，圆环 `hslToHex` 修复保持。
+- 统计 Hero 三列：中间列弹性提升到 1.6（≤360px 1.7）、数值 `nowrap`、窄屏字号 22rpx，保证「日期 + 长金额」单行完整展示、不溢出、不截断。
+
+### 测试
+- `npm test` **48/48 套件通过**（新增 `dedupe-index`、`import-e2e-safety`、`svg-compat`、`stats-hero-layout`）。
+- `npm run e2e` **31/31 通过**（新增 T28–T31）；`cumulative-view` 6/6 通过。
+- `npm run theme:audit`、`npm run contrast:audit`、`npm run release:check` 通过。
+- 真机 iPhone / Android 验收由用户按 `docs/10_DEVICE_ACCEPTANCE.md` 执行，未测项明确标注。
+
+### 冻结项
+- 数据合同与业务规则零改动：Bill V3、Backup V3、Recurring Store V1、Budget V1；账单 ID、金额精度、日期格式、分类引用、历史结构均未改；不新增依赖、不更换渲染器。
+
 ## [1.4.0] — 2026-11-04
 
 Final Stabilization（最终稳定性收口）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器（Skyline + glass-easel 原样）。两条主修：**统计圆环在 Skyline 下不显示**（P0）与**弹层内容超高时滚不动**（P1）。

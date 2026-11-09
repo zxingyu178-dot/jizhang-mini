@@ -204,7 +204,7 @@ if (nodeFs.existsSync(nodePath.join(ROOT, versionHandoff))) {
 
 /* ---------- 6. 包体估算 ---------- */
 section('6. 包体估算');
-const IGNORE_DIRS = new Set(['.git', 'node_modules', 'docs', 'tests', 'scripts']);
+const IGNORE_DIRS = new Set(['.git', 'node_modules', 'docs', 'tests', 'scripts', 'artifacts', 'logs']);
 const IGNORE_FILES = new Set([
   'README.md', 'package.json', 'package-lock.json', '.gitignore', '.eslintrc.js',
   'debug.log', 'project.config.json', 'project.private.config.json',
