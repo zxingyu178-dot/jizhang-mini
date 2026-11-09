@@ -296,6 +296,37 @@ function restoreMonths(snap) {
   });
 }
 
+/**
+ * 严格删除单个月份分片（恢复 / 回滚专用）：
+ *   unlink 失败或删除后文件仍存在 → MONTH_DELETE_FAILED。
+ */
+function removeMonthFileStrict(ym) {
+  const file = paths.billFile(ym);
+  try {
+    fs.removeStrict(file);
+  } catch (e) {
+    const err = new Error('月份分片删除失败：' + ym);
+    err.code = 'MONTH_DELETE_FAILED';
+    err.ym = ym;
+    err.filePath = file;
+    throw err;
+  }
+  return true;
+}
+
+/**
+ * 严格读取全部月份账单（恢复 / 回滚后对账专用）：
+ *   任一月份缺失 JSON / 结构非法 / 版本不支持 → 直接抛出，不回落空账本。
+ */
+function readAllBillsStrict() {
+  const out = [];
+  listMonths().forEach((ym) => {
+    const mf = readMonthFileStrict(ym);
+    mf.bills.forEach((b) => out.push(b));
+  });
+  return out;
+}
+
 /** 某月份中指定 id 的账单条数 */
 function countIdInMonth(ym, id) {
   return readMonthFile(ym).bills.filter((b) => b.id === id).length;
@@ -435,6 +466,8 @@ module.exports = {
   updateBill,
   snapshotMonths,
   restoreMonths,
+  removeMonthFileStrict,
+  readAllBillsStrict,
   countIdInMonth,
   rangeBills,
 };

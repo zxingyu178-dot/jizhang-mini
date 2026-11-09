@@ -20,6 +20,35 @@ function fmtDate(ts) {
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 }
 
+/**
+ * 根据恢复 / 回滚状态生成用户提示（v1.4.2）：
+ *   - 未开始修改：原账本未修改；
+ *   - 回滚成功：已恢复到操作前状态；
+ *   - 回滚失败：恢复未完成，当前状态需检查，安全点保留；
+ *   - 状态不明确：无法确认，禁止重复操作。
+ */
+function recoveryErrorText(err) {
+  const code = (err && err.code) || '';
+  const suffix = code ? '\n\n错误码：' + code : '';
+  if (err && err.mutationStarted === false && !err.rollbackAttempted) {
+    return '原账本未修改，请重试。' + suffix;
+  }
+  if (err && err.rollbackAttempted === true && err.rollbackCompleted === false) {
+    return '恢复未完成，当前数据状态需要检查。安全点已保留，请勿重复提交，请返回后人工核对。' + suffix;
+  }
+  if (err && err.rollbackCompleted === true) {
+    return '已恢复到操作前状态，请重试。' + suffix;
+  }
+  return '无法确认当前数据状态，请勿重复操作，请返回后人工核对。' + suffix;
+}
+
+/** 回滚失败 / 状态不明确时禁止再次提交 */
+function shouldBlockResubmit(err) {
+  if (err && err.mutationStarted === false && !err.rollbackAttempted) return false;
+  if (err && err.rollbackAttempted === true && err.rollbackCompleted === true) return false;
+  return true;
+}
+
 Page({
   data: {
     session: null,
@@ -32,6 +61,7 @@ Page({
     isRestore: false,
     currentCount: 0,
     submitting: false,
+    submitBlocked: false,
     recurringStats: null, // { recognized, imported, skipped } | null（仅 Android .dvbackup 有）
     themeClass: 'theme-dark',
   },
@@ -108,7 +138,7 @@ Page({
   },
 
   onConfirm() {
-    if (this.data.submitting) return;
+    if (this.data.submitting || this.data.submitBlocked) return;
     this.setData({ submitting: true });
     wx.showLoading({ title: '正在写入…', mask: true });
 
@@ -148,11 +178,13 @@ Page({
         });
       } catch (e) {
         wx.hideLoading();
-        this.setData({ submitting: false });
+        const blocked = shouldBlockResubmit(e);
+        this.setData({ submitting: false, submitBlocked: blocked });
         wx.showModal({
-          title: '写入失败',
-          content: '账本已恢复到导入前，请重试。',
+          title: blocked ? '恢复未完成' : '写入失败',
+          content: recoveryErrorText(e),
           showCancel: false,
+          confirmText: blocked ? '返回检查' : '知道了',
         });
       }
     }, 30);

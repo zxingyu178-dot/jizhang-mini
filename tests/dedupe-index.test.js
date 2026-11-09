@@ -267,6 +267,38 @@ expectSame('13 CSV 多条匹配', [
   bill({ id: 'e13b', source: '', sourceTxnId: '', merchant: '地铁', note: '通勤' }),
 ], [bill({ source: 'dailyvalue', sourceTxnId: 'c13', merchant: '地铁', note: '通勤' })]);
 
+// 13b 组合键碰撞：cat|x + memo 与 cat + x|memo 是两笔不同账单
+expectSame('13b 组合键碰撞（cat|x + memo vs cat + x|memo）', [
+  bill({
+    id: 'e13c',
+    source: '',
+    sourceTxnId: '',
+    categoryId: 'cat|x',
+    note: 'memo',
+  }),
+], [
+  bill({
+    source: 'dailyvalue',
+    sourceTxnId: 'c13b',
+    categoryId: 'cat',
+    note: 'x|memo',
+  }),
+]);
+
+// 13c note 含 | 且分类相同 → 正常匹配
+expectSame('13c note 含 |', [
+  bill({ id: 'e13d', source: '', sourceTxnId: '', categoryId: 'c-food', note: 'a|b' }),
+], [
+  bill({ source: 'dailyvalue', sourceTxnId: 'c13c', categoryId: 'c-food', note: 'a|b' }),
+]);
+
+// 13d 分类 / 备注含引号与反斜杠
+expectSame('13d 引号与反斜杠', [
+  bill({ id: 'e13e', source: '', sourceTxnId: '', categoryId: 'c"quote', note: 'a\\b' }),
+], [
+  bill({ source: 'dailyvalue', sourceTxnId: 'c13d', categoryId: 'c"quote', note: 'a\\b' }),
+]);
+
 // 14 日价补充（merge）
 expectSame('14 日价补充', [
   bill({ id: 'e14', sourceTxnId: 'alipay:3010', dailyValue: null }),
@@ -308,7 +340,8 @@ function makeBills(rand, count, baseTs) {
   const types = ['expense', 'income'];
   const amounts = [100, 500, 1000, 1999, 2500];
   const merchants = ['', '瑞幸', '瑞幸咖啡', '全家', '全家便利店', '地铁', '老王'];
-  const notes = ['', '早餐', '通勤'];
+  const categories = ['c-food', 'c-travel', 'c-shopping', 'cat|x', 'cat', 'x|cat', 'c"quote', 'c\\slash'];
+  const notes = ['', '早餐', '通勤', 'memo', 'x|memo', 'a|b', 'quote"x'];
   const sources = ['alipay', 'wechat', 'dailyvalue', 'manual', ''];
   const out = [];
   for (let i = 0; i < count; i++) {
@@ -324,7 +357,7 @@ function makeBills(rand, count, baseTs) {
         id: 'r' + i,
         type: pick(rand, types),
         amountCents: pick(rand, amounts),
-        categoryId: pick(rand, ['c-food', 'c-travel', 'c-shopping']),
+        categoryId: pick(rand, categories),
         occurredAt: occurredAt,
         merchant: pick(rand, merchants),
         note: pick(rand, notes),
@@ -400,6 +433,16 @@ check('极端：全部无效时间戳', () => {
 });
 
 /* ==================== 索引诊断 ==================== */
+check('csvMatchKey 组合键无碰撞', () => {
+  const a = bill({ categoryId: 'cat|x', note: 'memo', source: '', sourceTxnId: '' });
+  const b = bill({ categoryId: 'cat', note: 'x|memo', source: '', sourceTxnId: '' });
+  assert.notStrictEqual(
+    dedupe._internal.csvMatchKey(a),
+    dedupe._internal.csvMatchKey(b),
+    'cat|x + memo 与 cat + x|memo 的索引键必须不同'
+  );
+});
+
 check('lastStats 字段齐备', () => {
   EXISTING = [bill({ id: 's1', occurredAt: Date.now(), sourceTxnId: '' })];
   dedupe.classify([bill({ source: '', sourceTxnId: '' })]);
