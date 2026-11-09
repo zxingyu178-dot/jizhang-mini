@@ -162,7 +162,9 @@ function suspectCandidates(b, index) {
 function csvMatchKey(b) {
   const minute = minuteKey(b.occurredAt);
   if (minute === null) return null; // 无效时间永不匹配（与 sameMinute(NaN,NaN)=false 一致）
-  return [b.type, b.amountCents, b.categoryId, b.note || '', minute].join('|');
+  // JSON 数组编码：categoryId / note 可能含任意字符（包括 |），禁止用分隔符拼接，
+  // 否则 cat|x + memo 与 cat + x|memo 会得到相同键，造成误判 existing/one。
+  return JSON.stringify([b.type, b.amountCents, b.categoryId, b.note || '', minute]);
 }
 
 function buildCsvIndex(existing) {
