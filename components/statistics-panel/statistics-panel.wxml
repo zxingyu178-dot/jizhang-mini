@@ -21,7 +21,7 @@
       </view>
 
       <!-- Hero -->
-      <view class="glass-card hero">
+      <view class="glass-card hero" id="staHero">
         <text class="hero__label">本月支出</text>
         <text class="hero__big money-expense">¥{{mExpense}}</text>
         <view class="hero__foot">

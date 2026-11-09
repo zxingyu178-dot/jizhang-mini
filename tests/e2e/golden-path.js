@@ -1576,4 +1576,55 @@ module.exports = async function goldenPath(ctx) {
     await ensureTab(page, 1);
     ctx.eq((await findBillsByNote(page, IMPORT_NOTE)).length, 0, '失败导入不产生任何账单');
   });
+
+  // ---------------- T31 统计 Hero 三列长文案（v1.4.1） ----------------
+  await ctx.test('T31 统计 Hero：长日期 + 长金额三列单行完整（Skyline 实测）', async () => {
+    const page = await ctx.home();
+    await ensureTab(page, 0);
+    await sleep(900);
+    const panel = await page.$('#statisticsPanel');
+    const before = await panel.data();
+
+    await panel.setData({
+      mTopDay: '31日',
+      mTopDayAmount: '¥1,234,567.89',
+      mCount: 9999,
+      mDailyAvg: '¥12,345.67',
+    });
+    await sleep(700);
+
+    const thirds = await panel.$$('.hero__third');
+    ctx.eq(thirds.length, 3, '仍为三列');
+    const subs = await panel.$$('.hero__sub');
+    const texts = [];
+    for (const s of subs) texts.push(String(await s.text()).trim());
+    ctx.ok(texts.indexOf('31日 ¥1,234,567.89') >= 0, '最高消费日完整展示日期 + 金额');
+    ctx.ok(texts.indexOf('9999 笔') >= 0, '记录数完整展示');
+    ctx.ok(texts.indexOf('¥12,345.67') >= 0, '日均支出完整展示');
+
+    const card = await panel.$('.hero');
+    const co = await card.offset();
+    const cs = await card.size();
+    const cardRight = co.left + Number(cs.width);
+    for (const s of subs) {
+      const txt = String(await s.text()).trim();
+      if (['31日 ¥1,234,567.89', '9999 笔', '¥12,345.67'].indexOf(txt) < 0) continue;
+      const off = await s.offset();
+      const sz = await s.size();
+      ctx.ok(Number(sz.height) < 30, '「' + txt + '」单行显示（高=' + sz.height + '）');
+      ctx.ok(off.left + Number(sz.width) <= cardRight + 1, '「' + txt + '」未溢出卡片');
+    }
+    await panel.setData({ scrollInto: 'staHero' });
+    await sleep(700);
+    await ctx.shot('e2e_stats_hero_long');
+    await panel.setData({ scrollInto: '' });
+
+    await panel.setData({
+      mTopDay: before.mTopDay,
+      mTopDayAmount: before.mTopDayAmount,
+      mCount: before.mCount,
+      mDailyAvg: before.mDailyAvg,
+    });
+    await sleep(300);
+  });
 };
