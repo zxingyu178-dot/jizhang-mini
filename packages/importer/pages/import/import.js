@@ -59,6 +59,26 @@ const EXT_BY_SOURCE = {
   alipay: ['xlsx', 'csv'],
 };
 
+/** E2E 临时文件扩展名白名单（与真实文件选择器接受类型一致，另保留 zip 用于拒绝路径测试） */
+const E2E_ALLOWED_EXT = ['csv', 'xlsx', 'dvbackup', 'json', 'zip'];
+
+/**
+ * E2E 临时文件名：固定目录 + 自动生成文件名，杜绝 ../ 路径穿越。
+ * 只保留 basename，非法字符替换为 _，扩展名不在白名单时回退 csv。
+ */
+function e2eTempFileName(raw) {
+  const base = String(raw || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop();
+  const cleaned = base.replace(/[^A-Za-z0-9._-]/g, '_');
+  const parts = cleaned.split('.');
+  let ext = parts.length > 1 ? parts.pop().toLowerCase() : '';
+  if (E2E_ALLOWED_EXT.indexOf(ext) < 0) ext = 'csv';
+  const stem = parts.join('.').replace(/^\.+/, '').slice(0, 40) || 'import';
+  return 'e2e-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' + stem + '.' + ext;
+}
+
 Page({
   data: {
     windowHeight: 0,
@@ -159,7 +179,7 @@ Page({
       throw new Error('__e2eImportText 仅开发环境可用');
     }
     const text = payload && payload.text;
-    const name = (payload && payload.name) || 'e2e-import.csv';
+    const name = e2eTempFileName(payload && payload.name);
     const source = (payload && payload.source) || 'alipay';
     if (typeof text !== 'string' || !text) {
       throw new Error('__e2eImportText 缺少 text');

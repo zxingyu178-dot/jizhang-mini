@@ -54,8 +54,8 @@
 
   <view class="pv-actions">
     <view class="pv-btn pv-btn-ghost" bindtap="onCancel">取消</view>
-    <view class="pv-btn pv-btn-primary" bindtap="onConfirm">
-      {{isRestore ? '确认恢复' : '确认导入 ' + counts.ready + ' 笔'}}
+    <view class="pv-btn pv-btn-primary {{submitBlocked ? 'pv-btn--disabled' : ''}}" bindtap="onConfirm">
+      {{submitBlocked ? '已停止，请返回核对' : (isRestore ? '确认恢复' : '确认导入 ' + counts.ready + ' 笔')}}
     </view>
   </view>
 </view>

@@ -42,10 +42,14 @@ let history = [];
 mockModule('data/index.js', { getImportHistory: () => history });
 mockModule('utils/theme.js', { bindPage: () => () => {} });
 const writeCalls = [];
+const removeCalls = [];
 mockModule('data/fs.js', {
   userRoot: () => '/usr',
   writeText: (p, t) => writeCalls.push({ p, t }),
-  remove: () => true,
+  remove: (p) => {
+    removeCalls.push(p);
+    return true;
+  },
 });
 let devEnv = true;
 mockModule('utils/env.js', { isDevEnv: () => devEnv });
@@ -161,6 +165,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   devEnv = true;
   resetCalls();
   writeCalls.length = 0;
+  removeCalls.length = 0;
   parseResult = Promise.resolve({
     source: 'alipay',
     bills: [{ id: 1 }, { id: 2 }],
@@ -171,8 +176,39 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   eq(out && out.ok, true, 'B2 开发环境解析成功');
   eq(out && out.total, 2, 'B2 返回账单数');
   eq(writeCalls.length, 1, 'B2 写入一次临时文件');
-  eq(writeCalls[0].p, '/usr/__e2e_import__/ok.csv', 'B2 临时文件位于 USER_DATA_PATH');
+  assert(
+    /^\/usr\/__e2e_import__\/e2e-\d+-[a-z0-9]+-ok\.csv$/.test(writeCalls[0].p),
+    'B2 临时文件位于固定目录且自动生成文件名：' + writeCalls[0].p
+  );
+  eq(removeCalls.length, 1, 'B2 解析后清理临时文件');
+  eq(removeCalls[0], writeCalls[0].p, 'B2 清理的是本次临时文件');
   eq(appData.__importSession && appData.__importSession.source, 'alipay', 'B2 写入导入会话');
+
+  // B3 路径穿越 / 扩展名限制
+  async function runName(name) {
+    writeCalls.length = 0;
+    removeCalls.length = 0;
+    parseResult = Promise.resolve({ bills: [], counts: { ready: 0 } });
+    await page.__e2eImportText({ text: 'x', name: name, source: 'alipay' });
+    return writeCalls[0] && writeCalls[0].p;
+  }
+  const traversal = await runName('../../legacy/restore-safety.json');
+  assert(traversal.indexOf('/usr/__e2e_import__/') === 0, 'B3 路径穿越被限制在固定临时目录');
+  eq(traversal.indexOf('..') >= 0, false, 'B3 生成路径不含 ..');
+  eq(traversal.indexOf('/legacy/') >= 0, false, 'B3 不写入 legacy 目录');
+  assert(/\.json$/.test(traversal), 'B3 合法扩展名 json 保留');
+  eq(removeCalls[0], traversal, 'B3 临时文件已清理');
+
+  const windowsPath = await runName('C:\\Windows\\evil.exe');
+  assert(/\.csv$/.test(windowsPath), 'B3 非白名单扩展名回退 csv');
+  eq(windowsPath.indexOf('\\') >= 0, false, 'B3 路径不含反斜杠');
+  eq(windowsPath.indexOf('/usr/__e2e_import__/') === 0, true, 'B3 Windows 风格路径不能跳出临时目录');
+
+  const zipPath = await runName('a.zip');
+  assert(/\.zip$/.test(zipPath), 'B3 zip 扩展名保留（供拒绝路径测试）');
+
+  const dotPath = await runName('..');
+  assert(/import\.csv$/.test(dotPath), 'B3 纯 .. 文件名回退安全默认名：' + dotPath);
 
   /* ==================== C. 静态契约 ==================== */
   console.log('C. 静态契约');
@@ -187,6 +223,8 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
   assert(guardIdx < writeIdx, 'C3 守卫在写临时文件之前');
   assert(guardIdx < parseIdx, 'C4 守卫在解析之前');
   assert(importJs.indexOf('env.isDevEnv()', methodStart) < importJs.indexOf('.then(', methodStart), 'C5 守卫是同步前置检查');
+  assert(importJs.indexOf('E2E_ALLOWED_EXT') >= 0, 'C5b 存在扩展名白名单');
+  assert(importJs.indexOf("split('/')") >= 0, 'C5c 文件名只取 basename，防路径穿越');
 
   const importWxml = read('packages/importer/pages/import/import.wxml');
   eq(importWxml.indexOf('__e2eImportText') >= 0, false, 'C6 注入入口不出现在 WXML（无 UI 暴露）');

@@ -220,3 +220,7 @@
   color: var(--button-primary-text);
   background: var(--button-primary);
 }
+/* 回滚失败 / 状态不明确：按钮保留占位但禁止再次提交 */
+.pv-btn--disabled {
+  opacity: 0.5;
+}
