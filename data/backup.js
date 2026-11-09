@@ -91,7 +91,10 @@ function restoreBackup(input, options) {
     throw new Error('备份数据校验未通过：' + vr.errors.map((e) => e.code).join('、'));
   }
 
-  const safety = paths.legacyRestoreSafety();
+  const safety =
+    typeof options.safetyPath === 'string' && options.safetyPath
+      ? options.safetyPath
+      : paths.legacyRestoreSafety();
 
   // 0. 删前隔离（最高优先级）：损坏分片必须先逐字节转存成功。
   //    放在安全点之前：即使安全点创建失败，损坏字节也已经保护好。
@@ -212,6 +215,10 @@ function billSignature(b) {
     b.categoryId,
     b.ledgerImpact || 'normal',
     b.sourceTxnId || null,
+    b.source || 'manual',
+    b.importBatchId || null,
+    b.createdAt || 0,
+    b.updatedAt || 0,
     b.title || '',
     b.merchant || '',
     b.note || '',
@@ -330,21 +337,58 @@ function replaceLedgerWithBills(inputBills, opts) {
   return { total: bills.length, months: targetMonths };
 }
 
-/** 元数据核对：分类 / 设置 / 周期规则结构完整且条数一致 */
+/** 稳定序列化（对象键排序），用于元数据精确比对 */
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return '[' + value.map((v) => stableStringify(v)).join(',') + ']';
+  }
+  if (value && typeof value === 'object') {
+    return (
+      '{' +
+      Object.keys(value)
+        .sort()
+        .map((k) => JSON.stringify(k) + ':' + stableStringify(value[k]))
+        .join(',') +
+      '}'
+    );
+  }
+  return JSON.stringify(value);
+}
+
+/** 严格读取周期规则文件（损坏 / 结构非法直接抛，不回落空规则） */
+function readRecurringRulesStrict() {
+  if (!fs.exists(paths.FILE.recurring)) return [];
+  const raw = fs.readJSONStrict(paths.FILE.recurring);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.rules)) {
+    throw shapeError('recurring-shape');
+  }
+  return raw.rules;
+}
+
+/** 元数据核对：分类 / 设置 / 周期规则按规范化后的内容精确比对 */
 function verifyMetadata(data, code) {
   try {
+    const expectedCats = Array.isArray(data.categories) ? data.categories : categories.DEFAULT_CATEGORIES;
     const cats = fs.readJSONStrict(paths.FILE.categories);
     if (!Array.isArray(cats)) throw shapeError('categories-not-array');
-    const expectedCats = Array.isArray(data.categories) ? data.categories : categories.DEFAULT_CATEGORIES;
-    if (cats.length !== expectedCats.length) throw shapeError('categories-count');
+    if (stableStringify(cats) !== stableStringify(expectedCats)) {
+      throw shapeError('categories-mismatch');
+    }
 
+    const expectedSettings = Object.assign({}, settings.DEFAULT_SETTINGS, data.settings || {});
     const set = fs.readJSONStrict(paths.FILE.settings);
     if (!set || typeof set !== 'object' || Array.isArray(set)) throw shapeError('settings-invalid');
+    if (stableStringify(set) !== stableStringify(expectedSettings)) {
+      throw shapeError('settings-mismatch');
+    }
 
-    const rules = recurringStore.getRules();
-    if (!Array.isArray(rules)) throw shapeError('recurring-not-array');
-    const expectedRules = Array.isArray(data.recurringRules) ? data.recurringRules : [];
-    if (rules.length !== expectedRules.length) throw shapeError('recurring-count');
+    const expectedRules = (Array.isArray(data.recurringRules) ? data.recurringRules : []).map((r) =>
+      recurringStore.normalizeRule(r)
+    );
+    const actualRules = readRecurringRulesStrict();
+    if (stableStringify(actualRules) !== stableStringify(expectedRules)) {
+      throw shapeError('recurring-mismatch');
+    }
   } catch (e) {
     const err = new Error('元数据核对不一致');
     err.code = code;
@@ -456,7 +500,10 @@ function rollback(safetyPath) {
     stage: '回滚',
   });
   fs.writeJSONAtomic(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
-  fs.writeJSONAtomic(paths.FILE.settings, saved.data.settings || settings.DEFAULT_SETTINGS);
+  fs.writeJSONAtomic(
+    paths.FILE.settings,
+    Object.assign({}, settings.DEFAULT_SETTINGS, saved.data.settings || {})
+  );
   recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
   verifyMetadata(saved.data, 'ROLLBACK_META_INTEGRITY_FAILED');
   // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。

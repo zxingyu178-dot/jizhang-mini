@@ -50,6 +50,15 @@ function legacyRestoreSafety() {
   return DIR.legacy + '/restore-safety.json';
 }
 
+/**
+ * 普通导入失败回滚专用安全点路径（与用户完整恢复安全点隔离，避免互相覆盖）。
+ * 每次导入使用独立 batchId，失败保留、成功由调用方清理。
+ */
+function importRollbackSafety(batchId) {
+  const safe = String(batchId || 'manual').replace(/[^A-Za-z0-9_-]/g, '_');
+  return DIR.legacy + '/import-rollback-safety-' + safe + '.json';
+}
+
 /** 隔离目录批次路径：quarantineDir('20261104-153012-123') -> .../quarantine/20261104-153012-123 */
 function quarantineDir(name) {
   return DIR.quarantine + '/' + name;
@@ -62,5 +71,6 @@ module.exports = {
   billFile,
   legacyRecordsBackup,
   legacyRestoreSafety,
+  importRollbackSafety,
   quarantineDir,
 };

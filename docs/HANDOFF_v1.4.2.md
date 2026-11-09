@@ -22,8 +22,9 @@
 | 导入索引 | CSV 键改为 `JSON.stringify([...])`，消除 `cat|x + memo` 与 `cat + x|memo` 碰撞 |
 | 恢复失败提示 | 未修改 / 已恢复 / 恢复未完成 / 无法确认 四级提示；回滚失败阻止再次提交 |
 | E2E 临时文件 | 固定目录、自动文件名、basename、扩展名白名单、解析后清理 |
-| 单元测试 | **49/49** 套件通过 |
-| E2E | **31/31** 通过 |
+| 导入回滚安全点 | 原始安全点与临时安全点隔离；回滚成功清理临时、失败两者保留 |
+| 单元测试 | **50/50** 套件通过 |
+| E2E | **31/31** 通过（含疑似重复按钮计数断言） |
 | 30k 导入预览 | **111.6 ms**（基线 1,618.2 ms，14.5×） |
 | 真机 | **未测试** |
 
@@ -56,12 +57,18 @@
 - 提交：`beab202`
 
 ### Gate 4 — 专项回归
-- `npm test` **49/49**。
-- `npm run e2e` **31/31**（T28/T29/T30/T31 均通过）。
+- `npm test` **50/50**。
+- `npm run e2e` **31/31**（T28/T29/T30/T31 均通过；T29 新增按钮计数断言）。
 - 性能重测 3 轮 × 5 次中位：5k **31.8 ms**、15k **70.4 ms**、30k **111.6 ms**。
 
 ### Gate 5 — 收口
 - 版本 1.4.2；CHANGELOG / README / HANDOFF / FINAL_AUDIT / 10_DEVICE_ACCEPTANCE。
+- 发布前最后一轮补丁：
+  - 普通导入失败回滚改用独立临时安全点（`legacy/import-rollback-safety-<batchId>.json`），不再覆盖原始 `restore-safety.json`；
+  - `billSignature` 补 `source / importBatchId / createdAt / updatedAt`；
+  - 分类 / 设置 / 周期规则严格读取并精确内容比对；
+  - `removeStrict` 对 ENOENT 再次确认存在性；
+  - 预览按钮显示 `ready + (includeSuspect ? suspect : 0)`。
 - `release:check`、`theme:audit`、`contrast:audit` 通过。
 - 验收 ZIP：`DailyValueMini_v1.4.2_Review.zip`（含真机清单、完整 Git 状态与测试日志）。
 
@@ -76,9 +83,10 @@
 - `packages/importer/pages/import/import.js`
 
 ### 测试
-- `tests/quarantine-rollback.test.js`（170）
+- `tests/quarantine-rollback.test.js`（190）
 - `tests/dedupe-index.test.js`（54）
 - `tests/import-e2e-safety.test.js`（48）
+- `tests/import-rollback-safety.test.js`（22，新增）
 - `tests/recovery-ui-guard.test.js`（28，新增）
 - `tests/run-all.js`
 
@@ -97,9 +105,10 @@
 ## 3. 测试与审计
 
 ```
-npm test                    49/49 套件通过
+npm test                    50/50 套件通过
 npm run e2e                 31/31 通过
-quarantine-rollback         170 passed
+quarantine-rollback         190 passed
+import-rollback-safety      22 passed
 dedupe-index                54 passed
 import-e2e-safety           48 passed
 recovery-ui-guard           28 passed
@@ -130,7 +139,7 @@ recovery-ui-guard           28 passed
 1. 回滚仍不是数据库级原子操作；本版保证「删除可确认、写入前校验安全点、写后精确对账、失败明确报告」。
 2. 320 / 360 / 430 模拟器机型本次未重新截图；390px 为真实 Skyline 实测，其余由 CSS 契约与宽度估算覆盖。
 3. XLSX 未做 GUI 文件选择 E2E，由 `tests/importer.test.js` 覆盖。
-4. `project.config.json` 仍为 `libVersion=latest`；当前实测基础库 3.17.4，未未经确认固定。
+4. `project.config.json` 仍为 `libVersion=latest`；当前以基础库 3.17.4 实测为准，不贸然固定，待真机兼容确认后决定。
 5. 微信上传 / 审核 / 发布未执行，等待代码审查批准。
 
 ---

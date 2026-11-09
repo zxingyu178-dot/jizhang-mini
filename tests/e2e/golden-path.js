@@ -1543,9 +1543,14 @@ module.exports = async function goldenPath(ctx) {
     const pv = await mp.currentPage();
     await ctx.waitFor(pv, '.pv-toggle');
     ctx.ok((await pv.data()).counts.suspect >= 1, '预览页展示疑似重复计数');
+    const confirmBtn = await pv.$('.pv-btn-primary');
+    const textBefore = String(await confirmBtn.text()).trim();
+    ctx.ok(textBefore.indexOf('确认导入 0 笔') >= 0, '未勾选疑似重复时按钮显示 0 笔（' + textBefore + '）');
     await ctx.tap(pv, '.pv-toggle');
     await sleep(300);
     ctx.eq((await pv.data()).includeSuspect, true, '可手动切换「同时导入疑似重复」');
+    const textAfter = String(await confirmBtn.text()).trim();
+    ctx.ok(textAfter.indexOf('确认导入 1 笔') >= 0, '勾选疑似重复后按钮显示 1 笔（' + textAfter + '）');
     await ctx.shot('e2e_import_suspect');
     await ctx.tap(pv, '.pv-btn-ghost');
     await sleep(1300);

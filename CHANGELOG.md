@@ -19,8 +19,16 @@ Recovery Integrity & Import Match Safety（恢复完整性与导入匹配安全�
 - **CSV 索引组合键碰撞修复（P1）**：`categoryId` / `note` 可能包含 `|`，原拼接键会让 `cat|x + memo` 与 `cat + x|memo` 误判为同一笔。改为 `JSON.stringify([...])` 无歧义编码，新增碰撞、引号、反斜杠与随机差分测试。
 - **E2E 临时文件路径加固（P2）**：只取 basename、固定 `USER_DATA_PATH/__e2e_import__/`、自动生成文件名、扩展名白名单，解析后清理；杜绝 `../` 路径穿越。
 
+### Final Stabilization（发布前最后一轮）
+- **导入回滚不再覆盖原始安全点（P1）**：普通导入失败时，内部救命回滚使用独立临时安全点 `legacy/import-rollback-safety-<batchId>.json`；原始安全点保持导入前状态。回滚成功清理临时安全点，回滚失败两套安全点都保留。
+- **对账字段补全（P2）**：`billSignature` 增加 `source / importBatchId / createdAt / updatedAt`。
+- **元数据精确核对（P2）**：分类、设置、周期规则改为严格读取 + 规范化后内容比对；周期文件损坏即使预期 0 条也会被发现。
+- **严格删除 ENOENT 边界（P2）**：ENOENT 后再次确认文件不存在，文件仍在则 `FILE_DELETE_FAILED`。
+- **疑似重复按钮计数（P2）**：按钮显示 `ready + (includeSuspect ? suspect : 0)`，勾选后数字同步变化。
+- 测试：`npm test` **50/50**；E2E **31/31**（新增疑似重复计数断言）；`quarantine-rollback` 190 项、`import-rollback-safety` 22 项。
+
 ### 测试
-- `npm test` **49/49 套件通过**（新增 `recovery-ui-guard`；`quarantine-rollback` 扩充到 170 项，`dedupe-index` 54 项，`import-e2e-safety` 48 项）。
+- `npm test` **50/50 套件通过**（新增 `recovery-ui-guard`、`import-rollback-safety`；`quarantine-rollback` 190 项，`dedupe-index` 54 项，`import-e2e-safety` 48 项）。
 - `npm run e2e` **31/31 通过**。
 - 性能（3 轮 × 5 次中位）：30,000 笔 + 3,000 行预览 **111.6 ms**（基线 1,618.2 ms，14.5×）；15,000 档 70.4 ms；5,000 档 31.8 ms。
 - `theme:audit` / `contrast:audit` / `release:check` 通过。

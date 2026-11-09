@@ -70,6 +70,8 @@ function buildWx() {
     writeCallFail: null,
     corruptSafetyOnRename: null,
     mutateBillFileAfterRename: null,
+    mutateJsonAfterRename: null,
+    unlinkEnoentButExistsFor: new Set(),
   };
   const fsm = {
     accessSync(p) {
@@ -138,6 +140,9 @@ function buildWx() {
       memFiles.set(p, toBuf(data));
     },
     unlinkSync(p) {
+      if (faults.unlinkEnoentButExistsFor.has(p)) {
+        throw new Error('ENOENT: no such file or directory ' + p);
+      }
       if (faults.unlinkFailFor.has(p)) throw new Error('UNLINK_FAIL ' + p);
       if (!memFiles.has(p)) throw new Error('ENOENT');
       memFiles.delete(p);
@@ -163,6 +168,16 @@ function buildWx() {
           if (mutated) memFiles.set(newPath, toBuf(JSON.stringify(mutated)));
         } catch (e) {}
         faults.mutateBillFileAfterRename = null;
+      }
+      // 通用 JSON 文件写入后篡改（分类 / 设置 / 周期规则）
+      if (faults.mutateJsonAfterRename && faults.mutateJsonAfterRename.match(newPath)) {
+        try {
+          const obj = JSON.parse(memFiles.get(newPath).toString('utf8'));
+          const mutated = faults.mutateJsonAfterRename.mutate(obj);
+          if (typeof mutated === 'string') memFiles.set(newPath, toBuf(mutated));
+          else if (mutated) memFiles.set(newPath, toBuf(JSON.stringify(mutated)));
+        } catch (e) {}
+        faults.mutateJsonAfterRename = null;
       }
     },
     readdirSync(p) {
@@ -801,6 +816,85 @@ warns.length = 0;
   );
   eq(fs.exists(paths.legacyRestoreSafety()), true, 'R22 安全点保留');
   eq(ledger.readMonthFile('2026-09').bills.length, 2, 'R22 现场为恢复阶段写入的内容（未被谎报恢复）');
+}
+
+/* =================== R23 元数据精确核对 =================== */
+console.log('R23 元数据内容不一致 → 恢复后拦截并回滚');
+{
+  // R23a 分类数量相同但内容不同
+  fresh();
+  warns.length = 0;
+  const goodA = seedAndBuild();
+  global.wx.__faults.mutateJsonAfterRename = {
+    match: (p) => p.indexOf('/categories.json') >= 0,
+    mutate: (obj) => {
+      obj[0].name = '篡改分类';
+      return obj;
+    },
+  };
+  const a = runRestore(goodA);
+  eq(a.res, null, 'R23a 恢复未成功');
+  eq(a.err && a.err.code, 'RESTORE_META_INTEGRITY_FAILED', 'R23a 抛出元数据校验失败');
+  eq(a.err && a.err.reason, 'categories-mismatch', 'R23a 识别分类内容不一致');
+  eq(a.err && a.err.rollbackCompleted, true, 'R23a 回滚完成');
+  const catsA = fs.readJSON(paths.FILE.categories, []);
+  eq(catsA[0] && catsA[0].name === '篡改分类', false, 'R23a 分类已恢复原内容');
+
+  // R23b 设置内容不同
+  fresh();
+  warns.length = 0;
+  const goodB = seedAndBuild();
+  global.wx.__faults.mutateJsonAfterRename = {
+    match: (p) => p.indexOf('/settings.json') >= 0,
+    mutate: (obj) => {
+      obj.currency = 'X';
+      return obj;
+    },
+  };
+  const b = runRestore(goodB);
+  eq(b.res, null, 'R23b 恢复未成功');
+  eq(b.err && b.err.code, 'RESTORE_META_INTEGRITY_FAILED', 'R23b 抛出元数据校验失败');
+  eq(b.err && b.err.reason, 'settings-mismatch', 'R23b 识别设置内容不一致');
+  eq(b.err && b.err.rollbackCompleted, true, 'R23b 回滚完成');
+  const setB = fs.readJSON(paths.FILE.settings, {});
+  eq(setB.currency, '¥', 'R23b 设置已恢复原值');
+
+  // R23c 周期规则文件损坏，预期 0 条也必须被发现
+  fresh();
+  warns.length = 0;
+  const goodC = seedAndBuild();
+  global.wx.__faults.mutateJsonAfterRename = {
+    match: (p) => p.indexOf('/recurring.json') >= 0,
+    mutate: () => '{broken-json',
+  };
+  const c = runRestore(goodC);
+  eq(c.res, null, 'R23c 恢复未成功');
+  eq(c.err && c.err.code, 'RESTORE_META_INTEGRITY_FAILED', 'R23c 抛出元数据校验失败');
+  eq(c.err && c.err.reason, 'FILE_CORRUPT', 'R23c 严格读取发现周期文件损坏');
+  eq(c.err && c.err.rollbackCompleted, true, 'R23c 回滚完成');
+  const recC = fs.readJSON(paths.FILE.recurring, null);
+  assert(recC && Array.isArray(recC.rules), 'R23c 周期文件已恢复为合法结构');
+}
+
+/* =================== R24 removeStrict ENOENT 边界 =================== */
+console.log('R24 removeStrict：ENOENT 但文件仍存在必须失败');
+fresh();
+warns.length = 0;
+{
+  eq(fs.removeStrict('/usr/no-such-file.json'), true, 'R24 文件不存在 → 删除成功');
+  fs.writeText('/usr/r24-normal.json', 'x');
+  eq(fs.removeStrict('/usr/r24-normal.json'), true, 'R24 正常文件删除成功');
+  eq(fs.exists('/usr/r24-normal.json'), false, 'R24 正常文件已不存在');
+  fs.writeText('/usr/r24-keep.json', 'x');
+  global.wx.__faults.unlinkEnoentButExistsFor.add('/usr/r24-keep.json');
+  let err = null;
+  try {
+    fs.removeStrict('/usr/r24-keep.json');
+  } catch (e) {
+    err = e;
+  }
+  eq(err && err.code, 'FILE_DELETE_FAILED', 'R24 ENOENT 但文件仍存在 → 抛 FILE_DELETE_FAILED');
+  eq(fs.exists('/usr/r24-keep.json'), true, 'R24 文件仍保留');
 }
 
 /* =================== 汇总 =================== */

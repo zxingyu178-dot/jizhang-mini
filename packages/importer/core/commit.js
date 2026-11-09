@@ -120,11 +120,14 @@ function commitImport(session, opts) {
   const toMerge = session.bills.filter((b) => b.status === 'merge');
 
   // 1. 快照（原子写，安全点自身不能写坏）
+  //    原始安全点固定使用 legacyRestoreSafety；内部救命回滚另用独立临时安全点，
+  //    避免 restoreBackup 在回滚时用「部分写入后的状态」覆盖原始安全点。
+  const batchId = 'imp-' + Date.now();
   const safety = paths.legacyRestoreSafety();
+  const rollbackSafety = paths.importRollbackSafety(batchId);
   fs.writeJSONAtomic(safety, backup.buildBackup());
 
   const beforeCount = ledger.rangeBills().length;
-  const batchId = 'imp-' + Date.now();
 
   try {
     // 0. Gate F/G：先幂等写入自定义分类与周期规则（账单 categoryId 已重映射）
@@ -176,9 +179,11 @@ function commitImport(session, opts) {
       throw e;
     }
     try {
-      backup.restoreBackup(saved, { skipHealth: true });
+      backup.restoreBackup(saved, { skipHealth: true, safetyPath: rollbackSafety });
     } catch (re) {
-      const combined = new Error('导入失败，且回滚未完成（安全点已保留）：' + (e.message || '未知错误'));
+      const combined = new Error(
+        '导入失败，且回滚未完成（原始安全点与临时安全点均已保留）：' + (e.message || '未知错误')
+      );
       combined.code = e.code || 'IMPORT_ROLLBACK_FAILED';
       combined.mutationStarted = true;
       combined.rollbackAttempted = true;
@@ -187,8 +192,12 @@ function commitImport(session, opts) {
         code: (re && re.code) || 'ROLLBACK_FAILED',
         message: (re && re.message) || String(re),
       };
+      combined.safetyPath = safety;
+      combined.rollbackSafetyPath = rollbackSafety;
       throw combined;
     }
+    // 回滚成功：清理本轮临时安全点；清理失败只保留文件，不影响回滚结论。
+    try { fs.remove(rollbackSafety); } catch (e2) {}
     e.mutationStarted = true;
     e.rollbackAttempted = true;
     e.rollbackCompleted = true;

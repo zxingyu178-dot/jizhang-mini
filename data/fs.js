@@ -208,8 +208,12 @@ function removeStrict(path) {
   }
   const msg = String((cause && (cause.errMsg || cause.message)) || cause || '');
   const errCode = cause && cause.errCode;
-  // 明确「本来就不存在」→ 视为已删除；权限 / 占用等失败一律 fail-closed。
-  if (errCode === 1300002 || /ENOENT|no such file|not exist/i.test(msg)) return true;
+  // 明确「本来就不存在」→ 再次确认当前不可见才视为已删除；
+  // 权限 / 占用 / ENOENT 但文件仍在 → 一律 fail-closed。
+  if (errCode === 1300002 || /ENOENT|no such file|not exist/i.test(msg)) {
+    if (exists(path)) throw fileError('FILE_DELETE_FAILED', path, 'ENOENT 但文件仍存在');
+    return true;
+  }
   throw fileError('FILE_DELETE_FAILED', path, msg || 'unlink 失败');
 }
 
