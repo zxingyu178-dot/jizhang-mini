@@ -3,6 +3,32 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.4.2] — 2026-11-09
+
+Recovery Integrity & Import Match Safety（恢复完整性与导入匹配安全）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器与视觉体系。
+
+### 数据恢复完整性
+- **删除失败不再被忽略（P0）**：新增 `fs.removeStrict()`，unlink 失败 / 删除后文件仍存在 / 无法确认删除一律 `FILE_DELETE_FAILED`；新增 `ledger.removeMonthFileStrict()`。恢复 / 回滚改为「只删除目标月份之外的分片 + 目标月份原子覆盖」，从结构上消除「旧账单未删 + 新账单叠加」。
+- **安全点完整校验（P0）**：回滚删除任何文件之前校验 envelope、`bills` 数组、账单对象与 ID、重复 ID、`categories`、`settings`、`recurringRules` 与语义校验；不合格抛 `ROLLBACK_SAFETY_INVALID`，JSON 损坏抛 `ROLLBACK_SAFETY_UNAVAILABLE`，均保留现场与安全点。
+- **恢复 / 回滚后精确对账（P0）**：严格回读全部月份，比较数量、ID 集合、关键字段签名与重复 ID；不一致抛 `RESTORE_INTEGRITY_FAILED` / `ROLLBACK_INTEGRITY_FAILED`，并记录 missing / extra / mismatched / duplicate 计数。
+- **元数据核对**：恢复 / 回滚后校验分类、设置、周期规则的结构与条数。
+- **回滚失败明确报告（P1）**：回滚写入失败时 `rollbackCompleted=false`，附 `rollbackError.code`，安全点保留，不再谎报成功。
+- **恢复失败提示分级（P1）**：预览页按 `mutationStarted / rollbackAttempted / rollbackCompleted` 显示「原账本未修改 / 已恢复到操作前状态 / 恢复未完成 / 无法确认」，回滚失败展示错误码并阻止再次提交。
+
+### 导入匹配安全
+- **CSV 索引组合键碰撞修复（P1）**：`categoryId` / `note` 可能包含 `|`，原拼接键会让 `cat|x + memo` 与 `cat + x|memo` 误判为同一笔。改为 `JSON.stringify([...])` 无歧义编码，新增碰撞、引号、反斜杠与随机差分测试。
+- **E2E 临时文件路径加固（P2）**：只取 basename、固定 `USER_DATA_PATH/__e2e_import__/`、自动生成文件名、扩展名白名单，解析后清理；杜绝 `../` 路径穿越。
+
+### 测试
+- `npm test` **49/49 套件通过**（新增 `recovery-ui-guard`；`quarantine-rollback` 扩充到 170 项，`dedupe-index` 54 项，`import-e2e-safety` 48 项）。
+- `npm run e2e` **31/31 通过**。
+- 性能（3 轮 × 5 次中位）：30,000 笔 + 3,000 行预览 **111.6 ms**（基线 1,618.2 ms，14.5×）；15,000 档 70.4 ms；5,000 档 31.8 ms。
+- `theme:audit` / `contrast:audit` / `release:check` 通过。
+- 真机 iPhone / Android 未测试，见 `docs/10_DEVICE_ACCEPTANCE.md`。
+
+### 冻结项
+- 数据合同与业务规则零改动；不新增依赖、不更换渲染器；微信上传 / 审核 / 发布未执行。
+
 ## [1.4.1] — 2026-11-09
 
 Data Safety & Import Reliability（数据安全与导入可靠性）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器与紫黑毛玻璃视觉体系。

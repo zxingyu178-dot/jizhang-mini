@@ -15,3 +15,6 @@ tests/generated/
 
 # E2E 运行产物：每轮独立目录，不覆盖 docs/screenshots/ 下的基线截图
 artifacts/
+
+# 本地测试 / 性能 / 审计日志（历史已跟踪文件不受影响）
+logs/
