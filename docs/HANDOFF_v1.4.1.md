@@ -199,6 +199,7 @@ GUI 检查汇总：6/6 通过
 | Gate 3 | `a3cbf345a285c236b382101e28728a0022376d3e` |
 | Gate 4 | `45163fc8ad0ae134b5c0a6437c7fcd9b1d72b84f` |
 | Gate 5 发布提交 | `6694753fba84bbb27b4719630c5cab079d2d1919` |
-| 文档回填提交 | 本文件所在提交（`git log -1 --format=%H`） |
+| 文档回填提交 | `8ed151ec99c671e25c478210932bc08a7ff1b873` |
 
-远端：`origin/main` 已于 Gate 5 推送至 `6694753`；文档回填提交推送后，以 `git rev-parse origin/main` 为准。
+最终 HEAD / `origin/main`：`8ed151ec99c671e25c478210932bc08a7ff1b873`（两者一致）。
+工作区：无未提交源码修改；仅历史与本轮验收 ZIP（`DailyValue_Mini_v1.4.0_Acceptance.zip`、`jizhang-mini_v1.3.2~1.3.6_acceptance.zip`、`DailyValueMini_v1.4.1_Review.zip`）为本地交付物，未跟踪。
