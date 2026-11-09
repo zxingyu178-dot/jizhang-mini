@@ -201,5 +201,5 @@ GUI 检查汇总：6/6 通过
 | Gate 5 发布提交 | `6694753fba84bbb27b4719630c5cab079d2d1919` |
 | 文档回填提交 | `8ed151ec99c671e25c478210932bc08a7ff1b873` |
 
-最终 HEAD / `origin/main`：`8ed151ec99c671e25c478210932bc08a7ff1b873`（两者一致）。
+最终 HEAD / `origin/main`：以 `git rev-parse HEAD` / `git rev-parse origin/main` 为准（两者一致）；验收 ZIP 的 `git/commits.txt` 记录了打包时的完整 SHA。
 工作区：无未提交源码修改；仅历史与本轮验收 ZIP（`DailyValue_Mini_v1.4.0_Acceptance.zip`、`jizhang-mini_v1.3.2~1.3.6_acceptance.zip`、`DailyValueMini_v1.4.1_Review.zip`）为本地交付物，未跟踪。
