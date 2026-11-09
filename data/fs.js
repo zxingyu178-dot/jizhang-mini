@@ -189,6 +189,34 @@ function remove(path) {
   }
 }
 
+/**
+ * 严格删除（恢复 / 回滚专用）：
+ *   文件不存在视为成功；unlink 失败或无法确认已删除 → FILE_DELETE_FAILED。
+ * 普通业务删除继续用 remove（幂等、不抛），避免改变既有语义。
+ */
+function removeStrict(path) {
+  if (!exists(path)) return true;
+  let cause = null;
+  try {
+    getFS().unlinkSync(path);
+  } catch (e) {
+    cause = e;
+  }
+  if (!cause) {
+    // unlink 未抛错但文件仍在 → 视为删除失败
+    if (exists(path)) throw fileError('FILE_DELETE_FAILED', path, 'unlink 后文件仍存在');
+    return true;
+  }
+  const msg = String((cause && (cause.errMsg || cause.message)) || cause || '');
+  const errCode = cause && cause.errCode;
+  const absent =
+    errCode === 1300002 || /ENOENT|no such file|not exist/i.test(msg);
+  // 只有明确「本来就不存在」且当前确实不可见，才接受为已删除；
+  // 权限 / 占用等失败即使 exists 判断不可用也不放行（fail-closed）。
+  if (absent && !exists(path)) return true;
+  throw fileError('FILE_DELETE_FAILED', path, msg || 'unlink 失败');
+}
+
 /** 列出目录下条目；失败返回空数组 */
 function listDir(path) {
   try {
@@ -222,6 +250,7 @@ module.exports = {
   readBuffer,
   writeBuffer,
   remove,
+  removeStrict,
   listDir,
   copy,
 };

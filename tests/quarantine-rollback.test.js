@@ -65,6 +65,11 @@ function buildWx() {
     safetyWriteFail: false,
     unlinkFailFor: new Set(),
     quarantineShardWrites: 0,
+    writeCounts: {},
+    writeFailFor: null,
+    writeCallFail: null,
+    corruptSafetyOnRename: null,
+    mutateBillFileAfterRename: null,
   };
   const fsm = {
     accessSync(p) {
@@ -105,6 +110,14 @@ function buildWx() {
     writeFileSync(p, data) {
       const isQuarantine = p.indexOf('/quarantine/') >= 0;
       const isMeta = p.indexOf('/meta.json') >= 0;
+      const n = (faults.writeCounts[p] || 0) + 1;
+      faults.writeCounts[p] = n;
+      if (faults.writeFailFor && faults.writeFailFor(p)) {
+        throw new Error('WRITE_FAIL ' + p);
+      }
+      if (faults.writeCallFail && faults.writeCallFail(p, n)) {
+        throw new Error('WRITE_FAIL ' + p);
+      }
       if (isQuarantine && !isMeta) {
         faults.quarantineShardWrites += 1;
         if (faults.quarantineWriteFail) throw new Error('QUARANTINE_WRITE_FAIL ' + p);
@@ -134,6 +147,23 @@ function buildWx() {
       if (memFiles.has(newPath)) throw new Error('file already exists');
       memFiles.set(newPath, memFiles.get(oldPath));
       memFiles.delete(oldPath);
+      // 安全点写入后立即损坏（模拟安全点结构不合格）
+      if (faults.corruptSafetyOnRename && newPath.indexOf('restore-safety.json') >= 0) {
+        memFiles.set(newPath, toBuf(faults.corruptSafetyOnRename));
+        faults.corruptSafetyOnRename = null;
+      }
+      // 月份分片写入后篡改（模拟「写成功但落盘内容被外部改坏」）
+      if (
+        faults.mutateBillFileAfterRename &&
+        /\/bills\/\d{4}-\d{2}\.json$/.test(newPath)
+      ) {
+        try {
+          const obj = JSON.parse(memFiles.get(newPath).toString('utf8'));
+          const mutated = faults.mutateBillFileAfterRename(obj);
+          if (mutated) memFiles.set(newPath, toBuf(JSON.stringify(mutated)));
+        } catch (e) {}
+        faults.mutateBillFileAfterRename = null;
+      }
     },
     readdirSync(p) {
       const prefix = p.endsWith('/') ? p : p + '/';
@@ -378,47 +408,42 @@ warns.length = 0;
   eq(ledger.readMonthFile('2026-09').bills.length, 1, 'Q7 账本未被覆盖');
 }
 
-/* =================== Q8 恢复中途异常 → 按安全点回滚 =================== */
-console.log('Q8 恢复中途异常 → 按安全点回滚');
+/* =================== Q8 恢复中途写入失败 → 按安全点回滚 =================== */
+console.log('Q8 恢复中途写入失败 → 按安全点回滚');
 fresh();
 warns.length = 0;
 {
   const good = seedAndBuild();
-  const extra = Object.assign({}, good.data.bills[0], {
-    id: 'q8-11-target',
-    occurredAt: at(2026, 11, 5),
+  const extra10 = Object.assign({}, good.data.bills[0], {
+    id: 'q8-10-target',
+    occurredAt: at(2026, 10, 5),
   });
-  good.data.bills = good.data.bills.concat([extra]);
+  good.data.bills = good.data.bills.concat([extra10]);
   fs.writeText(paths.billFile('2026-11'), CORRUPT_11);
   const raw11 = rawOf(paths.billFile('2026-11'));
-  global.wx.__faults.unlinkFailFor.add(paths.billFile('2026-11'));
+  // 恢复写 2026-10 时失败（09 已成功），触发回滚
+  global.wx.__faults.writeFailFor = (p) => p.indexOf('/bills/2026-10.json') >= 0;
 
   const { res, err } = runRestore(good);
   eq(res, null, 'Q8 恢复失败');
-  eq(err && err.code, 'MONTH_CORRUPT', 'Q8 抛出 MONTH_CORRUPT');
+  eq(err && err.code, 'ATOMIC_WRITE_FAILED', 'Q8 抛出写入失败错误');
   eq(err && err.mutationStarted, true, 'Q8 mutationStarted=true');
   eq(err && err.rollbackAttempted, true, 'Q8 rollbackAttempted=true');
   eq(err && err.rollbackCompleted, true, 'Q8 rollbackCompleted=true');
   eq(fs.exists(paths.legacyRestoreSafety()), true, 'Q8 安全点保留');
   eq(ledger.readMonthFile('2026-09').bills.length, 1, 'Q8 回滚恢复安全点账单');
-  eq(ledger.rangeBills(null, null).filter((b) => b.ym !== '2026-11').length, 1, 'Q8 无多余账单');
+  eq(fs.exists(paths.billFile('2026-10')), false, 'Q8 失败的 2026-10 未落盘');
+  eq(ledger.rangeBills(null, null).length, 1, 'Q8 账本无多余账单');
 
   const b = batches();
-  eq(b.length, 2, 'Q8 恢复 + 回滚各留 1 个隔离批次');
-  b.forEach((name, i) => {
-    eq(
-      sameAs(paths.quarantineDir(name) + '/2026-11.json', raw11),
-      true,
-      'Q8 批次#' + (i + 1) + ' 字节与原字节一致'
-    );
-  });
-  const triggers = b
-    .map((n) => {
-      const m = fs.readJSON(paths.quarantineDir(n) + '/meta.json', null);
-      return m && m.trigger;
-    })
-    .sort();
-  eq(triggers.join(','), 'import-rollback,restore', 'Q8 两批触发动作正确');
+  eq(b.length, 1, 'Q8 恢复阶段留下 1 个隔离批次');
+  eq(
+    sameAs(paths.quarantineDir(b[0]) + '/2026-11.json', raw11),
+    true,
+    'Q8 隔离字节与原字节一致'
+  );
+  const meta = fs.readJSON(paths.quarantineDir(b[0]) + '/meta.json', null);
+  eq(meta && meta.trigger, 'restore', 'Q8 隔离触发动作=restore');
 }
 
 /* =================== Q9 rollback 隔离失败 → 中止破坏性回滚 =================== */
@@ -427,20 +452,24 @@ fresh();
 warns.length = 0;
 {
   const good = seedAndBuild();
-  const extra = Object.assign({}, good.data.bills[0], {
+  const extra10 = Object.assign({}, good.data.bills[0], {
+    id: 'q9-10-target',
+    occurredAt: at(2026, 10, 6),
+  });
+  const extra11 = Object.assign({}, good.data.bills[0], {
     id: 'q9-11-target',
     occurredAt: at(2026, 11, 6),
   });
-  good.data.bills = good.data.bills.concat([extra]);
+  good.data.bills = good.data.bills.concat([extra10, extra11]);
   fs.writeText(paths.billFile('2026-11'), CORRUPT_11);
   const raw11 = rawOf(paths.billFile('2026-11'));
-  global.wx.__faults.unlinkFailFor.add(paths.billFile('2026-11'));
-  // 第 1 次（恢复阶段）隔离成功；第 2 次（回滚阶段）写入失败
+  // 恢复写 2026-10 时失败；2026-11 保持损坏（尚未覆盖），回滚时隔离写入失败
+  global.wx.__faults.writeFailFor = (p) => p.indexOf('/bills/2026-10.json') >= 0;
   global.wx.__faults.quarantineWriteCallFail = 2;
 
   const { res, err } = runRestore(good);
   eq(res, null, 'Q9 恢复失败');
-  eq(err && err.code, 'MONTH_CORRUPT', 'Q9 保留原始恢复错误码');
+  eq(err && err.code, 'ATOMIC_WRITE_FAILED', 'Q9 保留原始恢复错误码');
   eq(err && err.rollbackAttempted, true, 'Q9 尝试回滚');
   eq(err && err.rollbackCompleted, false, 'Q9 回滚未完成（不谎报成功）');
   eq(
@@ -492,6 +521,286 @@ warns.length = 0;
   eq(sameAs(paths.billFile('2026-10'), raw10), true, 'Q12 非法结构原始字节保留');
   eq(ledger.readMonthFile('2026-09').bills.length, 1, 'Q12 账本未被修改');
   eq(fs.exists(paths.billFile('2026-10')), true, 'Q12 未静默删除');
+}
+
+/* =================== R13 有效月份分片删除失败 =================== */
+console.log('R13 有效月份分片删除失败 → 中止，不叠加写入');
+fresh();
+warns.length = 0;
+{
+  const good = seedAndBuild();
+  ledger.addBill({
+    type: 'expense',
+    amountCents: 880,
+    categoryId: 'c-food',
+    occurredAt: at(2026, 8, 8),
+    note: 'R13八月账单',
+  });
+  const id08 = ledger.readMonthFile('2026-08').bills[0].id;
+  const backend = backup.buildBackup();
+  backend.data.bills = backend.data.bills.filter((b) => ledger.ymOf(b.occurredAt) !== '2026-08');
+  backend.data.bills.push(
+    Object.assign({}, backend.data.bills[0], {
+      id: 'r13-10-target',
+      occurredAt: at(2026, 10, 1),
+      note: 'R13新账单',
+    })
+  );
+  global.wx.__faults.unlinkFailFor.add(paths.billFile('2026-08'));
+
+  const { res, err } = runRestore(backend);
+  eq(res, null, 'R13 恢复未成功');
+  eq(err && err.code, 'RESTORE_DELETE_FAILED', 'R13 抛出 RESTORE_DELETE_FAILED');
+  eq(err && err.rollbackAttempted, true, 'R13 尝试回滚');
+  eq(err && err.rollbackCompleted, true, 'R13 回滚完成');
+  eq(fs.exists(paths.billFile('2026-08')), true, 'R13 原 2026-08 分片保留');
+  eq(fs.exists(paths.billFile('2026-09')), true, 'R13 原 2026-09 分片保留');
+  eq(fs.exists(paths.billFile('2026-10')), false, 'R13 备份账单未写入');
+  eq(ledger.readMonthFile('2026-08').bills[0].id, id08, 'R13 2026-08 账单 ID 不变');
+  eq(ledger.rangeBills(null, null).length, 2, 'R13 账本仍为原两笔（未叠加）');
+}
+
+/* =================== R13b 多月份删除中途失败 =================== */
+console.log('R13b 多月份删除中途失败 → 已删月份由回滚恢复');
+fresh();
+warns.length = 0;
+{
+  const good = seedAndBuild();
+  ledger.addBill({
+    type: 'expense',
+    amountCents: 770,
+    categoryId: 'c-food',
+    occurredAt: at(2026, 7, 7),
+    note: 'R13b七月账单',
+  });
+  ledger.addBill({
+    type: 'expense',
+    amountCents: 880,
+    categoryId: 'c-food',
+    occurredAt: at(2026, 8, 8),
+    note: 'R13b八月账单',
+  });
+  const id07 = ledger.readMonthFile('2026-07').bills[0].id;
+  const id08 = ledger.readMonthFile('2026-08').bills[0].id;
+  const backend = backup.buildBackup();
+  backend.data.bills = backend.data.bills.filter(
+    (b) => ['2026-07', '2026-08'].indexOf(ledger.ymOf(b.occurredAt)) < 0
+  );
+  backend.data.bills.push(
+    Object.assign({}, backend.data.bills[0], {
+      id: 'r13b-10-target',
+      occurredAt: at(2026, 10, 4),
+      note: 'R13b新账单',
+    })
+  );
+  global.wx.__faults.unlinkFailFor.add(paths.billFile('2026-08'));
+
+  const { res, err } = runRestore(backend);
+  eq(res, null, 'R13b 恢复未成功');
+  eq(err && err.code, 'RESTORE_DELETE_FAILED', 'R13b 抛出 RESTORE_DELETE_FAILED');
+  eq(err && err.rollbackCompleted, true, 'R13b 回滚完成');
+  eq(fs.exists(paths.billFile('2026-07')), true, 'R13b 已删除的 2026-07 被回滚恢复');
+  eq(ledger.readMonthFile('2026-07').bills[0].id, id07, 'R13b 2026-07 账单 ID 不变');
+  eq(fs.exists(paths.billFile('2026-08')), true, 'R13b 2026-08 保留');
+  eq(ledger.readMonthFile('2026-08').bills[0].id, id08, 'R13b 2026-08 账单 ID 不变');
+  eq(fs.exists(paths.billFile('2026-10')), false, 'R13b 备份新账单未写入');
+  eq(ledger.rangeBills(null, null).length, 3, 'R13b 账本仍为原三笔');
+}
+
+/* =================== R14–R18 安全点结构不合格 =================== */
+function runInvalidSafetyCase(label, mutateTemplate, expectedRollbackCode) {
+  fresh();
+  warns.length = 0;
+  const good = seedAndBuild();
+  const originalId = good.data.bills[0].id;
+  const template = backup.buildBackup();
+  const injected = mutateTemplate(template);
+  good.data.bills = good.data.bills.concat([
+    Object.assign({}, good.data.bills[0], {
+      id: 'invalid-safety-extra',
+      occurredAt: at(2026, 9, 21),
+    }),
+  ]);
+  // 恢复写 2026-09 必定失败 → 在「尚无任何写入」时触发回滚
+  global.wx.__faults.writeFailFor = (p) => p.indexOf('/bills/2026-09.json') >= 0;
+  global.wx.__faults.corruptSafetyOnRename =
+    injected === null ? '{not-json' : JSON.stringify(injected);
+
+  const { res, err } = runRestore(good);
+  eq(res, null, label + ' 恢复未成功');
+  eq(err && err.rollbackAttempted, true, label + ' 尝试回滚');
+  eq(err && err.rollbackCompleted, false, label + ' 回滚未完成（不谎报成功）');
+  eq(
+    err && err.rollbackError && err.rollbackError.code,
+    expectedRollbackCode,
+    label + ' 明确记录安全点不合格'
+  );
+  eq(fs.exists(paths.legacyRestoreSafety()), true, label + ' 安全点保留');
+  const mf = ledger.readMonthFile('2026-09');
+  eq(mf.bills.length, 1, label + ' 当前账本未被删除 / 改写');
+  eq(mf.bills[0].id, originalId, label + ' 当前账单 ID 不变');
+}
+
+runInvalidSafetyCase(
+  'R14 安全点 JSON 损坏',
+  () => null,
+  'ROLLBACK_SAFETY_UNAVAILABLE'
+);
+runInvalidSafetyCase(
+  'R15 安全点 bills 非数组',
+  (t) => {
+    t.data.bills = 'not-array';
+    return t;
+  },
+  'ROLLBACK_SAFETY_INVALID'
+);
+runInvalidSafetyCase(
+  'R16 安全点 bills 含非法对象',
+  (t) => {
+    t.data.bills = [null];
+    return t;
+  },
+  'ROLLBACK_SAFETY_INVALID'
+);
+runInvalidSafetyCase(
+  'R17 安全点 categories 非数组',
+  (t) => {
+    t.data.categories = 'not-array';
+    return t;
+  },
+  'ROLLBACK_SAFETY_INVALID'
+);
+runInvalidSafetyCase(
+  'R18 安全点重复 Bill ID',
+  (t) => {
+    t.data.bills = [t.data.bills[0], Object.assign({}, t.data.bills[0])];
+    return t;
+  },
+  'ROLLBACK_SAFETY_INVALID'
+);
+runInvalidSafetyCase(
+  'R18b 安全点 settings 缺失',
+  (t) => {
+    t.data.settings = null;
+    return t;
+  },
+  'ROLLBACK_SAFETY_INVALID'
+);
+
+/* =================== R19 恢复后额外账单 → 精确对账拦截 =================== */
+console.log('R19 恢复后额外账单 → 精确对账拦截并回滚');
+fresh();
+warns.length = 0;
+{
+  const good = seedAndBuild();
+  const originalId = good.data.bills[0].id;
+  good.data.bills = good.data.bills.concat([
+    Object.assign({}, good.data.bills[0], {
+      id: 'r19-second',
+      occurredAt: at(2026, 9, 12),
+    }),
+  ]);
+  global.wx.__faults.mutateBillFileAfterRename = (mf) => {
+    mf.bills.push(
+      Object.assign({}, mf.bills[0], { id: 'r19-extra', note: 'R19外部多出' })
+    );
+    return mf;
+  };
+
+  const { res, err } = runRestore(good);
+  eq(res, null, 'R19 恢复未成功');
+  eq(err && err.code, 'RESTORE_INTEGRITY_FAILED', 'R19 抛出 RESTORE_INTEGRITY_FAILED');
+  eq(err && err.extraCount, 1, 'R19 识别出 1 笔额外账单');
+  eq(err && err.rollbackCompleted, true, 'R19 回滚完成');
+  const mf = ledger.readMonthFile('2026-09');
+  eq(mf.bills.length, 1, 'R19 回滚后账本恢复安全点');
+  eq(mf.bills[0].id, originalId, 'R19 原账单 ID 不变');
+}
+
+/* =================== R20 恢复后数量相同但 ID 不同 =================== */
+console.log('R20 恢复后数量相同但 ID 不同 → 精确对账拦截');
+fresh();
+warns.length = 0;
+{
+  const good = seedAndBuild();
+  const originalId = good.data.bills[0].id;
+  good.data.bills = good.data.bills.concat([
+    Object.assign({}, good.data.bills[0], {
+      id: 'r20-second',
+      occurredAt: at(2026, 9, 13),
+    }),
+  ]);
+  global.wx.__faults.mutateBillFileAfterRename = (mf) => {
+    mf.bills[0].id = 'r20-ghost';
+    return mf;
+  };
+
+  const { res, err } = runRestore(good);
+  eq(res, null, 'R20 恢复未成功');
+  eq(err && err.code, 'RESTORE_INTEGRITY_FAILED', 'R20 抛出 RESTORE_INTEGRITY_FAILED');
+  eq(err && err.missingCount, 1, 'R20 识别 1 笔缺失');
+  eq(err && err.extraCount, 1, 'R20 识别 1 笔多余');
+  eq(err && err.rollbackCompleted, true, 'R20 回滚完成');
+  eq(ledger.readMonthFile('2026-09').bills[0].id, originalId, 'R20 回滚恢复原 ID');
+}
+
+/* =================== R21 元数据写入失败 → 回滚并核对 =================== */
+console.log('R21 分类写入失败 → 回滚并恢复元数据');
+fresh();
+warns.length = 0;
+{
+  const good = seedAndBuild();
+  const originalId = good.data.bills[0].id;
+  good.data.bills = good.data.bills.concat([
+    Object.assign({}, good.data.bills[0], {
+      id: 'r21-second',
+      occurredAt: at(2026, 10, 2),
+    }),
+  ]);
+  global.wx.__faults.writeCallFail = (p, n) =>
+    p.indexOf('/categories.json') >= 0 && n === 1;
+
+  const { res, err } = runRestore(good);
+  eq(res, null, 'R21 恢复未成功');
+  eq(err && err.code, 'ATOMIC_WRITE_FAILED', 'R21 暴露元数据写入失败');
+  eq(err && err.rollbackCompleted, true, 'R21 回滚完成');
+  eq(ledger.readMonthFile('2026-09').bills[0].id, originalId, 'R21 账本恢复安全点');
+  eq(fs.exists(paths.billFile('2026-10')), false, 'R21 多余月份已回滚删除');
+  assert(Array.isArray(fs.readJSON(paths.FILE.categories, null)), 'R21 分类文件可正常读取');
+}
+
+/* =================== R22 回滚写入再次失败 → 明确报告未完成 =================== */
+console.log('R22 回滚写入再次失败 → 明确报告未完成');
+fresh();
+warns.length = 0;
+{
+  const good = seedAndBuild();
+  good.data.bills = good.data.bills.concat([
+    Object.assign({}, good.data.bills[0], {
+      id: 'r22-second',
+      occurredAt: at(2026, 9, 14),
+    }),
+    Object.assign({}, good.data.bills[0], {
+      id: 'r22-10',
+      occurredAt: at(2026, 10, 3),
+    }),
+  ]);
+  // seedAndBuild 已写过一次 2026-09；恢复写第 2 次，回滚写第 3 次时失败
+  global.wx.__faults.writeCallFail = (p, n) =>
+    (p.indexOf('/bills/2026-10.json') >= 0 && n === 1) ||
+    (p.indexOf('/bills/2026-09.json') >= 0 && n === 3);
+
+  const { res, err } = runRestore(good);
+  eq(res, null, 'R22 恢复未成功');
+  eq(err && err.rollbackAttempted, true, 'R22 尝试回滚');
+  eq(err && err.rollbackCompleted, false, 'R22 回滚未完成');
+  eq(
+    err && err.rollbackError && err.rollbackError.code,
+    'ATOMIC_WRITE_FAILED',
+    'R22 记录回滚写入失败'
+  );
+  eq(fs.exists(paths.legacyRestoreSafety()), true, 'R22 安全点保留');
+  eq(ledger.readMonthFile('2026-09').bills.length, 2, 'R22 现场为恢复阶段写入的内容（未被谎报恢复）');
 }
 
 /* =================== 汇总 =================== */

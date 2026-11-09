@@ -14,6 +14,10 @@
  *        隔离转存到 <USER_DATA_PATH>/quarantine/<时间戳>/（见 data/quarantine.js）。
  * v1.4.1：隔离改为 fail-closed —— 只有隔离完整（逐字节回读校验通过且 meta 写好）
  *        才允许删除 / 覆盖；隔离失败立即中止，原始分片保持原样。
+ * v1.4.2：恢复 / 回滚改为「目标月份原子覆盖 + 只删除多余月份」，
+ *        删除必须确认成功（fs.removeStrict），写后严格回读核对账单 ID 集合与关键字段；
+ *        回滚前完整校验安全点（envelope / bills / categories / settings / recurringRules /
+ *        重复 ID / 语义），任一项不合格都不进入破坏性回滚。
  */
 const fs = require('./fs');
 const paths = require('./paths');
@@ -113,24 +117,24 @@ function restoreBackup(input, options) {
   let mutationStarted = false;
   try {
     mutationStarted = true;
-    // 2. 清空现有月份分片
-    ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
+    // 2. 用备份账单精确替换账本：
+    //    只删除「备份中不存在」的月份；目标月份原子覆盖写，避免「删除失败但仍叠加写入」。
+    const result = replaceLedgerWithBills(backup.data.bills, {
+      deleteFailed: 'RESTORE_DELETE_FAILED',
+      integrity: 'RESTORE_INTEGRITY_FAILED',
+      stage: '恢复',
+    });
 
-    // 3. 写入新账单
-    const result = ledger.addBills(backup.data.bills);
-
-    // 4. 分类、设置（原子写）
+    // 3. 分类、设置（原子写）
     fs.writeJSONAtomic(paths.FILE.categories, backup.data.categories || categories.DEFAULT_CATEGORIES);
     fs.writeJSONAtomic(paths.FILE.settings, Object.assign({}, settings.DEFAULT_SETTINGS, backup.data.settings || {}));
 
-    // 4.5 周期规则（V3 新增；V1/V2 备份无此字段 → 空）
+    // 4. 周期规则（V3 新增；V1/V2 备份无此字段 → 空）
     const ruleList = Array.isArray(backup.data.recurringRules) ? backup.data.recurringRules : [];
     recurringStore.replaceAllRules(ruleList);
 
-    // 5. 校验条数
-    if (result.total !== backup.data.bills.length) {
-      throw new Error('恢复条数不一致');
-    }
+    // 5. 元数据核对（结构 / 条数）
+    verifyMetadata(backup.data, 'RESTORE_META_INTEGRITY_FAILED');
 
     // 6. 数据健康终检（G11）：以最终落盘数据为准。
     //    - error（结构损坏，如重复 Bill id、非法预算规则）→ 抛错回滚到安全点；
@@ -196,6 +200,211 @@ function restoreBackup(input, options) {
   }
 }
 
+/* ============================ 恢复 / 回滚公共能力 ============================ */
+
+/** 账单关键字段签名（JSON 数组编码，避免 | 等分隔符造成组合键碰撞） */
+function billSignature(b) {
+  return JSON.stringify([
+    b.id,
+    b.type,
+    b.amountCents,
+    b.occurredAt,
+    b.categoryId,
+    b.ledgerImpact || 'normal',
+    b.sourceTxnId || null,
+    b.title || '',
+    b.merchant || '',
+    b.note || '',
+    b.dailyValue && b.dailyValue.enabled === true ? b.dailyValue.startDate : '',
+    b.recurringRuleId || '',
+  ]);
+}
+
+function shapeError(reason) {
+  const err = new Error(reason);
+  err.reason = reason;
+  return err;
+}
+
+/**
+ * 精确核对账本：数量、ID 集合、关键字段、重复 ID 全部一致。
+ * 任一不一致 → 抛 code（RESTORE_INTEGRITY_FAILED / ROLLBACK_INTEGRITY_FAILED）。
+ */
+function verifyLedgerExact(expectedBills, code) {
+  let actual;
+  try {
+    actual = ledger.readAllBillsStrict();
+  } catch (e) {
+    const err = new Error('账本回读失败，无法确认完整性');
+    err.code = code;
+    err.reason = (e && e.code) || 'READ_FAILED';
+    throw err;
+  }
+  const expected = new Map();
+  expectedBills.forEach((b) => expected.set(b.id, b));
+  const actualMap = new Map();
+  const duplicateIds = [];
+  actual.forEach((b) => {
+    if (actualMap.has(b.id)) duplicateIds.push(b.id);
+    else actualMap.set(b.id, b);
+  });
+  const missing = [];
+  const mismatched = [];
+  expected.forEach((b, id) => {
+    const a = actualMap.get(id);
+    if (!a) missing.push(id);
+    else if (billSignature(a) !== billSignature(b)) mismatched.push(id);
+  });
+  const extra = [];
+  actualMap.forEach((_, id) => {
+    if (!expected.has(id)) extra.push(id);
+  });
+  if (
+    actual.length !== expectedBills.length ||
+    missing.length ||
+    extra.length ||
+    mismatched.length ||
+    duplicateIds.length
+  ) {
+    const err = new Error(
+      '账本核对不一致（期望 ' + expectedBills.length + ' 笔，实际 ' + actual.length + ' 笔）'
+    );
+    err.code = code;
+    err.expectedCount = expectedBills.length;
+    err.actualCount = actual.length;
+    err.missingCount = missing.length;
+    err.extraCount = extra.length;
+    err.mismatchedCount = mismatched.length;
+    err.duplicateIdCount = duplicateIds.length;
+    err.missingIds = missing.slice(0, 20);
+    err.extraIds = extra.slice(0, 20);
+    err.mismatchedIds = mismatched.slice(0, 20);
+    throw err;
+  }
+}
+
+/** 账单按月份分组并保持原有倒序（与 ledger.addBills 的排序口径一致） */
+function groupBillsByMonth(bills) {
+  const groups = {};
+  bills.forEach((b) => {
+    const ym = ledger.ymOf(b.occurredAt);
+    if (!groups[ym]) groups[ym] = [];
+    groups[ym].push(b);
+  });
+  Object.keys(groups).forEach((ym) => ledger.sortBills(groups[ym]));
+  return groups;
+}
+
+/**
+ * 用目标账单集合精确替换账本：
+ *   1) 只删除「目标月份之外」的分片，删除必须成功且删除后不存在；
+ *   2) 目标月份用原子写整体覆盖（不依赖 unlink，也不会与旧账单叠加）；
+ *   3) 写后严格回读，核对数量 / ID 集合 / 关键字段。
+ */
+function replaceLedgerWithBills(inputBills, opts) {
+  const bills = (inputBills || []).map((b) => ledger.createBill(b));
+  const groups = groupBillsByMonth(bills);
+  const targetMonths = Object.keys(groups).sort();
+  const existing = ledger.listMonths();
+  const extra = existing.filter((ym) => !groups[ym]);
+  const failed = [];
+  extra.forEach((ym) => {
+    try {
+      ledger.removeMonthFileStrict(ym);
+    } catch (e) {
+      failed.push({ ym: ym, code: (e && e.code) || 'MONTH_DELETE_FAILED' });
+    }
+  });
+  if (failed.length) {
+    const err = new Error(
+      opts.stage + '中止：多余月份分片未能删除（' + failed.map((x) => x.ym).join('、') + '）'
+    );
+    err.code = opts.deleteFailed;
+    err.months = failed;
+    throw err;
+  }
+  targetMonths.forEach((ym) => {
+    ledger.writeMonthFile(ym, { ym: ym, version: ledger.SCHEMA_VERSION, bills: groups[ym] });
+  });
+  verifyLedgerExact(bills, opts.integrity);
+  return { total: bills.length, months: targetMonths };
+}
+
+/** 元数据核对：分类 / 设置 / 周期规则结构完整且条数一致 */
+function verifyMetadata(data, code) {
+  try {
+    const cats = fs.readJSONStrict(paths.FILE.categories);
+    if (!Array.isArray(cats)) throw shapeError('categories-not-array');
+    const expectedCats = Array.isArray(data.categories) ? data.categories : categories.DEFAULT_CATEGORIES;
+    if (cats.length !== expectedCats.length) throw shapeError('categories-count');
+
+    const set = fs.readJSONStrict(paths.FILE.settings);
+    if (!set || typeof set !== 'object' || Array.isArray(set)) throw shapeError('settings-invalid');
+
+    const rules = recurringStore.getRules();
+    if (!Array.isArray(rules)) throw shapeError('recurring-not-array');
+    const expectedRules = Array.isArray(data.recurringRules) ? data.recurringRules : [];
+    if (rules.length !== expectedRules.length) throw shapeError('recurring-count');
+  } catch (e) {
+    const err = new Error('元数据核对不一致');
+    err.code = code;
+    err.reason = (e && e.reason) || (e && e.code) || 'META_MISMATCH';
+    throw err;
+  }
+}
+
+/**
+ * 回滚安全点完整结构校验：envelope / bills / categories / settings / recurringRules /
+ * 重复 ID / 语义校验。任一项不通过 → ROLLBACK_SAFETY_INVALID，禁止进入破坏性回滚。
+ */
+function validateSafetyPoint(saved) {
+  const problems = [];
+  const envErr = validateBackup(saved);
+  if (envErr) problems.push('envelope-' + envErr);
+  if (!saved || !saved.data || typeof saved.data !== 'object' || Array.isArray(saved.data)) {
+    problems.push('data-missing');
+  } else {
+    if (!Array.isArray(saved.data.bills)) problems.push('bills-not-array');
+    if (!Array.isArray(saved.data.categories)) problems.push('categories-not-array');
+    if (
+      !saved.data.settings ||
+      typeof saved.data.settings !== 'object' ||
+      Array.isArray(saved.data.settings)
+    ) {
+      problems.push('settings-invalid');
+    }
+    if (saved.data.recurringRules !== undefined && !Array.isArray(saved.data.recurringRules)) {
+      problems.push('recurring-not-array');
+    }
+    if (Array.isArray(saved.data.bills)) {
+      const seen = new Set();
+      saved.data.bills.forEach((b, i) => {
+        if (!b || typeof b !== 'object' || Array.isArray(b)) {
+          problems.push('bill-shape:' + i);
+        } else if (typeof b.id !== 'string' || !b.id) {
+          problems.push('bill-id:' + i);
+        } else if (seen.has(b.id)) {
+          problems.push('bill-duplicate-id:' + b.id);
+        } else {
+          seen.add(b.id);
+        }
+      });
+    }
+    try {
+      const vr = backupValidator.validateBackupRaw(saved);
+      if (!vr.ok) vr.errors.forEach((x) => problems.push(x.code));
+    } catch (e) {
+      problems.push('validator-error');
+    }
+  }
+  if (problems.length) {
+    const err = new Error('回滚安全点结构校验未通过，已中止回滚（现场与安全点保留）');
+    err.code = 'ROLLBACK_SAFETY_INVALID';
+    err.problems = problems.slice(0, 30);
+    throw err;
+  }
+}
+
 /** 构造「隔离未完成 → 中止」错误（不泄漏任何账单内容） */
 function quarantineAbortError(code, action, q, mutationStarted) {
   const err = new Error(action + '：损坏分片隔离未完成，已中止（未删除任何原始分片）');
@@ -218,8 +427,10 @@ function quarantineAbortError(code, action, q, mutationStarted) {
 
 /**
  * 从安全点回滚（fail-closed）。
- *   - 安全点不可读 → 抛 `ROLLBACK_SAFETY_UNAVAILABLE`，不清账本、不删除安全点；
- *   - 回滚前隔离未完成 → 抛 `ROLLBACK_QUARANTINE_INCOMPLETE`，不清账本。
+ *   - 安全点不可读 → ROLLBACK_SAFETY_UNAVAILABLE；
+ *   - 安全点结构 / 语义不合格 → ROLLBACK_SAFETY_INVALID（不删除任何当前文件）；
+ *   - 回滚前隔离未完成 → ROLLBACK_QUARANTINE_INCOMPLETE；
+ *   - 回滚后账本 / 元数据核对不一致 → ROLLBACK_*_INTEGRITY_FAILED。
  */
 function rollback(safetyPath) {
   let saved;
@@ -231,26 +442,26 @@ function rollback(safetyPath) {
     err.reason = (e && e.code) || 'READ_FAILED';
     throw err;
   }
-  if (!saved || !saved.data) {
-    const err = new Error('回滚安全点结构不完整，已中止回滚（现场保留）');
-    err.code = 'ROLLBACK_SAFETY_UNAVAILABLE';
-    err.reason = 'SHAPE';
-    throw err;
-  }
+  // 任何删除之前先做完整结构校验：安全点不合格绝不进入破坏性回滚。
+  validateSafetyPoint(saved);
   // QA-01 删前隔离（同源问题：回滚同样先删后写）：此刻被删的分片若无安全点覆盖，
   // 原始字节就是最后一次可抢救机会。隔离未完成 → 禁止继续删除。
   const q = quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.IMPORT_ROLLBACK);
   if (!q.safeToProceed) {
     throw quarantineAbortError('ROLLBACK_QUARANTINE_INCOMPLETE', '回滚已中止', q, true);
   }
-  ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
-  ledger.addBills(saved.data.bills || []);
+  const result = replaceLedgerWithBills(saved.data.bills, {
+    deleteFailed: 'ROLLBACK_DELETE_FAILED',
+    integrity: 'ROLLBACK_INTEGRITY_FAILED',
+    stage: '回滚',
+  });
   fs.writeJSONAtomic(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
   fs.writeJSONAtomic(paths.FILE.settings, saved.data.settings || settings.DEFAULT_SETTINGS);
   recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
+  verifyMetadata(saved.data, 'ROLLBACK_META_INTEGRITY_FAILED');
   // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。
   theme.reloadFromStorage();
-  return { attempted: true, completed: true };
+  return { attempted: true, completed: true, restored: result.total, months: result.months };
 }
 
 module.exports = {
