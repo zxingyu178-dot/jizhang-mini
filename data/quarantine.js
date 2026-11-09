@@ -1,5 +1,5 @@
 /**
- * data/quarantine.js — 损坏月份分片的「删前隔离转存」（v1.4.0 / QA-01）
+ * data/quarantine.js — 损坏月份分片的「删前隔离转存」（v1.4.0 / QA-01，v1.4.1 fail-closed）
  *
  * 背景（数据不可恢复风险）：
  *   恢复 / 回滚会先 `listMonths()` 全删月份分片，再按安全点或备份重写。而安全点来自
@@ -7,15 +7,20 @@
  *   于是「已损坏月份」既不在安全点里、其原始字节又被物理删除，
  *   `protection.buildRawExport()` 的抢救材料随之永久丢失。
  *
- * 本模块只做一件事：**删除 / 重写之前，把「存在但不可解析」的分片原始字节抄一份到
- *   <USER_DATA_PATH>/quarantine/<YYYYMMDD-HHmmss-SSS>/<ym>.json，并写 meta.json 记录
- *   原路径 / 字节数 / 时间 / 触发动作 / 失败原因摘要。**
+ * 本模块做一件事：**删除 / 重写之前，把「存在但不可解析」的分片原始字节抄一份到
+ *   <USER_DATA_PATH>/quarantine/<YYYYMMDD-HHmmss-SSS>/<ym>.json，逐字节回读校验，
+ *   并写 meta.json 记录原路径 / 字节数 / 时间 / 触发动作 / 失败原因摘要。**
+ *
+ * v1.4.1 起改为 fail-closed：
+ *   - 返回结构化结果，只有 `safeToProceed === true` 才允许调用方执行删除 / 覆盖；
+ *   - 没有损坏分片 = 安全（无需隔离）；
+ *   - 目录创建失败 / 任一文件复制失败 / 回读字节不一致 / meta 写入失败
+ *     → `safeToProceed = false`，调用方必须中止破坏性操作。
  *
  * 红线：
- *   1. 绝不影响主流程。整段 try/catch，任何失败只记一条警告后继续，
- *      调用方（restore / rollback）的语义与抛错行为完全不变。
+ *   1. 本模块自身永不抛出（内部整段 try/catch），由调用方根据返回值决定中止；
  *   2. meta 与日志里**不允许出现账单金额 / 商户 / 备注等用户内容**，
- *      只允许：路径、字节数、错误码、时间戳、触发动作。
+ *      只允许：路径、字节数、错误码、时间戳、触发动作；
  *   3. 只读源分片 + 只写 quarantine 目录，不删除、不改写任何账本文件。
  */
 const fs = require('./fs');
@@ -67,6 +72,25 @@ function rawSize(raw) {
   return 0;
 }
 
+/** 统一成 Uint8Array 视图（ArrayBuffer / Buffer / TypedArray 均可） */
+function asBytes(raw) {
+  if (!raw) return new Uint8Array(0);
+  if (raw instanceof ArrayBuffer) return new Uint8Array(raw);
+  if (ArrayBuffer.isView(raw)) return new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+  return new Uint8Array(0);
+}
+
+/** 逐字节比较（不允许只比长度 / 文件大小） */
+function sameBytes(a, b) {
+  const ua = asBytes(a);
+  const ub = asBytes(b);
+  if (ua.length !== ub.length) return false;
+  for (let i = 0; i < ua.length; i++) {
+    if (ua[i] !== ub[i]) return false;
+  }
+  return true;
+}
+
 /** 错误码摘要（只取 code / 极少数字段，不含 detail 正文，避免带出用户内容） */
 function errorCode(e) {
   if (!e) return 'UNKNOWN';
@@ -95,69 +119,114 @@ function findUnreadableMonths() {
 }
 
 /**
- * 执行删前隔离转存。**永不抛出**（失败只 console.warn 一条，不含账单内容）。
+ * 执行删前隔离转存。**永不抛出**（内部失败只 console.warn，且不含账单内容）。
+ *
+ * 调用方必须先看 `safeToProceed`：
+ *   - true  ：没有损坏分片，或全部损坏分片均已逐字节转存且 meta 写入成功，
+ *             允许继续执行删除 / 覆盖；
+ *   - false ：任一环节失败，**禁止**执行任何破坏性操作。
  *
  * @param {string} trigger  触发动作（TRIGGERS.RESTORE / TRIGGERS.IMPORT_ROLLBACK）
- * @returns {{ok:boolean, dir:string, items:Array, failed:Array, skipped:string}}
- *          ok=true 表示至少有一份分片成功转存；skipped 说明未转存的原因
- *          （'none-unreadable' 无损坏分片 / 'failed' 全失败 / '' 已转存）。
+ * @returns {{
+ *   complete:boolean, safeToProceed:boolean,
+ *   targetCount:number, copiedCount:number, failedCount:number, metaWritten:boolean,
+ *   dir:string, items:Array, failed:Array, skipped:string
+ * }}
  */
 function quarantineUnreadableMonths(trigger) {
-  const result = { ok: false, dir: '', items: [], failed: [], skipped: '' };
+  const result = {
+    complete: false,
+    safeToProceed: false,
+    targetCount: 0,
+    copiedCount: 0,
+    failedCount: 0,
+    metaWritten: false,
+    dir: '',
+    items: [],
+    failed: [],
+    skipped: '',
+  };
   try {
     const targets = findUnreadableMonths();
+    result.targetCount = targets.length;
+    // 没有需要隔离的文件：直接视为安全，不创建目录
     if (!targets.length) {
+      result.complete = true;
+      result.safeToProceed = true;
       result.skipped = 'none-unreadable';
       return result;
     }
 
-    // 目录创建失败 → 视为整批失败，交给外层 catch 降级
     const dirName = uniqueBatchName();
     const dir = paths.quarantineDir(dirName);
-    fs.ensureDir(dir);
+    try {
+      fs.ensureDir(dir);
+    } catch (e) {
+      result.skipped = 'dir-failed';
+      console.warn('[quarantine] 隔离目录创建失败，已中止：' + dir + ' reason=' + errorCode(e));
+      return result;
+    }
     result.dir = dir;
 
     const createdAt = new Date().toISOString();
     targets.forEach((t) => {
+      const dest = dir + '/' + t.ym + '.json';
       try {
-        // 原始字节搬运：readBuffer 不带 encoding（ArrayBuffer），writeBuffer 原样落盘
+        // 原始字节搬运 + 回读逐字节校验（只比大小不足以证明内容完整）
         const raw = fs.readBuffer(t.file);
-        fs.writeBuffer(dir + '/' + t.ym + '.json', raw);
+        fs.writeBuffer(dest, raw);
+        const back = fs.readBuffer(dest);
+        if (!sameBytes(raw, back)) {
+          const err = new Error('VERIFY_MISMATCH');
+          err.code = 'QUARANTINE_VERIFY_MISMATCH';
+          throw err;
+        }
         result.items.push({
           ym: t.ym,
           originalPath: t.file,
           bytes: rawSize(raw),
           reason: t.code,
+          verified: true,
         });
       } catch (e) {
         result.failed.push({ ym: t.ym, originalPath: t.file, reason: errorCode(e) });
-        console.warn(
-          '[quarantine] 分片转存失败，已跳过：' + t.file + ' reason=' + errorCode(e)
-        );
+        console.warn('[quarantine] 分片转存失败：' + t.file + ' reason=' + errorCode(e));
       }
     });
+    result.copiedCount = result.items.length;
+    result.failedCount = result.failed.length;
 
-    // meta.json（原子写；失败也不影响已转存的分片字节）
+    // meta.json（原子写）；失败 = 无审计记录，同样不允许继续清理
     try {
       fs.writeJSONAtomic(dir + '/meta.json', {
         format: META_FORMAT,
         trigger: trigger || 'unknown',
         createdAt: createdAt,
+        complete: result.failedCount === 0,
         items: result.items,
         failed: result.failed,
       });
+      result.metaWritten = true;
     } catch (e) {
-      console.warn('[quarantine] meta 写入失败：' + dir + ' reason=' + errorCode(e));
+      result.skipped = 'meta-failed';
+      console.warn('[quarantine] meta 写入失败，已中止：' + dir + ' reason=' + errorCode(e));
     }
 
-    result.ok = result.items.length > 0;
-    if (!result.ok) result.skipped = 'failed';
+    result.complete =
+      result.copiedCount === result.targetCount && result.failedCount === 0 && result.metaWritten;
+    result.safeToProceed = result.complete;
+    if (!result.complete && !result.skipped) {
+      result.skipped = result.failedCount ? 'copy-failed' : 'incomplete';
+    }
+    if (result.complete) result.skipped = '';
     return result;
   } catch (e) {
-    // 任何未预期异常都不许影响恢复 / 回滚主流程
-    result.skipped = 'failed';
+    // 未预期异常：fail-closed，禁止调用方继续删除
+    result.complete = false;
+    result.safeToProceed = false;
+    result.skipped = 'unexpected';
     try {
-      console.warn('[quarantine] 隔离整体失败，主流程继续：' + errorCode(e));
+      console.warn('[quarantine] 隔离整体失败，已中止：' + errorCode(e));
     } catch (e2) {}
     return result;
   }
@@ -167,6 +236,7 @@ module.exports = {
   TRIGGERS,
   META_FORMAT,
   batchName,
+  sameBytes,
   findUnreadableMonths,
   quarantineUnreadableMonths,
 };

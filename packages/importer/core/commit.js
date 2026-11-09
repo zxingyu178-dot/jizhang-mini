@@ -169,7 +169,29 @@ function commitImport(session, opts) {
   } catch (e) {
     // 回滚到快照（救命回滚：跳过健康门，避免健康校验阻断回滚本身）
     const saved = fs.readJSON(safety, null);
-    if (saved) backup.restoreBackup(saved, { skipHealth: true });
+    if (!saved) {
+      e.mutationStarted = true;
+      e.rollbackAttempted = false;
+      e.rollbackCompleted = false;
+      throw e;
+    }
+    try {
+      backup.restoreBackup(saved, { skipHealth: true });
+    } catch (re) {
+      const combined = new Error('导入失败，且回滚未完成（安全点已保留）：' + (e.message || '未知错误'));
+      combined.code = e.code || 'IMPORT_ROLLBACK_FAILED';
+      combined.mutationStarted = true;
+      combined.rollbackAttempted = true;
+      combined.rollbackCompleted = false;
+      combined.rollbackError = {
+        code: (re && re.code) || 'ROLLBACK_FAILED',
+        message: (re && re.message) || String(re),
+      };
+      throw combined;
+    }
+    e.mutationStarted = true;
+    e.rollbackAttempted = true;
+    e.rollbackCompleted = true;
     throw e;
   }
 }

@@ -11,8 +11,9 @@
  * 恢复兼容 V1 + V2 + V3：旧备份缺失的 recurringRules 按空处理。
  * 完整恢复（非普通账单导入）：恢复前写安全点，失败可回滚。
  * QA-01：恢复 / 回滚清空月份分片之前，先把「存在但不可解析」的分片原始字节
- *        隔离转存到 <USER_DATA_PATH>/quarantine/<时间戳>/（见 data/quarantine.js），
- *        避免损坏月被当成空数据删除后永久丢失；该步失败不影响恢复 / 回滚。
+ *        隔离转存到 <USER_DATA_PATH>/quarantine/<时间戳>/（见 data/quarantine.js）。
+ * v1.4.1：隔离改为 fail-closed —— 只有隔离完整（逐字节回读校验通过且 meta 写好）
+ *        才允许删除 / 覆盖；隔离失败立即中止，原始分片保持原样。
  */
 const fs = require('./fs');
 const paths = require('./paths');
@@ -60,10 +61,17 @@ function validateBackup(backup) {
 }
 
 /**
- * 从备份完整恢复。
- * 步骤：校验 → 写安全点 → 清旧账单 → 写新账单/分类/设置/周期规则 → 条数校验
- *       → 数据健康终检（error 回滚，warning 放行）。
- * 任何失败尝试回滚到安全点。返回 { restored, months, warningCount, warnings }。
+ * 从备份完整恢复（v1.4.1 fail-closed）。
+ *
+ * 步骤：校验 → 删前隔离（必须 safeToProceed）→ 写安全点 → 清旧账单 →
+ *       写新账单/分类/设置/周期规则 → 条数校验 → 数据健康终检。
+ *
+ * 失败边界：
+ *   - 隔离未完成：直接抛 `QUARANTINE_INCOMPLETE`，**不删除、不覆盖、不回滚**；
+ *   - 安全点创建失败：抛 `SAFETY_POINT_FAILED`，现有账本未修改；
+ *   - 恢复中途失败：按安全点回滚，错误对象带
+ *     `mutationStarted / rollbackAttempted / rollbackCompleted`；
+ *   - 回滚失败：抛 `ROLLBACK_QUARANTINE_INCOMPLETE` 等明确错误，不删除安全点、不谎报成功。
  */
 function restoreBackup(input, options) {
   options = options || {};
@@ -80,16 +88,31 @@ function restoreBackup(input, options) {
   }
 
   const safety = paths.legacyRestoreSafety();
+
+  // 0. 删前隔离（最高优先级）：损坏分片必须先逐字节转存成功。
+  //    放在安全点之前：即使安全点创建失败，损坏字节也已经保护好。
+  const q = quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.RESTORE);
+  if (!q.safeToProceed) {
+    throw quarantineAbortError('QUARANTINE_INCOMPLETE', '恢复已中止', q, false);
+  }
+
   // 1. 安全点（当前完整数据；原子写，最需要安全时安全点自身不能写坏）
-  fs.writeJSONAtomic(safety, buildBackup());
-
   try {
-    // 1.5 QA-01 删前隔离：把「存在但不可解析」的分片原始字节抄一份到 quarantine/。
-    //     安全点来自 rangeBills()，损坏月会被读成空 → 若直接删除，该月原始字节
-    //     与 buildRawExport() 的抢救材料就永久丢失。此步失败绝不阻断恢复
-    //     （quarantine 内部整段 try/catch，只记警告）。
-    quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.RESTORE);
+    fs.writeJSONAtomic(safety, buildBackup());
+  } catch (e) {
+    const se = new Error('无法创建恢复安全点，已中止（现有账本未修改）');
+    se.code = 'SAFETY_POINT_FAILED';
+    se.reason = (e && e.code) || 'BUILD_OR_WRITE_FAILED';
+    se.unreadable = q.items.map((it) => ({ ym: it.ym, reason: it.reason }));
+    se.mutationStarted = false;
+    se.rollbackAttempted = false;
+    se.rollbackCompleted = false;
+    throw se;
+  }
 
+  let mutationStarted = false;
+  try {
+    mutationStarted = true;
     // 2. 清空现有月份分片
     ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
 
@@ -134,21 +157,92 @@ function restoreBackup(input, options) {
       months: result.months,
       warningCount,
       warnings,
+      quarantine: {
+        complete: q.complete,
+        safeToProceed: q.safeToProceed,
+        targetCount: q.targetCount,
+        copiedCount: q.copiedCount,
+        dir: q.dir,
+      },
     };
   } catch (e) {
-    // 回滚
-    rollback(safety);
+    // mutationStarted=false 时（理论上不会进入，删除前已全部前置校验）不得回滚删除
+    if (!mutationStarted) {
+      e.mutationStarted = false;
+      e.rollbackAttempted = false;
+      e.rollbackCompleted = false;
+      throw e;
+    }
+    try {
+      rollback(safety);
+    } catch (re) {
+      const combined = new Error(
+        '恢复失败，且回滚未完成（现场与安全点均已保留）：' + (e.message || e.code || '未知错误')
+      );
+      combined.code = e.code || 'RESTORE_FAILED';
+      combined.mutationStarted = true;
+      combined.rollbackAttempted = true;
+      combined.rollbackCompleted = false;
+      combined.rollbackError = {
+        code: (re && re.code) || 'ROLLBACK_FAILED',
+        message: (re && re.message) || String(re),
+      };
+      throw combined;
+    }
+    e.mutationStarted = true;
+    e.rollbackAttempted = true;
+    e.rollbackCompleted = true;
     throw e;
   }
 }
 
-/** 从安全点回滚 */
+/** 构造「隔离未完成 → 中止」错误（不泄漏任何账单内容） */
+function quarantineAbortError(code, action, q, mutationStarted) {
+  const err = new Error(action + '：损坏分片隔离未完成，已中止（未删除任何原始分片）');
+  err.code = code;
+  err.quarantine = {
+    complete: q.complete,
+    safeToProceed: q.safeToProceed,
+    targetCount: q.targetCount,
+    copiedCount: q.copiedCount,
+    failedCount: q.failedCount,
+    metaWritten: q.metaWritten,
+    skipped: q.skipped,
+    dir: q.dir,
+  };
+  err.mutationStarted = !!mutationStarted;
+  err.rollbackAttempted = false;
+  err.rollbackCompleted = false;
+  return err;
+}
+
+/**
+ * 从安全点回滚（fail-closed）。
+ *   - 安全点不可读 → 抛 `ROLLBACK_SAFETY_UNAVAILABLE`，不清账本、不删除安全点；
+ *   - 回滚前隔离未完成 → 抛 `ROLLBACK_QUARANTINE_INCOMPLETE`，不清账本。
+ */
 function rollback(safetyPath) {
-  const saved = fs.readJSON(safetyPath, null);
-  if (!saved || !saved.data) return;
+  let saved;
+  try {
+    saved = fs.readJSONStrict(safetyPath);
+  } catch (e) {
+    const err = new Error('回滚安全点不可用，已中止回滚（现场保留）');
+    err.code = 'ROLLBACK_SAFETY_UNAVAILABLE';
+    err.reason = (e && e.code) || 'READ_FAILED';
+    throw err;
+  }
+  if (!saved || !saved.data) {
+    const err = new Error('回滚安全点结构不完整，已中止回滚（现场保留）');
+    err.code = 'ROLLBACK_SAFETY_UNAVAILABLE';
+    err.reason = 'SHAPE';
+    throw err;
+  }
   // QA-01 删前隔离（同源问题：回滚同样先删后写）：此刻被删的分片若无安全点覆盖，
-  // 原始字节就是最后一次可抢救机会。内部失败只记警告，绝不让回滚本身失败。
-  quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.IMPORT_ROLLBACK);
+  // 原始字节就是最后一次可抢救机会。隔离未完成 → 禁止继续删除。
+  const q = quarantine.quarantineUnreadableMonths(quarantine.TRIGGERS.IMPORT_ROLLBACK);
+  if (!q.safeToProceed) {
+    throw quarantineAbortError('ROLLBACK_QUARANTINE_INCOMPLETE', '回滚已中止', q, true);
+  }
   ledger.listMonths().forEach((ym) => fs.remove(paths.billFile(ym)));
   ledger.addBills(saved.data.bills || []);
   fs.writeJSONAtomic(paths.FILE.categories, saved.data.categories || categories.DEFAULT_CATEGORIES);
@@ -156,6 +250,7 @@ function rollback(safetyPath) {
   recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
   // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。
   theme.reloadFromStorage();
+  return { attempted: true, completed: true };
 }
 
 module.exports = {
