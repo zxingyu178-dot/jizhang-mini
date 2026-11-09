@@ -20,19 +20,18 @@ const { Ctx } = require('./helpers');
 const goldenPath = require('./golden-path');
 
 /**
- * 用例结束、断开 automator 后，把测试中存于内存的截图 base64 写入项目内归档目录。
+ * 用例结束、断开 automator 后，把测试中存于内存的截图 base64 写入本轮独立目录。
  * 必须在 disconnect 之后做：
  *   1. 写文件进项目会触发 IDE 自动重编译，测试期间不能发生；
  *   2. 后台 node 处于文件沙箱，无法写项目外/系统 Temp，只能在结束后写项目目录。
+ *
+ * v1.4.1：不再清空归档目录。每轮写入 artifacts/e2e/<runId>/，
+ * 历史基线截图（docs/screenshots/e2e/）与往轮产物都不会被删除或覆盖。
  */
 function publishShots(ctx) {
   const dest = config.SHOT_DIR;
   const shots = (ctx && ctx.shots) || [];
   fs.mkdirSync(dest, { recursive: true });
-  // 清掉上一轮的 png，保证归档只反映本次运行
-  fs.readdirSync(dest)
-    .filter((f) => f.endsWith('.png'))
-    .forEach((f) => fs.rmSync(path.join(dest, f), { force: true }));
   shots.forEach((s) => {
     console.log(`  落盘 ${s.name}.png （截图时页面：${s.path || '未知'}）`);
     fs.writeFileSync(path.join(dest, s.name + '.png'), Buffer.from(s.data, 'base64'));

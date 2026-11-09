@@ -24,9 +24,11 @@ const LAUNCH_TIMEOUT_MS = Number(process.env.E2E_LAUNCH_TIMEOUT || 180000);
 // 若在首页就绪前发 reLaunch/navigateTo，会打断首屏加载，导致页面栈永久为空、模拟器黑屏。
 const READY_TIMEOUT_MS = Number(process.env.E2E_READY_TIMEOUT || 120000);
 
-// 截图最终归档目录（项目内，用于提交 git / HANDOFF 引用）。统一带 _simulator 后缀，
-// 与真机截图区分。
-const SHOT_DIR = process.env.E2E_SHOT_DIR || path.join(PROJECT_ROOT, 'docs', 'screenshots', 'e2e');
+// 截图归档根目录：每轮测试生成独立子目录（artifacts/ 已被 git 忽略）。
+// 历史基线截图仍保存在 docs/screenshots/e2e/，本脚本只写 artifacts，不删除 / 不覆盖基线。
+const ARTIFACTS_ROOT = path.join(PROJECT_ROOT, 'artifacts', 'e2e');
+const RUN_ID = new Date().toISOString().replace(/[:.]/g, '-');
+const SHOT_DIR = process.env.E2E_SHOT_DIR || path.join(ARTIFACTS_ROOT, RUN_ID);
 
 // 测试进行中的截图「暂存目录」，必须在项目根目录之外：
 // 微信开发者工具会监听项目目录，截图一旦写进项目（docs/...）会触发「文件变更→自动重新编译」，
@@ -67,6 +69,8 @@ module.exports = {
   HOME_ROUTE,
   LAUNCH_TIMEOUT_MS,
   READY_TIMEOUT_MS,
+  ARTIFACTS_ROOT,
+  RUN_ID,
   SHOT_DIR,
   SHOT_STAGE_DIR,
   CLI_PATH,

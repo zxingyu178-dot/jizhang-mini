@@ -30,6 +30,9 @@ const AGG_OTHER_ID = '__aggregate_other__';
 const TEST_NOTE = 'E2E回归';
 const TEST_BILL_NOTE = 'E2E账单回归';
 const T26_NOTE = 'E2E输入完成回归';
+const IMPORT_NOTE = 'E2E导入回归';
+const IMPORT_SUSPECT_NOTE = 'E2E疑似商户';
+const IMPORT_MANUAL_NOTE = 'E2E疑似手工单';
 const DV_TITLE = 'E2E日价回归物品';
 
 /**
@@ -180,6 +183,90 @@ module.exports = async function goldenPath(ctx) {
       }
     }
     return null;
+  }
+
+  /** 在时间线里找出所有匹配备注的账单 id。 */
+  async function findBillsByNote(page, note) {
+    const panel = await page.$('#accountingPanel');
+    const d = await panel.data();
+    const out = [];
+    (d.timeline || []).forEach((g) => {
+      (g.bills || []).forEach((r) => {
+        if (r.note === note) out.push(r.id);
+      });
+    });
+    return out;
+  }
+
+  /** 幂等删除指定备注的账单（弹窗自动确认）。 */
+  async function cleanupBillsByNote(page, note) {
+    await mp.mockWxMethod('showModal', { confirm: true, cancel: false });
+    for (let guard = 0; guard < 12; guard++) {
+      const ids = await findBillsByNote(page, note);
+      if (!ids.length) break;
+      await page.callMethod('onTapBill', { detail: { id: ids[0] } });
+      await sleep(700);
+      const form = await page.$('#billForm');
+      if (!form) break;
+      await form.callMethod('onDelete');
+      await sleep(1000);
+    }
+    await mp.restoreWxMethod('showModal');
+    await sleep(300);
+  }
+
+  /** 生成支付宝个人对账 CSV（rows: { time, merchant, goods, amount, txn }）。 */
+  function buildAlipayCsv(rows) {
+    const head =
+      '交易时间,交易分类,交易对方,对方账号,商品说明,收/支,金额,收/付款方式,交易状态,交易订单号,商家订单号,备注';
+    const lines = [head];
+    rows.forEach((r) => {
+      lines.push(
+        [
+          r.time,
+          r.category || '餐饮美食',
+          r.merchant,
+          '',
+          r.goods || '',
+          r.income ? '收入' : '支出',
+          r.amount,
+          '余额宝',
+          '交易成功',
+          r.txn,
+          '',
+          r.remark || '',
+        ].join(',')
+      );
+    });
+    return lines.join('\n');
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+  /** 当前时刻的支付宝时间格式（本地时间，精确到秒）。 */
+  function nowDateTime(offsetMin) {
+    const d = new Date(Date.now() + (offsetMin || 0) * 60000);
+    return (
+      d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+      ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds())
+    );
+  }
+
+  /** 调用开发环境专用注入入口，轮询 data.__e2eLast。 */
+  async function importText(page, text, name) {
+    try {
+      await page.callMethod('__e2eImportText', { text, name, source: 'alipay' });
+    } catch (e) {
+      // 部分 automator 版本不等待方法返回的 Promise；结果统一走 __e2eLast
+    }
+    const deadline = Date.now() + 12000;
+    while (Date.now() < deadline) {
+      const d = await page.data();
+      if (d.__e2eLast) return d.__e2eLast;
+      await sleep(250);
+    }
+    throw new Error('__e2eImportText 超时未返回结果');
   }
 
   /** 进日价详情页删除指定物品（daily-value-only 整单删除），删除后自动返回。 */
@@ -1349,5 +1436,144 @@ module.exports = async function goldenPath(ctx) {
     ctx.eq(d.showRecent, false, 'confirm 立即执行筛选（退出最近列表）');
     ctx.eq(d.resultCount, 0, '无匹配关键词结果为空');
     await ctx.shot('e2e_search_confirm');
+  });
+
+  // ---------------- T28 导入完整流程（v1.4.1） ----------------
+  await ctx.test('T28 导入：CSV→预览→取消→确认→重复识别→回读', async () => {
+    let page = await ctx.home();
+    await ensureTab(page, 1);
+    await cleanupBillsByNote(page, IMPORT_NOTE);
+
+    const csv = buildAlipayCsv([
+      { time: nowDateTime(-2), merchant: 'E2E导入商户A', goods: IMPORT_NOTE, amount: '12.34', txn: 'E2EIMP001' },
+      { time: nowDateTime(-1), merchant: 'E2E导入商户B', goods: IMPORT_NOTE, amount: '56.78', txn: 'E2EIMP002' },
+    ]);
+
+    // 1) 解析 → 预览
+    let imp = await ctx.goto('/packages/importer/pages/import/import', '.src-card');
+    let r = await importText(imp, csv, 'e2e-import.csv');
+    ctx.eq(r.ok, true, 'CSV 解析成功');
+    ctx.eq(r.total, 2, '识别 2 笔');
+    ctx.eq(r.counts && r.counts.ready, 2, '2 笔可导入');
+
+    await mp.callWxMethod('navigateTo', { url: '/packages/importer/pages/preview/preview' });
+    await sleep(1300);
+    let pv = await mp.currentPage();
+    await ctx.waitFor(pv, '.pv-btn-primary');
+    let pd = await pv.data();
+    ctx.eq(pd.isRestore, false, '普通导入（非整库恢复）');
+    ctx.eq(pd.total, 2, '预览总数为 2');
+    ctx.eq(pd.counts.ready, 2, '预览可导入 2 笔');
+    await ctx.shot('e2e_import_preview');
+
+    // 2) 取消预览 → 不写账本
+    await ctx.tap(pv, '.pv-btn-ghost');
+    await sleep(1300);
+    page = await ctx.home();
+    await ensureTab(page, 1);
+    ctx.eq((await findBillsByNote(page, IMPORT_NOTE)).length, 0, '取消预览不产生账单');
+
+    // 3) 再次导入并确认 → 结果页 → 账单回读
+    imp = await ctx.goto('/packages/importer/pages/import/import', '.src-card');
+    r = await importText(imp, csv, 'e2e-import.csv');
+    ctx.eq(r.counts && r.counts.ready, 2, '再次解析 2 笔可导入');
+    await mp.callWxMethod('navigateTo', { url: '/packages/importer/pages/preview/preview' });
+    await sleep(1300);
+    pv = await mp.currentPage();
+    await ctx.waitFor(pv, '.pv-btn-primary');
+    await ctx.tap(pv, '.pv-btn-primary');
+    await sleep(1800);
+    const rs = await mp.currentPage();
+    await ctx.waitFor(rs, '.rs-title');
+    const rd = await rs.data();
+    ctx.eq(rd.imported, 2, '结果页导入 2 笔');
+    ctx.eq(rd.isRestore, false, '结果是普通导入');
+    await ctx.shot('e2e_import_result');
+
+    page = await ctx.home();
+    await ensureTab(page, 1);
+    let ids = await findBillsByNote(page, IMPORT_NOTE);
+    ctx.eq(ids.length, 2, '2 笔账单已进入时间线');
+
+    // 4) 同一文件再次导入 → 全部识别为已存在，不重复新增
+    imp = await ctx.goto('/packages/importer/pages/import/import', '.src-card');
+    r = await importText(imp, csv, 'e2e-import.csv');
+    ctx.eq(r.counts && r.counts.ready, 0, '重复导入不再新增');
+    ctx.eq(r.counts && r.counts.existing, 2, '2 笔识别为已存在');
+
+    // 5) 清理
+    page = await ctx.home();
+    await ensureTab(page, 1);
+    await cleanupBillsByNote(page, IMPORT_NOTE);
+    ctx.eq((await findBillsByNote(page, IMPORT_NOTE)).length, 0, '测试导入账单已清理');
+  });
+
+  // ---------------- T29 疑似重复需用户确认（v1.4.1） ----------------
+  await ctx.test('T29 导入：跨来源疑似重复只标记，需用户确认', async () => {
+    let page = await ctx.home();
+    await ensureTab(page, 1);
+    await cleanupBillsByNote(page, IMPORT_MANUAL_NOTE);
+    await cleanupBillsByNote(page, IMPORT_NOTE);
+
+    // 手工记一笔（source=manual）
+    await ctx.tap(page, '.fab-wrap');
+    await sleep(700);
+    let form = await page.$('#billForm');
+    await form.callMethod('onAmount', { detail: { value: '12.34' } });
+    await form.callMethod('onMerchant', { detail: { value: IMPORT_SUSPECT_NOTE } });
+    await form.callMethod('onNote', { detail: { value: IMPORT_MANUAL_NOTE } });
+    await form.callMethod('onSubmit');
+    await sleep(1200);
+    page = await ctx.home();
+    await ensureTab(page, 1);
+    ctx.eq((await findBillsByNote(page, IMPORT_MANUAL_NOTE)).length, 1, '手工账单已写入');
+
+    // 支付宝 CSV：同金额 + 同商户 + 5 分钟内 + 不同来源 → suspect
+    const csv = buildAlipayCsv([
+      { time: nowDateTime(0), merchant: IMPORT_SUSPECT_NOTE, goods: IMPORT_NOTE, amount: '12.34', txn: 'E2ESUSP001' },
+    ]);
+    const imp = await ctx.goto('/packages/importer/pages/import/import', '.src-card');
+    const r = await importText(imp, csv, 'e2e-suspect.csv');
+    ctx.eq(r.ok, true, '疑似重复文件解析成功');
+    ctx.eq(r.counts && r.counts.ready, 0, '疑似项不计入可直接导入');
+    ctx.ok(r.counts && r.counts.suspect >= 1, '至少 1 笔标记为疑似重复');
+
+    await mp.callWxMethod('navigateTo', { url: '/packages/importer/pages/preview/preview' });
+    await sleep(1300);
+    const pv = await mp.currentPage();
+    await ctx.waitFor(pv, '.pv-toggle');
+    ctx.ok((await pv.data()).counts.suspect >= 1, '预览页展示疑似重复计数');
+    await ctx.tap(pv, '.pv-toggle');
+    await sleep(300);
+    ctx.eq((await pv.data()).includeSuspect, true, '可手动切换「同时导入疑似重复」');
+    await ctx.shot('e2e_import_suspect');
+    await ctx.tap(pv, '.pv-btn-ghost');
+    await sleep(1300);
+
+    // 清理手工账单
+    page = await ctx.home();
+    await ensureTab(page, 1);
+    await cleanupBillsByNote(page, IMPORT_MANUAL_NOTE);
+    ctx.eq((await findBillsByNote(page, IMPORT_MANUAL_NOTE)).length, 0, '手工测试账单已清理');
+  });
+
+  // ---------------- T30 非法文件不产生部分写入（v1.4.1） ----------------
+  await ctx.test('T30 导入：非法内容 / 压缩包明确报错且不写账本', async () => {
+    let page = await ctx.home();
+    await ensureTab(page, 1);
+    await cleanupBillsByNote(page, IMPORT_NOTE);
+
+    const imp = await ctx.goto('/packages/importer/pages/import/import', '.src-card');
+    const bad = await importText(imp, '这不是任何账单格式的内容\n第二行', 'e2e-bad.csv');
+    ctx.eq(bad.ok, false, '非法内容解析失败');
+    ctx.ok(bad.error && bad.error.length > 0, '给出明确错误信息');
+
+    const zip = await importText(imp, 'PK\u0003\u0004', 'e2e-bad.zip');
+    ctx.eq(zip.ok, false, '压缩包直接被拒绝');
+    ctx.ok(zip.error && zip.error.indexOf('压缩包') >= 0, '提示先解压再导入');
+
+    page = await ctx.home();
+    await ensureTab(page, 1);
+    ctx.eq((await findBillsByNote(page, IMPORT_NOTE)).length, 0, '失败导入不产生任何账单');
   });
 };

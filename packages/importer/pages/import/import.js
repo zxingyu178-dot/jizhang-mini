@@ -3,6 +3,8 @@
 const device = require('../../../../utils/device');
 const store = require('../../../../data/index');
 const theme = require('../../../../utils/theme');
+const fs = require('../../../../data/fs');
+const env = require('../../../../utils/env');
 const detector = require('../../core/detector');
 const diagnosis = require('../../core/diagnosis');
 
@@ -141,5 +143,52 @@ Page({
           });
       },
     });
+  },
+
+  /**
+   * E2E 专用：直接解析一段账单文本（不唤起文件选择器）。
+   *
+   * 边界：
+   *   - 仅 develop 环境可用（trial / release / 无法识别一律抛错，fail-closed）；
+   *   - 不改变 onChooseFile 的真实文件选择路径；
+   *   - 只写 USER_DATA_PATH 下的临时文件，解析结束即删除；
+   *   - 结果写入 data.__e2eLast 供自动化轮询（不弹 UI、不落正式账本）。
+   */
+  __e2eImportText(payload) {
+    if (!env.isDevEnv()) {
+      throw new Error('__e2eImportText 仅开发环境可用');
+    }
+    const text = payload && payload.text;
+    const name = (payload && payload.name) || 'e2e-import.csv';
+    const source = (payload && payload.source) || 'alipay';
+    if (typeof text !== 'string' || !text) {
+      throw new Error('__e2eImportText 缺少 text');
+    }
+    const filePath = fs.userRoot() + '/__e2e_import__/' + name;
+    fs.writeText(filePath, text);
+    const cleanup = () => {
+      try { fs.remove(filePath); } catch (e) {}
+    };
+    this.setData({ __e2eLast: null });
+    return detector
+      .parseFile({ path: filePath, size: text.length, name: name, hintedSource: source })
+      .then((session) => {
+        cleanup();
+        getApp().globalData.__importSession = session;
+        const out = {
+          ok: true,
+          total: session.bills.length,
+          counts: session.counts || null,
+          isRestore: !!session.isRestore,
+        };
+        this.setData({ __e2eLast: out });
+        return out;
+      })
+      .catch((err) => {
+        cleanup();
+        const out = { ok: false, error: (err && err.message) || '解析失败' };
+        this.setData({ __e2eLast: out });
+        return out;
+      });
   },
 });

@@ -12,3 +12,6 @@ Thumbs.db
 
 # Realistic Ledger 生成的大账本（仅本地，不提交大 JSON）
 tests/generated/
+
+# E2E 运行产物：每轮独立目录，不覆盖 docs/screenshots/ 下的基线截图
+artifacts/
