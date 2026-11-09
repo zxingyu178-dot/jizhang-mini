@@ -195,7 +195,6 @@ function remove(path) {
  * 普通业务删除继续用 remove（幂等、不抛），避免改变既有语义。
  */
 function removeStrict(path) {
-  if (!exists(path)) return true;
   let cause = null;
   try {
     getFS().unlinkSync(path);
@@ -209,11 +208,8 @@ function removeStrict(path) {
   }
   const msg = String((cause && (cause.errMsg || cause.message)) || cause || '');
   const errCode = cause && cause.errCode;
-  const absent =
-    errCode === 1300002 || /ENOENT|no such file|not exist/i.test(msg);
-  // 只有明确「本来就不存在」且当前确实不可见，才接受为已删除；
-  // 权限 / 占用等失败即使 exists 判断不可用也不放行（fail-closed）。
-  if (absent && !exists(path)) return true;
+  // 明确「本来就不存在」→ 视为已删除；权限 / 占用等失败一律 fail-closed。
+  if (errCode === 1300002 || /ENOENT|no such file|not exist/i.test(msg)) return true;
   throw fileError('FILE_DELETE_FAILED', path, msg || 'unlink 失败');
 }
 
