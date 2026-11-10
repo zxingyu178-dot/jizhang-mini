@@ -100,7 +100,7 @@
 | 命令 | 结果 |
 | --- | --- |
 | `npm test` | **52/52 套件通过** |
-| `node tests/chart-axis.test.js` | **994 passed / 0 failed**（本版新增 ~330 条，含 1 340 组宽度×字号×跨度×天数扫描） |
+| `node tests/chart-axis.test.js` | **994 passed / 0 failed**（改前 960 条 / 改后 994 条 = +34；含 1 068 组「宽度×字号×跨度×天数」不重叠扫描 + 1 条组件接线用例） |
 | `npm run perf` | 1k 2ms / 5k 9ms / 10k 21ms；10k÷1k = **10.5x**（≤40x）；无崩溃 |
 | `npm run contrast:audit` | dark worst **3.145** @hue240 / light worst **3.249** @hue60，均 ≥3:1 |
 | `npm run theme:audit` | 违规 0 / 白名单 13 / JS 白色提醒 3（既有，不阻断） |

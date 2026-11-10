@@ -26,7 +26,7 @@ Chart Readability & Axis Polish（统计页图表可读性收尾）。不新增�
 - **0 值柱子加 2rpx 基线**：核实四个入口（`bill-form` 的 `canSubmit`、导入 `validator` 的 `amountCents <= 0`、三个导入适配器的 `if (!amountCents)`、旧数据迁移）后确认**正常业务不存在 0 元支出**；而每日趋势按天全量铺点，没花钱的日子柱高 0 正是正确表达，加基线会让「没花钱」显示成「花了一点钱」→ 制造误导，不做。
 
 ### 测试
-- `npm test` **52/52 套件通过**；`tests/chart-axis.test.js` 单文件断言 **994 条**（含 1 340 组「宽度 × 字号 × 跨度 × 天数」不重叠扫描 + 组件接线测试）。
+- `npm test` **52/52 套件通过**；`tests/chart-axis.test.js` 单文件断言 **960 → 994 条**（含 1 068 组「宽度 × 字号 × 跨度 × 天数」不重叠扫描 + 组件接线测试）。
 - `npm run perf` 1k 2ms / 5k 9ms / 10k 21ms，10k÷1k = **10.5x**（≤40x）。
 - `contrast:audit` dark worst 3.145 / light worst 3.249（≥3:1）；`theme:audit` 违规 0；`release:check` **FAIL 0 / WARN 1**（`libVersion=latest`，客户已定不动）。
 - 真机 iPhone / Android 未测试。
