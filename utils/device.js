@@ -111,8 +111,27 @@ function reset() {
   _cache = null;
 }
 
+/**
+ * 窄屏阈值（px，即 windowWidth，不是 rpx）。
+ * 与历史 WXSS `@media (max-width: 360px)` 口径完全一致：≤360 算窄屏。
+ * ⚠️ Skyline 渲染下 WXSS 宽度断点不生效（官方 media queries 仅支持 DarkMode），
+ * 故窄屏差异化统一走本函数 + class 切换，阈值只此一处，不要在业务代码里另写数字。
+ */
+const NARROW_MAX_WIDTH = 360;
+
+/**
+ * 是否窄屏（windowWidth ≤ 360）。
+ * 宽度取自 measure() 的缓存值；窗口尺寸变化后需先 reset()（utils/viewport 的
+ * onWindowResize 链路已自动 reset 再通知，直接调用即可拿到新值）。
+ */
+function isNarrowScreen() {
+  return measure().windowWidth <= NARROW_MAX_WIDTH;
+}
+
 module.exports = {
   measure,
   get: measure,
   reset,
+  NARROW_MAX_WIDTH,
+  isNarrowScreen,
 };

@@ -11,6 +11,8 @@ const dateUtil = require('../../data/date');
 const statCfg = require('../../data/statistics/config');
 const donut = require('../../data/statistics/donut');
 const theme = require('../../utils/theme');
+const device = require('../../utils/device');
+const viewport = require('../../utils/viewport');
 const { pickCategoryVisual } = require('../../data/category-icons');
 
 /** 模块 ID → 中文展示名（管理 Bottom Sheet 用） */
@@ -76,6 +78,9 @@ function toCatItems(bills, catId) {
 Component({
   data: {
     mode: 'month', // month | year
+    // 窄屏标记（v1.4.3）：Skyline 下 WXSS 宽度断点不生效，改由 JS 判定挂 class
+    // （≤360px 给 .hero__foot--three 加 --narrow，收字号 + 提升中间列弹性）
+    isNarrow: false,
     // 月度
     ym: '',
     monthLabel: '',
@@ -159,9 +164,23 @@ Component({
         // 只做局部颜色刷新：不重读账本、不重置选中 / 展开态，避免打断用户当前操作。
         if (this._activated) this.recolorForTheme();
       });
+
+      // 窄屏判定（v1.4.3）：Skyline 下 WXSS 宽度断点不生效，改由 JS 读窗口宽度挂 class。
+      // 放 attached 而不放 ready：attached 在组件首次布局（ready）之前执行，此时 setData
+      // 会随首帧一起渲染，不会出现「先按宽屏画一帧再跳成窄屏」；且 Hero 数值要等
+      // activate() 的 220ms 延时取数后才有值，首帧本就是占位符，无可见跳变。
+      this.setData({ isNarrow: device.isNarrowScreen() });
+      // 窗口变化（安卓分屏、平板旋转/变宽、大字体无障碍缩放后的宽度变化）：
+      // 复用 utils/viewport 已有的全局 wx.onWindowResize → device.reset() → onRecover 链路，
+      // 不新增监听器；仅当跨过 360 阈值时才 setData（键盘收起等无关事件不产生多余渲染）。
+      this._offViewport = viewport.onRecover(() => {
+        const next = device.isNarrowScreen();
+        if (next !== this.data.isNarrow) this.setData({ isNarrow: next });
+      });
     },
     detached() {
       if (this._offTheme) { this._offTheme(); this._offTheme = null; }
+      if (this._offViewport) { this._offViewport(); this._offViewport = null; }
     },
   },
   methods: {
