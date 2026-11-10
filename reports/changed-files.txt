@@ -1,0 +1,27 @@
+# v1.4.2 变更文件清单（真实 git 输出，采集时间 2026-11-10 09:52:15)
+
+## git diff --name-only 5c33d6d..HEAD
+data/backup.js
+data/fs.js
+data/recurring/store.js
+packages/importer/core/commit.js
+tests/backup-restore-statistics.test.js
+tests/import-rollback-safety.test.js
+tests/perf/large-ledger.perf.js
+tests/quarantine-rollback.test.js
+tests/recurring.test.js
+
+## git diff --stat 5c33d6d..HEAD
+ data/backup.js                          |  69 ++++++--
+ data/fs.js                              |  47 ++++++
+ data/recurring/store.js                 | 131 ++++++++++++++-
+ packages/importer/core/commit.js        |  38 ++++-
+ tests/backup-restore-statistics.test.js | 178 ++++++++++++++++++++
+ tests/import-rollback-safety.test.js    | 129 ++++++++++++++-
+ tests/perf/large-ledger.perf.js         |  39 ++++-
+ tests/quarantine-rollback.test.js       | 280 ++++++++++++++++++++++++++++++++
+ tests/recurring.test.js                 | 131 +++++++++++++++
+ 9 files changed, 1016 insertions(+), 26 deletions(-)
+
+## 文件数
+9

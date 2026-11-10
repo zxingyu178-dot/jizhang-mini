@@ -1,0 +1,112 @@
+# 本阶段提交记录
+# 生成时间：2026-11-10
+# 命令：git log / git rev-parse（见每段标注）
+# 工作目录：D:\AIHome_2.0_L1_L2\projects\jizhang-mini
+
+============================================================
+一、当前分支
+============================================================
+
+命令：git branch --show-current
+输出：fix/v1.4.2-final-stabilization
+
+============================================================
+二、合并前 origin/main SHA（本次合并的目标基线）
+============================================================
+
+命令：git rev-parse origin/main
+输出：5c33d6da8b9e72308abc640ad7810e75b29032dc
+
+命令：git rev-parse main
+输出：5c33d6da8b9e72308abc640ad7810e75b29032dc
+
+★ 说明：合并前 origin/main 与本地 main 一致，均为
+  5c33d6da8b9e72308abc640ad7810e75b29032dc
+  这条就是本次修复分支的父提交（分支从它切出）。
+
+============================================================
+三、当前 HEAD
+============================================================
+
+命令：git rev-parse HEAD
+输出：959f21ec29421f66f7a25a2187168ae469f80dd3
+
+============================================================
+四、本阶段提交列表（不含基线提交 5c33d6d）
+============================================================
+
+命令：git log --format="%H %h %ad %s" --date=short 5c33d6d..HEAD
+输出：
+
+959f21ec29421f66f7a25a2187168ae469f80dd3 959f21e 2026-11-10 fix(v1.4.2): QA-03 createdAt 非法值留可查诊断 + QA-01 性能基准去掉写死日期
+d01b9d90cd066bb2d813c4ae78d59abec3c4279d d01b9d9 2026-11-10 fix(v1.4.2): 周期规则恢复只规范化一次 + 临时安全点清理可诊断
+
+★ 本阶段共 2 个提交（Gate 1 + Gate 2 的整改成果 / QA 销项整改）。
+
+============================================================
+五、提交链路（含基线）
+============================================================
+
+命令：git log --oneline -5
+输出：
+
+959f21e fix(v1.4.2): QA-03 createdAt 非法值留可查诊断 + QA-01 性能基准去掉写死日期
+d01b9d9 fix(v1.4.2): 周期规则恢复只规范化一次 + 临时安全点清理可诊断
+5c33d6d fix(recovery): isolate import rollback safety point   ← 原 main HEAD，分支基线
+71cd591 merge: v1.4.2 Recovery Integrity & Import Match Safety
+dc2d60c chore(release): prepare v1.4.2 stabilization
+
+============================================================
+六、本阶段改动文件清单（9 个）
+============================================================
+
+命令：git diff --name-only 5c33d6d..HEAD
+输出：
+
+data/backup.js
+data/fs.js
+data/recurring/store.js
+packages/importer/core/commit.js
+tests/backup-restore-statistics.test.js
+tests/import-rollback-safety.test.js
+tests/perf/large-ledger.perf.js
+tests/quarantine-rollback.test.js
+tests/recurring.test.js
+
+命令：git diff --stat 5c33d6d..HEAD
+输出：
+
+ data/backup.js                          |  69 ++++++--
+ data/fs.js                              |  47 ++++++
+ data/recurring/store.js                 | 131 ++++++++++++++-
+ packages/importer/core/commit.js        |  38 ++++-
+ tests/backup-restore-statistics.test.js | 178 ++++++++++++++++++++
+ tests/import-rollback-safety.test.js    | 129 ++++++++++++++-
+ tests/perf/large-ledger.perf.js         |  39 ++++-
+ tests/quarantine-rollback.test.js       | 280 ++++++++++++++++++++++++++++++++
+ tests/recurring.test.js                 | 131 +++++++++++++++
+ 9 files changed, 1016 insertions(+), 26 deletions(-)
+
+★ 注意：任务书正文写「本轮改动文件 8 个」，但同表末尾又写「共 9 个，按 git diff 为准」。
+  实际 git diff 输出为 9 个文件。本文档一律以 git 输出为准 = 9 个。
+
+============================================================
+七、未跟踪文件（不属本阶段源码改动）
+============================================================
+
+命令：git status --short
+输出：8 条，全部为 `??` 未跟踪的仓库根目录历史交付 ZIP。
+详见同目录 git/status.txt（含逐条说明）。
+
+★ 结论：本阶段没有任何未提交的源码改动；工作区中 8 个 ZIP 是历史交付包，非源码改动。
+
+============================================================
+八、合并 / 推送 / 打包状态（如实记录）
+============================================================
+
+- 合并到 main：**未执行**（由下一棒负责）
+- 推送到远端（git push）：**未执行**
+- 打 ZIP 交付包：**未执行**
+- 打 tag：**未执行**
+
+本轮 Gate 3 只做文档整理，以上动作一件未做。

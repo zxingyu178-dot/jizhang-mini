@@ -1,0 +1,47 @@
+# git status --short 原文记录
+# 生成时间：2026-11-10
+# 命令：git status --short
+# 工作目录：D:\AIHome_2.0_L1_L2\projects\jizhang-mini
+# 分支：fix/v1.4.2-final-stabilization
+#
+# ===== 原文开始 =====
+
+?? DailyValueMini_v1.4.1_Review.zip
+?? DailyValueMini_v1.4.2_Review.zip
+?? DailyValue_Mini_v1.4.0_Acceptance.zip
+?? jizhang-mini_v1.3.2_acceptance.zip
+?? jizhang-mini_v1.3.3_acceptance.zip
+?? jizhang-mini_v1.3.4_acceptance.zip
+?? jizhang-mini_v1.3.5_acceptance.zip
+?? jizhang-mini_v1.3.6_acceptance.zip
+
+# ===== 原文结束 =====
+#
+# ===== 结果解读（重要，别误报成脏工作区）=====
+#
+# 共 8 条，全部是 `??`（未跟踪），来源全部是仓库根目录的 8 个历史交付 ZIP 包：
+#
+#   1. jizhang-mini_v1.3.2_acceptance.zip
+#   2. jizhang-mini_v1.3.3_acceptance.zip
+#   3. jizhang-mini_v1.3.4_acceptance.zip
+#   4. jizhang-mini_v1.3.5_acceptance.zip
+#   5. jizhang-mini_v1.3.6_acceptance.zip
+#   6. DailyValue_Mini_v1.4.0_Acceptance.zip
+#   7. DailyValueMini_v1.4.1_Review.zip
+#   8. DailyValueMini_v1.4.2_Review.zip
+#
+# ★ 这些是历史交付包（历次版本给客户/审查用的打包产物），不是源码改动。
+#   它们从未纳入版本管理，本轮也没有删除、没有修改、没有移走。
+#
+# ★ 关键结论：源码工作区是干净的。
+#   - 没有任何 ` M`（已修改未暂存）文件
+#   - 没有任何 `M `（已暂存）文件
+#   - 没有任何 ` D`/`D `（删除）文件
+#   - 8 条全部是 `??` 未跟踪，且全部是 .zip 二进制交付包
+#
+#   判断依据：git status --short 输出中，第一列/第二列均无 M/D/R 标记，
+#   即「已跟踪文件的源码与 HEAD 完全一致」。
+#
+# ★ 建议：这 8 个 ZIP 建议后续加入 .gitignore（或移入 artifacts/releases 目录并登记），
+#   避免每次 status 都被误读为「工作区有未提交改动」。
+#   本轮按任务书要求：绝对不许删除 / 修改 / 移走，故未做任何处理 —— 仅登记。
