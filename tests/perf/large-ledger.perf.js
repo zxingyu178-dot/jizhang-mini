@@ -109,14 +109,29 @@ function rnd() {
 }
 
 const EXP_CATS = ['c-food', 'c-transport', 'c-shopping', 'c-fun', 'c-life', 'c-drink', 'c-bill', 'c-medical', 'c-housing', 'c-travel', 'c-other'];
-const NOW = new Date(2026, 9, 17, 12, 0, 0).getTime(); // 2026-10-17（固定，可复现）
+/**
+ * 时间基线：**按运行当天推算**，禁止写死日期。
+ * 旧实现把基准日写死成固定年月，一旦真实日期走过那个月，
+ * 「当月 Timeline 有渲染数据」就必然失败（日期炸弹，基准恒红）。
+ * 这里统一锚在「运行当天 12:00（本地）」及其所在自然月，随机流仍由固定 seed 保证可复现。
+ */
+const RUN_AT = new Date();
+const RUN_YEAR = RUN_AT.getFullYear();
+const RUN_MONTH = RUN_AT.getMonth() + 1;
+const RUN_DAY = RUN_AT.getDate();
+const NOW = new Date(RUN_YEAR, RUN_MONTH - 1, RUN_DAY, 12, 0, 0).getTime();
+/** 当前自然月 1 日 12:00（本地），用于保证当月一定有样本 */
+const MONTH_START = new Date(RUN_YEAR, RUN_MONTH - 1, 1, 12, 0, 0).getTime();
 const YEAR_MS = 365 * 24 * 3600 * 1000;
 
 function genBills(n) {
   const bills = [];
   for (let i = 0; i < n; i++) {
-    const ts = NOW - Math.floor(rnd() * YEAR_MS);
+    const r = rnd(); // 时间抽样（每次都消耗，随机流与随机序列保持稳定）
     const isIncome = rnd() < 0.08;
+    // 前 2 条钉在「今天 12:00」和「本月 1 日 12:00」：不依赖随机数，
+    // 保证「当月 Timeline 有数据」永远成立（这是被测不变量，不是靠运气）。
+    const ts = i === 0 ? NOW : i === 1 ? MONTH_START : NOW - Math.floor(r * YEAR_MS);
     bills.push({
       id: 'perf-' + i,
       type: isIncome ? 'income' : 'expense',
@@ -177,7 +192,18 @@ function runScale(n) {
   const monthRows = timeline.reduce((sum, d) => sum + d.bills.length, 0);
   check(counts['categories.json'] === 1,
     'G7 当月 Timeline（' + monthRows + ' 条）只读取 categories.json 1 次（实际 ' + counts['categories.json'] + '）');
-  check(monthRows > 0, '当月 Timeline 有渲染数据');
+  // 当月样本数按规则推算：occurredAt 落在「运行当天所在本地自然月」的账单数（不写死日期）。
+  const expectedMonthRows = all.filter((b) => {
+    const d = new Date(b.occurredAt);
+    return d.getFullYear() === RUN_YEAR && d.getMonth() + 1 === RUN_MONTH;
+  }).length;
+  check(expectedMonthRows >= 2,
+    '当前自然月存在账单样本（' + expectedMonthRows + ' 条，按运行当天 ' + RUN_YEAR + '-'
+      + (RUN_MONTH < 10 ? '0' + RUN_MONTH : RUN_MONTH) + ' 推算）');
+  check(monthRows === expectedMonthRows,
+    '当月 Timeline 条数 = 按本地日历归入当前月的账单数（' + monthRows + ' === ' + expectedMonthRows + '）');
+  check(timeline.every((d) => d.dateKey.indexOf(ym + '-') === 0),
+    '当月 Timeline 每天日期均属当前月 ' + ym + '（无跨月串月）');
 
   // 3) 统计月概览 / 日趋势 / 分类排行
   const monthStat = timed('统计月全套', () => {
@@ -203,9 +229,10 @@ function runScale(n) {
   check(Array.isArray(budget.value.days) || !!budget.value, '预算日历正常返回');
 
   // 6) 正式 Search Core 组合搜索（v1.1.1：替换旧手写 .filter()，真正调用上线的 searchBills）
-  // 范围取过去约一年（账单均匀分布在过去 12 个月），保证有命中
-  const perfStart = dateUtil.startOfLocalDay(2025, 10, 1);
-  const perfEnd = dateUtil.endOfLocalDay(2026, 10, 31);
+  // 范围 = 生成基线覆盖的「过去 12 个月」，按运行当天动态推算（旧实现写死年月，
+  // 日期走过窗口后同样会与生成数据脱节 —— 第二枚日期炸弹）
+  const perfStart = dateUtil.startOfLocalDay(RUN_YEAR - 1, RUN_MONTH, RUN_DAY);
+  const perfEnd = dateUtil.endOfLocalDay(RUN_YEAR, RUN_MONTH, RUN_DAY);
   const search = timed('正式 searchBills「咖啡+支出+餐饮+范围」', () => {
     return s.searchBills({
       keyword: '咖啡',

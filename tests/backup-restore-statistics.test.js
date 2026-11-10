@@ -188,6 +188,184 @@ let reExpense = 0;
 yearBills.forEach((b) => { if (b.type !== 'income') reExpense += b.amountCents; });
 eq(yearOv.expense, reExpense, '年度统计与按恢复后账单现算完全一致');
 
+/* ---------- 7. 周期规则缺 createdAt 的备份恢复兼容性（v1.4.2 修复回归） ----------
+ * 旧行为：写入时 normalizeRule 取一次 Date.now()、核对时再取一次 →
+ * 缺 createdAt 的合法备份被误判 recurring-mismatch，整份恢复失败并回滚。
+ * 修复后：恢复路径只规范化一次，恢复成功，且落盘 createdAt 为有限正数、
+ * 重复读取不再生成新时间戳，统计口径仍与恢复后账本一致。 */
+const ruleNoCreated = {
+  id: 'r-no-created',
+  enabled: true,
+  type: 'expense',
+  amountCents: 1500,
+  categoryId: 'c-food',
+  note: '缺 createdAt 的规则',
+  frequency: 'monthly',
+  interval: 1,
+  day: 3,
+  startDate: '2026-09-03',
+  time: '09:00',
+};
+const backupNoCreated = store.buildBackup();
+backupNoCreated.data.recurringRules = [ruleNoCreated];
+
+// 单调递增假时钟：让「同一次恢复里取两次 Date.now()」稳定产生不同时间戳，
+// 不依赖两次调用恰好落在同一毫秒（否则缺陷只是偶发、断言可能假通过）。
+const CLOCK_BASE = 1715000000000;
+const realDateNow = Date.now;
+let fakeClock = CLOCK_BASE;
+Date.now = function () {
+  fakeClock += 7;
+  return fakeClock;
+};
+let restoreErr = null;
+try {
+  store.restoreBackup(backupNoCreated);
+} catch (e) {
+  restoreErr = e;
+} finally {
+  Date.now = realDateNow;
+}
+eq(restoreErr, null, '缺 createdAt 的合法规则不再导致恢复失败（旧实现必失败）');
+
+const rulesAfter = store.recurring.getRules();
+eq(rulesAfter.length, 1, '恢复后周期规则 1 条（未丢失）');
+const createdAfter = rulesAfter[0] && rulesAfter[0].createdAt;
+assert(
+  typeof createdAfter === 'number' && Number.isFinite(createdAfter) && createdAfter > 0,
+  '恢复后 createdAt 为有限正数（实际 ' + createdAfter + '）'
+);
+assert(
+  createdAfter >= CLOCK_BASE && createdAfter <= CLOCK_BASE + 100000,
+  '恢复后 createdAt 取本次恢复时刻（假时钟窗口内，实际 ' + createdAfter + '）'
+);
+eq(rulesAfter[0].id, 'r-no-created', '规则 ID 未变');
+eq(rulesAfter[0].note, '缺 createdAt 的规则', '规则业务字段未变');
+const rulesAgain = store.recurring.getRules();
+eq(rulesAgain[0].createdAt, createdAfter, '重复读取不会生成新 createdAt（归一幂等）');
+
+// 统计口径仍与恢复后账本一致
+const monthAfter = M.computeMonthOverview(store.rangeBills('2026-10', '2026-10'));
+eq(monthAfter.expense, 30000, '规则恢复后 10 月支出仍为 30000');
+const yearAfter = Y.computeYearOverview(store.rangeBills('2026-01', '2026-12'), 2026);
+let reExpense2 = 0;
+store.rangeBills('2026-01', '2026-12').forEach((b) => {
+  if (b.type !== 'income') reExpense2 += b.amountCents;
+});
+eq(yearAfter.expense, reExpense2, '规则恢复后年度支出与现算一致');
+
+/* ---------- 8. QA-03：createdAt 非法（字符串 / 0 / 负数 / NaN）→ 恢复成功 + 明确诊断 ----------
+ * 要求：恢复结果**不变**（规则仍恢复成功、createdAt 仍为有限正数），
+ *       但必须留下可查的警示码 recurring-createdAt-invalid（含规则 id + 原值类型/摘要），
+ *       且已有的合法 createdAt 不得被改写。 */
+const CLOCK_BASE2 = 1720000000000;
+const realDateNow2 = Date.now;
+let fakeClock2 = CLOCK_BASE2;
+const invalidRules = [
+  { kind: 'string', rule: { id: 'r-bad-string', createdAt: '1715000000000' } },
+  { kind: 'zero', rule: { id: 'r-bad-zero', createdAt: 0 } },
+  { kind: 'negative', rule: { id: 'r-bad-negative', createdAt: -7 } },
+  { kind: 'nan', rule: { id: 'r-bad-nan', createdAt: NaN } },
+];
+const baseRule = {
+  enabled: true,
+  type: 'expense',
+  amountCents: 800,
+  categoryId: 'c-food',
+  note: '非法 createdAt 的规则',
+  frequency: 'monthly',
+  interval: 1,
+  day: 8,
+  startDate: '2026-10-08',
+  time: '08:00',
+};
+const backupInvalidCreated = store.buildBackup();
+backupInvalidCreated.data.recurringRules = invalidRules
+  .map((x) => Object.assign({}, baseRule, x.rule))
+  .concat([
+    // 合法值必须原样保留（对照组）
+    Object.assign({}, baseRule, { id: 'r-legit', note: '合法 createdAt', createdAt: 1700000000000 }),
+    // 缺 createdAt：历史备份正常情况，静默补齐、不告警
+    Object.assign({}, baseRule, { id: 'r-missing', note: '缺 createdAt 的对照规则' }),
+  ]);
+
+let restoreErr2 = null;
+let restoreResult2 = null;
+Date.now = function () {
+  fakeClock2 += 7;
+  return fakeClock2;
+};
+try {
+  restoreResult2 = store.restoreBackup(backupInvalidCreated);
+} catch (e) {
+  restoreErr2 = e;
+} finally {
+  Date.now = realDateNow2;
+}
+eq(restoreErr2, null, 'QA-03 含非法 createdAt 的备份仍恢复成功（不因非法值拒绝整份恢复）');
+
+const rulesAfterInvalid = store.recurring.getRules();
+eq(rulesAfterInvalid.length, 6, 'QA-03 6 条规则全部恢复（一条不丢）');
+rulesAfterInvalid.forEach((r) => {
+  assert(
+    typeof r.createdAt === 'number' && Number.isFinite(r.createdAt) && r.createdAt > 0,
+    'QA-03 规则 ' + r.id + ' 落盘 createdAt 为有限正数（实际 ' + r.createdAt + '）'
+  );
+});
+eq(
+  rulesAfterInvalid.find((r) => r.id === 'r-legit').createdAt,
+  1700000000000,
+  'QA-03 已有合法 createdAt 未被改写'
+);
+assert(
+  rulesAfterInvalid.find((r) => r.id === 'r-bad-string').createdAt >= CLOCK_BASE2 &&
+    rulesAfterInvalid.find((r) => r.id === 'r-bad-string').createdAt <= CLOCK_BASE2 + 100000,
+  'QA-03 非法 createdAt 补齐为本次恢复时刻（假时钟窗口内）'
+);
+
+// 诊断可见：结构化清单 + warnings 数组两处都能查到
+const diags8 = (restoreResult2 && restoreResult2.createdAtDiagnostics) || [];
+eq(diags8.length, 4, 'QA-03 4 条非法规则各产生 1 条诊断（字符串/0/负数/NaN）');
+eq(
+  diags8.every((d) => d.code === store.recurring.store.WARN_CREATED_AT_INVALID),
+  true,
+  'QA-03 诊断码为 recurring-createdAt-invalid'
+);
+eq(
+  JSON.stringify(diags8.map((d) => d.ruleId).sort()),
+  JSON.stringify(['r-bad-nan', 'r-bad-negative', 'r-bad-string', 'r-bad-zero']),
+  'QA-03 诊断包含每条规则的 id'
+);
+const diagString = diags8.find((d) => d.ruleId === 'r-bad-string');
+eq(diagString.originalType, 'string', 'QA-03 诊断记录原值类型');
+assert(
+  String(diagString.originalValue).indexOf('1715000000000') >= 0,
+  'QA-03 诊断记录原值摘要（实际 ' + String(diagString.originalValue) + '）'
+);
+eq(
+  diags8.some((d) => d.ruleId === 'r-missing' || d.ruleId === 'r-legit'),
+  false,
+  'QA-03 缺 createdAt / 合法值均不告警（缺失与非法不混同）'
+);
+const warnCodes8 = ((restoreResult2 && restoreResult2.warnings) || []).map((w) => w.code);
+eq(
+  warnCodes8.filter((c) => c === 'recurring-createdAt-invalid').length,
+  4,
+  'QA-03 诊断并入恢复结果 warnings（上层可直接按 code 查）'
+);
+assert(
+  restoreResult2 && restoreResult2.warningCount >= 4,
+  'QA-03 warningCount 已计入 invalid createdAt 诊断（实际 ' +
+    (restoreResult2 && restoreResult2.warningCount) + '）'
+);
+
+// 归一幂等：重复读取不会重新生成时间戳
+eq(
+  store.recurring.getRules().find((r) => r.id === 'r-bad-zero').createdAt,
+  rulesAfterInvalid.find((r) => r.id === 'r-bad-zero').createdAt,
+  'QA-03 重复读取不重新生成 createdAt（归一幂等）'
+);
+
 /* ---------- 汇总 ---------- */
 console.log('\nbackup-restore-statistics tests: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

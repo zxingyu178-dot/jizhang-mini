@@ -555,6 +555,137 @@ console.log('L. countDueForRule 补记预估');
   );
 }
 
+/* ============ v1.4.2 修复回归：createdAt 归一规则（addRule / updateRule 不变） ============ */
+{
+  const s = freshStore();
+  const rstore = require(path.join(ROOT, 'data', 'recurring', 'store'));
+
+  // addRule：仍记录「当前时刻」，行为不变
+  const created = s.recurring.createRule({
+    type: 'expense',
+    amountCents: 300,
+    categoryId: 'c-food',
+    frequency: 'monthly',
+    day: 6,
+    startDate: '2026-09-06',
+    time: '09:00',
+  });
+  assert(
+    created && typeof created.createdAt === 'number' && Number.isFinite(created.createdAt),
+    'addRule createdAt 仍为数字时间戳'
+  );
+  assert(
+    Math.abs(Date.now() - created.createdAt) < 5000,
+    'addRule createdAt 仍取当前时刻（不做 0 占位、不虚构历史）'
+  );
+
+  // updateRule：合法 createdAt 原样保留，不被改写
+  const updated = rstore.updateRule(created.id, { note: '改备注' });
+  eq(updated.ok, true, 'updateRule 成功');
+  eq(updated.rule.createdAt, created.createdAt, 'updateRule 不改写已有合法 createdAt');
+  assert(typeof updated.rule.updatedAt === 'number', 'updateRule 仍写 updatedAt');
+
+  // normalizeRule：合法值恒等（不取整、不改写）
+  eq(rstore.normalizeRule({ id: 'x', amountCents: 1, createdAt: 1715000000000 }).createdAt, 1715000000000, 'normalizeRule 合法 createdAt 恒等');
+  const bad = [undefined, null, '', '1715000000000', NaN, -5, 0];
+  bad.forEach((v) => {
+    const r = rstore.normalizeRule({ id: 'x', amountCents: 1, createdAt: v });
+    assert(
+      typeof r.createdAt === 'number' && Number.isFinite(r.createdAt) && r.createdAt > 0,
+      'normalizeRule 非法 createdAt（' + String(v) + '）→ 有限正数'
+    );
+  });
+
+  // normalizeRules：整批只取一个时间戳（缺 createdAt 的规则时间一致）
+  const batch = rstore.normalizeRules([
+    { id: 'a', amountCents: 1, createdAt: undefined },
+    { id: 'b', amountCents: 1, createdAt: 0 },
+    { id: 'c', amountCents: 1, createdAt: 1715000000000 },
+  ]);
+  eq(batch.length, 3, 'normalizeRules 不丢规则');
+  eq(batch[0].createdAt, batch[1].createdAt, 'normalizeRules 同批缺失 createdAt 取同一时间戳');
+  eq(batch[2].createdAt, 1715000000000, 'normalizeRules 保留已有合法值');
+
+  // replaceAllRulesPrepared：直接写入，不再二次归一（写入值 === 读回值）
+  const prepared = rstore.normalizeRules([{ id: 'p1', amountCents: 1, createdAt: undefined }]);
+  rstore.replaceAllRulesPrepared(prepared);
+  const reread = rstore.getRulesStrict();
+  eq(reread.length, 1, 'replaceAllRulesPrepared 写入 1 条');
+  eq(reread[0].createdAt, prepared[0].createdAt, 'replaceAllRulesPrepared 写入值 === 重新读取值');
+}
+
+/* ============ QA-03：非法 createdAt 必须留可查诊断（缺失 ≠ 非法） ============
+ * 要求：非法值规则仍然恢复成功（有限正数），但必须产生
+ *       code=recurring-createdAt-invalid + 规则 id + 原值类型/摘要；
+ *       「缺 createdAt」是历史备份正常情况，不得与「非法值」混为一谈（不告警）。 */
+{
+  freshStore();
+  const rstore = require(path.join(ROOT, 'data', 'recurring', 'store'));
+  const STAMP = 1715300000000;
+  const diags = [];
+  const out = rstore.normalizeRules(
+    [
+      { id: 'bad-string', amountCents: 100, startDate: '2026-09-01', createdAt: '1715000000000' },
+      { id: 'bad-zero', amountCents: 100, startDate: '2026-09-01', createdAt: 0 },
+      { id: 'bad-negative', amountCents: 100, startDate: '2026-09-01', createdAt: -5 },
+      { id: 'bad-nan', amountCents: 100, startDate: '2026-09-01', createdAt: NaN },
+      { id: 'missing', amountCents: 100, startDate: '2026-09-01' },
+      { id: 'valid', amountCents: 100, startDate: '2026-09-01', createdAt: 1700000000000 },
+    ],
+    STAMP,
+    diags
+  );
+
+  eq(out.length, 6, 'QA-03 诊断用例：6 条规则一条不丢');
+  eq(diags.length, 4, 'QA-03 字符串/0/负数/NaN 各产生 1 条诊断（共 4 条）');
+  eq(
+    diags.every((d) => d.code === 'recurring-createdAt-invalid'),
+    true,
+    'QA-03 诊断码统一为 recurring-createdAt-invalid'
+  );
+  eq(rstore.WARN_CREATED_AT_INVALID, 'recurring-createdAt-invalid', 'QA-03 诊断码已导出供上层引用');
+  eq(
+    JSON.stringify(diags.map((d) => d.ruleId).sort()),
+    JSON.stringify(['bad-nan', 'bad-negative', 'bad-string', 'bad-zero']),
+    'QA-03 每条诊断都带规则 id'
+  );
+  const stringDiag = diags.find((d) => d.ruleId === 'bad-string');
+  eq(stringDiag.originalType, 'string', 'QA-03 诊断记录原值类型（字符串）');
+  assert(
+    String(stringDiag.originalValue).indexOf('1715000000000') >= 0,
+    'QA-03 诊断记录原值摘要（实际 ' + String(stringDiag.originalValue) + '）'
+  );
+  eq(
+    diags.some((d) => d.ruleId === 'missing'),
+    false,
+    'QA-03 缺 createdAt 不告警（缺失是历史备份正常情况，不与非法值混同）'
+  );
+  eq(
+    diags.some((d) => d.ruleId === 'valid'),
+    false,
+    'QA-03 合法 createdAt 不告警'
+  );
+
+  // 恢复结果不变：全部规则仍是有限正数时间戳
+  out.forEach((r) => {
+    assert(
+      typeof r.createdAt === 'number' && Number.isFinite(r.createdAt) && r.createdAt > 0,
+      'QA-03 规则 ' + r.id + ' 的 createdAt 仍为有限正数（实际 ' + r.createdAt + '）'
+    );
+  });
+  eq(out.find((r) => r.id === 'valid').createdAt, 1700000000000, 'QA-03 合法 createdAt 未被改写');
+  eq(out.find((r) => r.id === 'missing').createdAt, STAMP, 'QA-03 缺失 createdAt 取本次统一时刻');
+  eq(out.find((r) => r.id === 'bad-zero').createdAt, STAMP, 'QA-03 非法值补齐为本次统一时刻（同批一致）');
+
+  // 不传诊断容器时行为完全不变（addRule / updateRule / 普通规范化路径不受影响）
+  const noSink = rstore.normalizeRules([{ id: 'x', amountCents: 100, createdAt: 'bad' }]);
+  eq(noSink.length, 1, 'QA-03 不传诊断容器时仍正常返回规则');
+  assert(
+    Number.isFinite(noSink[0].createdAt) && noSink[0].createdAt > 0,
+    'QA-03 不传诊断容器时非法值仍补齐为有限正数'
+  );
+}
+
 /* ================= 汇总 ================= */
 const asyncChecks = global.__v061AsyncChecks || [];
 Promise.all(asyncChecks).then(() => {
