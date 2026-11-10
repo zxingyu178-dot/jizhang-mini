@@ -148,3 +148,50 @@ cdec161 merge: v1.4.2 最终稳定性收口（周期规则恢复 + 临时安全�
 37de352 docs(v1.4.2): 交付文档统一 + 回归日志归档
 959f21e fix(v1.4.2): QA-03 createdAt 非法值留可查诊断 + QA-01 性能基准去掉写死日期
 
+
+
+# ===== 以下为 v1.4.3 收口轮追加（上文 v1.4.2 记录未删未改）=====
+
+采集时间：2026-11-10 11:44:30
+
+【0. 基线】
+  分支：fix/stats-hero-narrow-class
+  基线 origin/main = 6fa12b9
+  版本：1.4.3
+  改动面：12 files changed, 1133 insertions(+), 50 deletions(-)
+
+【1. 本轮 4 个业务/测试提交（相对 6fa12b9）】
+  e8b0f60  docs(v1.4.3): 交付文档统一 + 回归日志归档
+  5325f4e  chore(release): 版本号 1.4.2 -> 1.4.3（version.js / package.json / package-lock / README 四处同步）
+  fd601af  fix(v1.4.3): 统计 Hero 窄屏差异化改为 JS 判定挂类（Skyline 宽度断点不生效）
+  e23ac53  fix(v1.4.3): 空金额点保存有提示 + 备注 40 字上限 + 记录窄屏断点事实
+  f3005cf  test(e2e): 新增 real-tap 真实点击回归（金额/备注/分类查找/收支切换/点保存）
+
+【2. 文档与日志归档提交】
+  e8b0f60  docs(v1.4.3): 交付文档统一 + 回归日志归档
+  → 9 files changed, 550 insertions(+), 7 deletions(-)
+
+【3. 合并】
+  $ git checkout main
+  $ git merge --no-ff fix/stats-hero-narrow-class -m "merge: v1.4.3 真实点击测试 + 表单可用性 + 窄屏适配 + 版本升号"
+  → 无冲突
+  → merge commit = 4e3e34e698f706790352e0b40586794a415fc33f
+
+
+【4. 推送】
+  $ git push origin main
+  → 成功：6fa12b9..4e3e34e  main -> main
+  → 未使用 force push
+
+【5. SHA 核对】
+  HEAD        = 4e3e34e698f706790352e0b40586794a415fc33f
+
+  origin/main = 4e3e34e698f706790352e0b40586794a415fc33f
+
+  → **一致**
+
+【6. git log --oneline -4】
+4e3e34e merge: v1.4.3 真实点击测试 + 表单可用性 + 窄屏适配 + 版本升号
+e8b0f60 docs(v1.4.3): 交付文档统一 + 回归日志归档
+5325f4e chore(release): 版本号 1.4.2 -> 1.4.3（version.js / package.json / package-lock / README 四处同步）
+fd601af fix(v1.4.3): 统计 Hero 窄屏差异化改为 JS 判定挂类（Skyline 宽度断点不生效）

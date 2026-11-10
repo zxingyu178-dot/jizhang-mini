@@ -75,3 +75,37 @@ $ git status --short
   （注：`reports/logs/*.log` 因 `.gitignore` 的 `logs/` 规则不进入版本库；文件实体仍在工作区，
     已原样打进最终验收 ZIP，未改动 `.gitignore`。）
 
+
+
+# ===== 以下为 v1.4.3 收口轮追加（上文 v1.4.2 记录未删未改）=====
+
+采集时间：2026-11-10 11:44:24
+
+$ git branch --show-current
+main
+
+$ git rev-parse HEAD
+4e3e34e698f706790352e0b40586794a415fc33f
+
+$ git rev-parse main
+4e3e34e698f706790352e0b40586794a415fc33f
+
+$ git rev-parse origin/main
+4e3e34e698f706790352e0b40586794a415fc33f
+
+★ HEAD 与 origin/main 是否一致：**一致（SAME）**
+
+$ git status --short
+?? DailyValueMini_v1.4.1_Review.zip
+?? DailyValueMini_v1.4.2_Final.zip
+?? DailyValueMini_v1.4.2_Review.zip
+?? DailyValue_Mini_v1.4.0_Acceptance.zip
+?? jizhang-mini_v1.3.2_acceptance.zip
+?? jizhang-mini_v1.3.3_acceptance.zip
+?? jizhang-mini_v1.3.4_acceptance.zip
+?? jizhang-mini_v1.3.5_acceptance.zip
+?? jizhang-mini_v1.3.6_acceptance.zip
+
+★ 结论：`??` 项全部是仓库根目录的历史交付 ZIP（v1.3.2 ~ v1.4.2，共 9 个），本轮未删、未改、未移；
+  无 M / D / R 标记。`reports/logs/*.log` 因 `.gitignore` 的 `logs/` 规则不进入版本库（已知情况，未改 .gitignore），
+  文件实体仍在工作区，已原样打进验收 ZIP。
