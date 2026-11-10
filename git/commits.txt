@@ -195,3 +195,17 @@ cdec161 merge: v1.4.2 最终稳定性收口（周期规则恢复 + 临时安全�
 e8b0f60 docs(v1.4.3): 交付文档统一 + 回归日志归档
 5325f4e chore(release): 版本号 1.4.2 -> 1.4.3（version.js / package.json / package-lock / README 四处同步）
 fd601af fix(v1.4.3): 统计 Hero 窄屏差异化改为 JS 判定挂类（Skyline 宽度断点不生效）
+
+【7. 关于上面第 5 节的 SHA（必读）】
+
+  第 5 节记的 4e3e34e698f706790352e0b40586794a415fc33f 是**合并提交**，
+  也是**首次推送成功那一刻的 HEAD**。
+
+  写这份记录本身又产生了 1 个「只改 git/status.txt + git/commits.txt」的记录提交，
+  所以此刻 `git rev-parse HEAD` 会比 4e3e34e **多 1 个提交**。
+  这不是不一致，也不代表代码有变化 —— 记录提交**只动这两个 txt**，业务与文档内容与合并提交完全相同。
+
+  判断标准（照这个看，别拿 4e3e34e 跟 HEAD 硬比）：
+    - `git rev-parse HEAD` 与 `git rev-parse origin/main` **两者相等** ⇒ 已同步；
+    - `git diff --name-only 4e3e34e..HEAD` 应**只有** git/status.txt 与 git/commits.txt。
+

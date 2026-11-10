@@ -109,3 +109,7 @@ $ git status --short
 ★ 结论：`??` 项全部是仓库根目录的历史交付 ZIP（v1.3.2 ~ v1.4.2，共 9 个），本轮未删、未改、未移；
   无 M / D / R 标记。`reports/logs/*.log` 因 `.gitignore` 的 `logs/` 规则不进入版本库（已知情况，未改 .gitignore），
   文件实体仍在工作区，已原样打进验收 ZIP。
+
+★ 补充说明（同上）：上面记的 HEAD/origin-main = 4e3e34e 是**合并提交**、即首次推送成功时的 HEAD。
+  之后又提交了 1 个只改 git/*.txt 的记录提交，因此当前 HEAD 比它多 1 个提交；
+  判断是否同步请看：`git rev-parse HEAD` 与 `git rev-parse origin/main` **两者相等**。
