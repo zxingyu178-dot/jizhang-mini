@@ -1,4 +1,4 @@
-<view class="dpage {{themeClass}}">
+<view class="dpage {{themeClass}} {{accentClass}}">
   <!-- 背景层 -->
   <view class="dpage-bg">
     <view class="dpage-bg__glow"></view>

@@ -9,32 +9,60 @@ const theme = require('../../utils/theme');
 
 /**
  * Canvas 配色（Canvas 无法读取 CSS 变量，需按主题显式传入）：
- * 紫色主线两主题保持一致；网格 / 标签 / 面积 / 高亮点随主题。
+ * 网格 / 标签 / 面积 / 高亮点随主题；折线主色 + 面积 / 高亮环随**主题色**（accent）。
+ * v1.4.5：主线不再写死靛蓝，改为运行时从 theme.getAccentPalette() 取，
+ *         再拼 rgba（Canvas 只认具体字符串）。换主题色时 subscribe 会重画。
  */
 const PALETTES = {
   dark: {
     grid: 'rgba(255,255,255,0.06)',
     gridLabel: 'rgba(255,255,255,0.4)',
-    areaTop: 'rgba(124,134,255,0.32)',
-    areaBottom: 'rgba(124,134,255,0)',
-    line: '#7c86ff',
     xLabel: 'rgba(255,255,255,0.45)',
     hlDot: '#ffffff',
-    hlRing: 'rgba(124,134,255,0.5)',
+    areaAlpha: 0.32,
+    hlRingAlpha: 0.5,
   },
   light: {
     grid: 'rgba(80,90,130,0.12)',
     gridLabel: 'rgba(32,35,52,0.5)',
-    areaTop: 'rgba(110,120,245,0.22)',
-    areaBottom: 'rgba(110,120,245,0)',
-    line: '#6e78f5',
     xLabel: 'rgba(32,35,52,0.5)',
-    hlDot: '#6e78f5',
-    hlRing: 'rgba(110,120,245,0.35)',
+    hlDot: '', // 空 = 用主色（浅色下实心点用主色更清楚）
+    areaAlpha: 0.22,
+    hlRingAlpha: 0.35,
   },
 };
+
+/** '#7c86ff' → '124,134,255'；非法输入回退靛蓝（fail-safe，不抛） */
+function hexToRgbTriple(hex) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || '').trim());
+  const h = m ? m[1] : '7c86ff';
+  return (
+    parseInt(h.slice(0, 2), 16) + ',' +
+    parseInt(h.slice(2, 4), 16) + ',' +
+    parseInt(h.slice(4, 6), 16)
+  );
+}
+
 function palette() {
-  return PALETTES[theme.getEffectiveTheme()] || PALETTES.dark;
+  const mode = theme.getEffectiveTheme() === 'light' ? 'light' : 'dark';
+  const base = PALETTES[mode];
+  let primary = mode === 'light' ? '#6e78f5' : '#7c86ff';
+  try {
+    primary = theme.getAccentPalette().primary || primary;
+  } catch (e) {
+    /* 主题未初始化：用默认靛蓝 */
+  }
+  const rgb = hexToRgbTriple(primary);
+  return {
+    grid: base.grid,
+    gridLabel: base.gridLabel,
+    xLabel: base.xLabel,
+    line: primary,
+    areaTop: 'rgba(' + rgb + ',' + base.areaAlpha + ')',
+    areaBottom: 'rgba(' + rgb + ',0)',
+    hlDot: base.hlDot || primary,
+    hlRing: 'rgba(' + rgb + ',' + base.hlRingAlpha + ')',
+  };
 }
 
 function fullDateText(s) {

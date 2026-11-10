@@ -1,4 +1,4 @@
-<view class="ap-page {{themeClass}}" style="height:{{windowHeight}}px;">
+<view class="ap-page {{themeClass}} {{accentClass}}" style="height:{{windowHeight}}px;">
   <view class="ap-bg">
     <view class="ap-bg__glow"></view>
   </view>
@@ -22,6 +22,26 @@
           <text class="row__sub">{{item.desc}}</text>
         </view>
         <dv-icon wx:if="{{themeMode === item.value}}" name="check" size="20" tone="brand"></dv-icon>
+      </view>
+    </view>
+
+    <!-- 主题色（v1.4.5） -->
+    <view class="sec-label">主题色</view>
+    <view class="glass-card sec">
+      <view class="accent-grid">
+        <view
+          wx:for="{{accents}}"
+          wx:key="value"
+          class="accent-item"
+          data-value="{{item.value}}"
+          bindtap="onSelectAccent"
+        >
+          <view class="accent-dot" style="background:{{item.swatch}};">
+            <!-- 勾固定深墨（四色卡实测 6.19/8.94/9.24/6.43），不用 onPrimary（浅色模式下是白色，看不清） -->
+            <dv-icon wx:if="{{accent === item.value}}" name="check" size="14" color="{{item.checkColor}}"></dv-icon>
+          </view>
+          <text class="accent-item__label {{accent === item.value ? 'accent-item__label--on' : ''}}">{{item.label}}</text>
+        </view>
       </view>
     </view>
   </scroll-view>

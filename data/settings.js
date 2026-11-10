@@ -20,15 +20,26 @@ function canonicalizeTheme(t) {
   return VALID_THEMES.indexOf(t) >= 0 ? t : DEFAULT_THEME;
 }
 
+/** 主题色合法值（v1.4.5，与 utils/theme.VALID_ACCENTS 一致）；非法统一 indigo。 */
+const VALID_ACCENTS = ['indigo', 'teal', 'amber', 'rose'];
+const DEFAULT_ACCENT = 'indigo';
+
+/** 归一主题色：非法值 / 缺省统一 indigo（老用户无该字段 → 行为与旧版一致） */
+function canonicalizeAccent(a) {
+  return VALID_ACCENTS.indexOf(a) >= 0 ? a : DEFAULT_ACCENT;
+}
+
 const DEFAULT_SETTINGS = {
   currency: '¥',
   theme: DEFAULT_THEME,
+  accent: DEFAULT_ACCENT,
 };
 
-/** 统一规范化：默认值打底 + theme 合法化 + statistics 配置规范化 */
+/** 统一规范化：默认值打底 + theme/accent 合法化 + statistics 配置规范化 */
 function canonicalize(raw) {
   const merged = Object.assign({}, DEFAULT_SETTINGS, raw || {});
   merged.theme = canonicalizeTheme(merged.theme);
+  merged.accent = canonicalizeAccent(merged.accent);
   merged.statistics = statConfig.normalizeConfig(merged.statistics);
   return merged;
 }
@@ -75,6 +86,9 @@ module.exports = {
   VALID_THEMES,
   DEFAULT_THEME,
   canonicalizeTheme,
+  VALID_ACCENTS,
+  DEFAULT_ACCENT,
+  canonicalizeAccent,
   DEFAULT_SETTINGS,
   statisticsConfig: statConfig,
   ensureSettings,

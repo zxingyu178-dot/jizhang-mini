@@ -27,7 +27,7 @@
 }
 .dpage-header__edit text {
   font-size: 24rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .dpage-scroll {
@@ -197,7 +197,7 @@
   color: var(--text-faint);
 }
 .ms-item__status--on {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* 底部操作 */
@@ -210,7 +210,7 @@
   padding: 26rpx 0;
   text-align: center;
   font-size: 28rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   border-radius: 18rpx;
   background: var(--primary-tint);
   border: 1rpx solid var(--primary);

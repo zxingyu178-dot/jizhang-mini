@@ -3,6 +3,36 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.4.5] — 2026-11-10
+
+Theme Accent（主题配色扩展）。**只换强调色、不动骨架**：新增 4 套主题色 × 深 / 浅共 8 组，同步修掉 3 个存量对比度 / 硬编码缺陷。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器。
+
+### 新增（4 套主题色 × 深 / 浅）
+- **外观页新增「主题色」四选一**：靛蓝（缺省）/ 青竹 / 琥珀 / 玫红，点击即时生效，无需保存按钮；只改主题 class，不 reLaunch、不重置数据、不丢页面状态。
+- **存储**：新增 `settings.accent`（`indigo` / `teal` / `amber` / `rose`）。老用户无该字段 → 归一 `indigo`，**升级后颜色零变化**；非法值（`undefined` / `null` / `'blue'` / `123`）一律归一 `indigo`，不崩。
+- **CSS**：`app.wxss` 新增 8 组 `.theme-x.accent-y` 覆盖块（必须双类组合，单写 `.accent-y` 会同时盖掉深色与浅色），每组覆盖 `--primary` / `--primary-deep` / `--primary-text` / `--on-primary` / `--button-primary-text` / `--glow-*` / `--hero-bg`。
+- **接线**：14 个页面根容器挂 `accentClass`（与 `themeClass` 并列），`utils/theme.js` 新增 `ACCENTS` / `VALID_ACCENTS` / `getAccent` / `getAccentClass` / `getAccentPalette` / `setAccent`，`reloadFromStorage` 一并重读 accent（备份恢复后主题色立即生效）。
+
+### 修复（3 个存量缺陷）
+1. **浅色主题主色当文字偏淡**：`color: var(--primary)` 16 处实测 **3.52:1**（正文标准 4.5）→ 新增 `--primary-text` 专用文字色，浅色靛蓝改用 `#4b55cf` = **5.70:1**，8 组全部 ≥4.5:1。`--primary` 降级为只管图形 / 边框 / 填充（≥3:1 即可）。
+2. **深色主题按钮白字偏淡**：白字压 `#7c86ff` = **3.13:1** → 新增 `--on-primary`，深色下压亮主色必须配深墨字（靛蓝 `#0b0d16` = **6.19:1**，青竹 / 琥珀 / 玫红同理），浅色下仍用白字。**绝不写死白色**。
+3. **6 处 JS 硬编码主色，不跟主题走**：`components/category-icon/category-icon.js`、`components/icon/icon.js`、`components/daily-value-curve/daily-value-curve.js`（4 处折线色）、`data/statistics/cumulative.js` 的 `LINE_COLOR` → 改为运行时从 `theme.getAccentPalette().primary` 取（保留原靛蓝值仅作异常兜底，不抛错）。原「换主题后图标高亮 / 首页日价曲线 / 统计累计折线还是靛蓝」的半变色问题消失。
+
+### 顺带
+- `scripts/theme-audit.js` 品牌色白名单不再写死 4 个 hex，改为按主题读（否则加主题后必然误报）。
+- 外观页色卡色值改为从 `utils/theme.js` 的 `ACCENTS[x].dark.primary` 取（单一来源，不再两处维护同一批 hex）；色卡选中勾仍统一深墨 `#0b0d16`（白勾压亮主色只有 2.0~2.2）。
+
+### 背景染色（客户已确认保留）
+- 只动 `--glow-*` 让背景光晕跟着主题色相走；`--bg` / `--card-bg` / `--surface` **未动**，玻璃层次不变。
+
+### 测试
+- `npm test` **52/52 套件通过**；`tests/theme.test.js` 扩到 **285 断言**（4 套 × 深 / 浅全组合对比度闸门、归一化 fail-safe、双类组合覆盖块完整性、页面接线）。
+- `npm run theme:audit` FAIL 0；`npm run contrast:audit` 通过；`npm run release:check` FAIL 0 / WARN 1（`libVersion=latest` 既有）。
+- 真机 iPhone / Android 未测试。
+
+### 冻结项
+- `--expense` / `--income` / `--budget-*` 语义色零改动；数据合同、统计口径零改动；不新增依赖、不更换渲染器；微信上传 / 审核 / 发布由交付岗执行。
+
 ## [1.4.4] — 2026-11-10
 
 Chart Readability & Axis Polish（统计页图表可读性收尾）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器与视觉体系。

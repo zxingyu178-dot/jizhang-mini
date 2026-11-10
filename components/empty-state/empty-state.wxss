@@ -58,7 +58,9 @@
   padding: 16rpx 48rpx;
   border-radius: 999rpx;
   font-size: 26rpx;
-  color: var(--button-primary-text);
+  /* v1.4.5：这是浅色 tint 底上的文字，不是实色主按钮 → 走 --primary-text（≥4.5:1）。
+     原来用 --button-primary-text（深色主题已改为深色字）会在 tint 底上看不清。 */
+  color: var(--primary-text);
   background: var(--primary-tint);
   border: 1rpx solid var(--primary);
 }

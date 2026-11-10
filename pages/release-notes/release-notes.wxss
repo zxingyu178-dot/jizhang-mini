@@ -63,7 +63,7 @@
 }
 .rn-item__dot {
   font-size: 26rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-right: 14rpx;
   line-height: 1.5;
 }

@@ -62,3 +62,35 @@
   color: var(--text-faint);
   margin-top: 6rpx;
 }
+
+/* ---- 主题色四选一（v1.4.5） ---- */
+.accent-grid {
+  display: flex;
+  align-items: flex-start;
+  padding: 24rpx 0 28rpx;
+}
+.accent-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.accent-dot {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 圆环描边：浅色底的色块（如琥珀）不靠描边会和白玻璃糊在一起 */
+  border: 2rpx solid var(--card-border);
+}
+.accent-item__label {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+.accent-item__label--on {
+  color: var(--text-primary);
+  font-weight: 600;
+}

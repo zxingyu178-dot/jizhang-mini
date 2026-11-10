@@ -36,6 +36,6 @@
   margin-top: 4rpx;
   font-size: 28rpx;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   font-variant-numeric: tabular-nums;
 }

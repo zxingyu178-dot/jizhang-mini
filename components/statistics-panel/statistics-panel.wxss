@@ -37,7 +37,9 @@
 .seg__item--active {
   color: var(--button-primary-text);
   font-weight: 600;
-  background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+  /* v1.4.5：底与字必须配对。写死 primary→primary-deep 渐变时，深色主题的深色按钮字
+     压在 primary-deep 端只有 4.29（<4.5），改用 --button-primary（按模式取底）+ 配套字色 */
+  background: var(--button-primary);
   box-shadow: 0 6rpx 18rpx var(--primary-glow);
 }
 
@@ -271,7 +273,7 @@
 }
 .share-toggle__text {
   font-size: 24rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* ---- 图表卡 ---- */
@@ -822,6 +824,6 @@
 }
 .mgr-reset__text {
   font-size: 28rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
 }

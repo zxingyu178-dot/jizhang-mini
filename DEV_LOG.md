@@ -1,6 +1,42 @@
 # DEV LOG — 随时随地大小记（jizhang-mini）
 
-- 当前版本：**1.4.4**
+- 当前版本：**1.4.5**
+
+---
+
+# v1.4.5 收口轮（2026-11-10）
+
+- 分支：`main`（直接提交）
+- 基线：`origin/main` = `faece15`（工作区干净，无遗留未推送提交）
+- 版本：**1.4.5**
+- 改动面：**45 个文件**（40 代码 / 配置 + 5 文档；`git diff --stat` 43 个已跟踪文件 + 2 个新增未跟踪文档）
+- 本轮定位：主题配色扩展（详见 `docs/HANDOFF_v1.4.5.md`、`CHANGELOG.md`）
+
+## 1. 4 套主题色 × 深 / 浅
+
+只换强调色、不动骨架：`app.wxss` 新增 8 组 `.theme-x.accent-y` 覆盖块，每组只覆盖 `--primary` / `--primary-deep` / `--primary-text` / `--on-primary` / `--button-primary-text` / `--glow-*` / `--hero-bg`。
+
+**必须双类组合**：单写 `.accent-teal` 会同时盖掉深色与浅色的变量（后出现者胜，与 mode 无关），结果深色模式拿到浅色配色 → 8 组全部显式写出，`theme.test.js` 逐组断言 6 个变量齐全。
+
+**新增存储**：`settings.accent`，缺省 `indigo`；老用户无该字段 → 归一 `indigo`，**升级后颜色零变化**。`setAccent` 与 `setThemeMode` 同一写盘口径（先 `writeJSONAtomic` 成功才更新内存，失败返回 `{ok:false}` 不假成功）。
+
+**接线**：14 个页面根容器 `class="{{themeClass}} {{accentClass}}"`。
+
+## 2. 三个存量缺陷（顺带修掉）
+
+1. **浅色主色当文字偏淡** 3.52:1 → 新增 `--primary-text`，浅色靛蓝 `#4b55cf` = **5.70:1**，8 组全部 ≥4.5。`--primary` 降级为只管图形 / 边框（≥3:1）。门禁：`theme.test.js` 扫全项目 `.wxss`，出现 `color: var(--primary)` 直接 FAIL。
+2. **深色按钮白字偏淡** 3.13:1 → 新增 `--on-primary`，深色下压亮主色配深墨字（靛蓝 = **6.19:1**），浅色仍白字。契约测试断言深色 4 组 `--on-primary` **不许是 `#ffffff`**。
+3. **6 处 JS 硬编码主色** → 全部改为运行时取 `theme.getAccentPalette()`（原靛蓝值只留异常兜底）：`category-icon.js`、`icon.js`、`daily-value-curve.js`（4 处）、`data/statistics/cumulative.js` 的 `LINE_COLOR`（改由组件经 `opts.lineColor` 传入）。原「换主题后图标高亮 / 日价曲线 / 累计折线还是靛蓝」的半变色问题消失。
+
+**连带**：`scripts/theme-audit.js` 品牌色白名单改为按主题读（否则加主题必误报）；外观页色卡 4 个 hex 改为从 `ACCENTS[x].dark.primary` 取（单一来源，改造前后渲染色值实测完全一致）。
+
+## 3. 背景染色（客户已确认保留）
+
+`--glow-*` 跟色相走；**`--bg` / `--card-bg` / `--surface` 未动**，玻璃层次不变（`release-check` 会静态比对 `PAGE_BG` / `CARD_WHITE_ALPHA` 常量）。
+
+## 4. 回归
+
+`npm test` 52/52；`theme.test.js` **285 断言**；`theme:audit` 违规 0；`contrast:audit` 3.145 / 3.249；`release:check` FAIL 0 / WARN 1（`libVersion=latest` 既有）；`npm run perf` 1k 2ms / 5k 6ms / 10k 13ms，10k÷1k = **6.5x**；`artifacts/theme-preview/contrast-check.js` 36 项 FAIL 0。
 
 ---
 

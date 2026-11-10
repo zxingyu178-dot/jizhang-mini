@@ -1,4 +1,4 @@
-<view class="shell {{themeClass}}" style="height:{{windowHeight}}px;">
+<view class="shell {{themeClass}} {{accentClass}}" style="height:{{windowHeight}}px;">
   <!-- 背景层：紫黑渐变 + 紫色柔光 -->
   <view class="shell-bg">
     <view class="shell-bg__glow shell-bg__glow--1"></view>

@@ -36,7 +36,7 @@
 .rs-merged {
   margin-top: 10rpx;
   font-size: 24rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   text-align: center;
 }
 .rs-tip {

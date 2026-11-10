@@ -238,11 +238,11 @@
 }
 .cat-more__text {
   font-size: 27rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .cat-more__arrow {
   font-size: 32rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-left: 8rpx;
 }
 

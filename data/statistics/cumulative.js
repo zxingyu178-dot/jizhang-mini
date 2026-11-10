@@ -1,6 +1,10 @@
 // data/statistics/cumulative.js
 // 累计消费趋势（cumulative-trend）的纯计算：把 computeCumulativeTrend 的 points
-// 转成「面积 + 折线」SVG。不依赖 wx，网格颜色由组件按主题注入，主线用品牌色。
+// 转成「面积 + 折线」SVG。不依赖 wx，网格颜色与主线颜色都由组件按主题注入。
+// v1.4.5：主线颜色不再写死靛蓝（换主题色后统计页累计折线会残留紫色），
+//   改由 opts.lineColor 传入（组件从 theme.getAccentPalette().primary 取）。
+//   LINE_COLOR 导出名保留，值仍是默认靛蓝，作为「没传线色」时的兜底，
+//   避免其它引用（测试 / 旧组件）炸掉。
 // 坐标量化到 2 位小数（与 path-normalize 一致，避免高精度几何在 <image> 下的解析问题）。
 //
 // v1.4.3 修复：viewBox 必须与显示盒同宽高比。
@@ -17,6 +21,7 @@
 
 const axis = require('./axis');
 
+/** 兜底线色（默认靛蓝）：仅当调用方没传 lineColor 时使用。本模块不读主题（纯计算，不依赖 wx）。 */
 const LINE_COLOR = '#7c86ff';
 
 /** 默认显示盒（与 statistics-panel 的 width/height 属性一致，作为量不到容器时的兜底） */
@@ -108,12 +113,15 @@ function xAt(geo, i, n) {
  * @param {number} max 累计最大值（分）
  * @param {string} gridColor 网格线颜色（组件按主题传入）
  * @param {{w:number,h:number}} [box] 显示盒尺寸（px）；缺省用 320×180
- * @param {{padLeft?:number,tickCount?:number,spanDays?:number}} [opts]
+ * @param {{padLeft?:number,tickCount?:number,spanDays?:number,lineColor?:string}} [opts]
  *        spanDays：横轴总跨度（整月天数）；缺省 = points.length（旧行为）
+ *        lineColor：主线 / 面积 / 末端圆点颜色（组件传 theme.getAccentPalette().primary）；
+ *                   缺省 / 非法值 → LINE_COLOR（默认靛蓝），保持旧调用方行为不变
  * @returns {string}
  */
 function buildCumulativeSVG(points, max, gridColor, box, opts) {
   const o = opts || {};
+  const lineColor = typeof o.lineColor === 'string' && o.lineColor ? o.lineColor : LINE_COLOR;
   const geo = computeGeometry(box, o.padLeft, o.tickCount);
   const open = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + geo.w + ' ' + geo.h + '">';
   if (!points || !points.length) {
@@ -158,10 +166,10 @@ function buildCumulativeSVG(points, max, gridColor, box, opts) {
   return (
     open +
     grids +
-    '<path d="' + area + '" fill="' + LINE_COLOR + '" fill-opacity="0.18" stroke="none"/>' +
-    '<path d="' + line + '" fill="none" stroke="' + LINE_COLOR + '" stroke-width="' + geo.strokeW + '" ' +
+    '<path d="' + area + '" fill="' + lineColor + '" fill-opacity="0.18" stroke="none"/>' +
+    '<path d="' + line + '" fill="none" stroke="' + lineColor + '" stroke-width="' + geo.strokeW + '" ' +
     'stroke-linejoin="round" stroke-linecap="round"/>' +
-    '<circle cx="' + last.x + '" cy="' + last.y + '" r="' + dotR + '" fill="' + LINE_COLOR + '"/>' +
+    '<circle cx="' + last.x + '" cy="' + last.y + '" r="' + dotR + '" fill="' + lineColor + '"/>' +
     '</svg>'
   );
 }

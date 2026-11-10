@@ -1,14 +1,17 @@
 /**
- * utils/theme.js — 主题管理器（v0.9.0 Theme & Appearance）
+ * utils/theme.js — 主题管理器（v0.9.0 Theme & Appearance / v1.4.5 主题色扩展）
  *
  * 模型：
  *   themeMode      = 'dark' | 'light' | 'system'（用户选择）
  *   effectiveTheme = 'dark' | 'light'（实际生效；system 时跟随系统）
+ *   accent         = 'indigo' | 'teal' | 'amber' | 'rose'（主题色，v1.4.5 新增）
  *
- * 职责：读取 / 持久化 settings.theme、解析 effectiveTheme、系统主题变化监听、
- *       通知所有订阅页面。默认 dark；现有用户 theme=dark 保持，绝不自动变 system。
+ * 职责：读取 / 持久化 settings.theme + settings.accent、解析 effectiveTheme、
+ *       系统主题变化监听、通知所有订阅页面。默认 dark + indigo（与旧版完全一致）；
+ *       现有用户 theme=dark 保持，绝不自动变 system；无 accent 字段的老用户一律 indigo。
  *
- * fail-safe：settings.theme 出现非法值（blue/123/null）一律归一为 dark，不崩。
+ * fail-safe：settings.theme 出现非法值（blue/123/null）一律归一为 dark，不崩；
+ *           settings.accent 非法值（undefined/null/'blue'/123）一律归一为 indigo，不崩。
  *
  * 该模块只依赖极轻的 data/fs + data/paths，不依赖数据层 init，因此可在
  * app.onLaunch 最前面（数据层初始化之前）初始化，尽量避免冷启动「黑闪」。
@@ -24,6 +27,48 @@ const DEFAULT_MODE = 'dark';
 /** 归一主题模式：非法值统一 dark（fail-safe） */
 function normalizeMode(m) {
   return VALID_MODES.indexOf(m) >= 0 ? m : DEFAULT_MODE;
+}
+
+/* ============================================================
+ * 主题色（accent）：4 套配色 × 深/浅 = 8 组
+ *
+ * 色值来源：docs/BACKLOG.md「A 方案已完成的配色设计与验证」，
+ * 全部过 36 项对比度验证（artifacts/theme-preview/contrast-check.js）。
+ * 分工：
+ *   primary     主色，只用于图形 / 边框 / 填充（≥3:1）
+ *   deep        深一档：浅色主题的按钮底 / 渐变深端
+ *   text        主色当文字用（≥4.5:1，浅色下与 primary 不同）
+ *   onPrimary   压在 primary 上的字：亮主色必须配深色字，绝不写死白色
+ * ============================================================ */
+const ACCENTS = {
+  indigo: {
+    label: '靛蓝',
+    dark: { primary: '#7c86ff', deep: '#5b67f0', text: '#7c86ff', on: '#0b0d16' },
+    light: { primary: '#6e78f5', deep: '#5660e0', text: '#4b55cf', on: '#ffffff' },
+  },
+  teal: {
+    label: '青竹',
+    dark: { primary: '#2ec4b6', deep: '#1f9e93', text: '#2ec4b6', on: '#06231f' },
+    light: { primary: '#0f8f83', deep: '#0b6f66', text: '#0a6a61', on: '#ffffff' },
+  },
+  amber: {
+    label: '琥珀',
+    dark: { primary: '#f0a33e', deep: '#d4862a', text: '#f0a33e', on: '#2a1a05' },
+    light: { primary: '#a8680a', deep: '#8a5408', text: '#8a5408', on: '#ffffff' },
+  },
+  rose: {
+    label: '玫红',
+    dark: { primary: '#f0658f', deep: '#d44a75', text: '#f0658f', on: '#2b0a14' },
+    light: { primary: '#cf3a69', deep: '#ad2b53', text: '#ad2b53', on: '#ffffff' },
+  },
+};
+
+const VALID_ACCENTS = ['indigo', 'teal', 'amber', 'rose'];
+const DEFAULT_ACCENT = 'indigo';
+
+/** 归一主题色：非法值统一 indigo（fail-safe，老用户无 accent 字段 → indigo） */
+function normalizeAccent(a) {
+  return VALID_ACCENTS.indexOf(a) >= 0 ? a : DEFAULT_ACCENT;
 }
 
 /** 读取系统当前外观：dark | light（接口做容错，取不到默认 dark） */
@@ -48,6 +93,7 @@ function computeEffective(mode) {
 /* ---- 模块状态 ---- */
 let _mode = DEFAULT_MODE;
 let _effective = 'dark';
+let _accent = DEFAULT_ACCENT;
 let _started = false;
 let _listeners = [];
 // 单调递增的主题变更序号：每次 emit（主题模式 / 生效色变化）+1，
@@ -75,6 +121,9 @@ function snapshot() {
     themeMode: _mode,
     effectiveTheme: _effective,
     themeClass: 'theme-' + _effective,
+    // v1.4.5 主题色：页面根容器再挂一个 accent-xxx，与 theme-xxx 组合生效
+    accent: _accent,
+    accentClass: 'accent-' + _accent,
   };
 }
 
@@ -115,6 +164,7 @@ function init() {
     raw = null;
   }
   _mode = normalizeMode(raw && raw.theme);
+  _accent = normalizeAccent(raw && raw.accent);
   _effective = computeEffective(_mode);
 
   if (wx.onThemeChange) {
@@ -166,6 +216,34 @@ function getEffectiveTheme() {
 }
 function getThemeClass() {
   return 'theme-' + _effective;
+}
+/** 当前主题色（indigo / teal / amber / rose） */
+function getAccent() {
+  return _accent;
+}
+/** 当前主题色对应的 class（accent-xxx），页面根容器与 theme-xxx 一起挂 */
+function getAccentClass() {
+  return 'accent-' + _accent;
+}
+/**
+ * 当前 accent + 当前 effectiveTheme 下的调色板，供 JS 侧画图 / 生成 SVG 用
+ * （CSS 变量在 Canvas / data-URI 里读不到，必须走这条）。
+ * @returns {{accent:string,effectiveTheme:string,primary:string,primaryDeep:string,
+ *            primaryText:string,onPrimary:string,label:string}}
+ */
+function getAccentPalette() {
+  const entry = ACCENTS[_accent] || ACCENTS[DEFAULT_ACCENT];
+  const mode = _effective === 'light' ? 'light' : 'dark';
+  const p = entry[mode];
+  return {
+    accent: _accent,
+    effectiveTheme: mode,
+    label: entry.label,
+    primary: p.primary,
+    primaryDeep: p.deep,
+    primaryText: p.text,
+    onPrimary: p.on,
+  };
 }
 /** 当前主题变更序号（每次 emit 递增），用于 onShow 识别主题变化 */
 function getChangeCounter() {
@@ -245,10 +323,37 @@ function setThemeMode(mode) {
 }
 
 /**
+ * 设置主题色（用户主动选择）：**先持久化 settings.json，写成功后才更新内存并通知**。
+ * 与 setThemeMode 完全同一套口径：保留 settings 其它字段（currency/budget/theme/statistics）。
+ * 写失败：内存保持旧主题色、不 emit（不假成功），返回 { ok:false }，由 UI 提示重试。
+ * 成功：返回 { ok:true, ...snapshot }。
+ */
+function setAccent(accent) {
+  const next = normalizeAccent(accent);
+  // 1) 先写磁盘；失败则保持旧主题色，绝不「视觉成功、磁盘失败」。
+  try {
+    const settings = fs.exists(paths.FILE.settings)
+      ? fs.readJSONStrict(paths.FILE.settings)
+      : {};
+    settings.accent = next;
+    fs.writeJSONAtomic(paths.FILE.settings, settings);
+  } catch (e) {
+    return Object.assign({ ok: false }, snapshot());
+  }
+  // 2) 写成功后才更新内存。
+  if (next !== _accent) {
+    _accent = next;
+    emit();
+  }
+  return Object.assign({ ok: true }, snapshot());
+}
+
+/**
  * 从磁盘 settings.theme 重新加载（备份恢复 / settings 被外部覆盖后调用）：
  * 重新读取 → 归一 → 重算 effective → 变化时通知。
  * 不重新注册系统主题监听，也不依赖 init 是否已完成（恢复场景下通常已 init）。
  * 用于「恢复了一个浅色备份，当前 App 立即变浅色，无需重启」。
+ * v1.4.5：accent 一并重读（备份里带了主题色，恢复后立即生效）。
  */
 function reloadFromStorage() {
   let raw = null;
@@ -258,11 +363,14 @@ function reloadFromStorage() {
     raw = null;
   }
   const next = normalizeMode(raw && raw.theme);
+  const nextAccent = normalizeAccent(raw && raw.accent);
   const prevMode = _mode;
   const prevEffective = _effective;
+  const prevAccent = _accent;
   _mode = next;
+  _accent = nextAccent;
   _effective = computeEffective(next);
-  if (_effective !== prevEffective || next !== prevMode) emit();
+  if (_effective !== prevEffective || next !== prevMode || nextAccent !== prevAccent) emit();
   // 从磁盘重载意味着 settings（往往连同账单）已被外部覆盖（备份恢复 / 回滚），
   // 任何此前的纯主题保留标记都必须取消，避免返回主页跳过统计刷新。
   cancelThemePreserve();
@@ -313,6 +421,7 @@ function _resetForTest() {
   _started = false;
   _mode = DEFAULT_MODE;
   _effective = 'dark';
+  _accent = DEFAULT_ACCENT;
   _listeners = [];
   _chromeListeners = [];
   _changeCounter = 0;
@@ -324,6 +433,10 @@ module.exports = {
   VALID_MODES,
   DEFAULT_MODE,
   normalizeMode,
+  ACCENTS,
+  VALID_ACCENTS,
+  DEFAULT_ACCENT,
+  normalizeAccent,
   getSystemTheme,
   init,
   subscribe,
@@ -331,6 +444,9 @@ module.exports = {
   getThemeMode,
   getEffectiveTheme,
   getThemeClass,
+  getAccent,
+  getAccentClass,
+  getAccentPalette,
   getChangeCounter,
   getThemeOnlyCounter,
   markThemePreserve,
@@ -338,6 +454,7 @@ module.exports = {
   consumeThemePreserve,
   hasThemePreserve,
   setThemeMode,
+  setAccent,
   reloadFromStorage,
   refreshSystemTheme,
   bindPage,

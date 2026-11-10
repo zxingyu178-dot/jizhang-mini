@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：1.4.4（Chart Readability：统计页图表补齐横纵坐标轴、刻度对比度、累计折线截止日与日期标签自适应、空态口径统一）。
+- 当前版本：1.4.5（Theme Accent：新增靛蓝 / 青竹 / 琥珀 / 玫红 4 套主题色 × 深 / 浅，只换强调色不动骨架；顺带修复主色当文字偏淡、深色按钮白字偏淡、6 处 JS 硬编码主色三个存量缺陷）。
 - 版本历史与各版变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 测试
@@ -45,6 +45,7 @@ App 版本号以 `utils/version.js` 为单一事实源，需与 `package.json` /
 - **Android 分类与周期迁移**：`.dvbackup` 除日价外，自定义分类按确定性 id（`dvcat-`）迁入（先按名称复用、否则新建，重复导入不重复），并带上视觉字段：Mini 支持的 builtin 复用本地 SVG、emoji 原样保留、不支持的 builtin 退回其 emoji；标准 12 类只做 id 映射、不覆盖本地已设图标。账单分类跟随映射、不再全部变「其他」；`recurringRules` 转换为 Mini 规则（金额元→分、频率 / 间隔 / 日期 / 游标保留，`dvrule-` id），导入后不从头补账。
 - **Android 日价迁移**：`.dvbackup` 完整迁移 `title / ledgerImpact / dailyValue`（含 normal+dailyValue、仅日价物品），已存在账单按源 id 合并补日价、不重复；CSV 无日价字段，仅迁普通账单（对无 id 账单做保守匹配，唯一才补、多条需确认）。
 - **Mini 备份 V3**：完整保存 `title / ledgerImpact / dailyValue / recurringRules`，恢复兼容 V1 + V2 + V3（旧备份缺 `recurringRules` 按空处理）。
+- **主题配色（v1.4.5）**：外观页在原有「跟随系统 / 深色 / 浅色」之外新增**主题色四选一**（靛蓝 / 青竹 / 琥珀 / 玫红，缺省靛蓝），4 套 × 深浅共 8 组，只覆盖强调色变量（`--primary` / `--primary-deep` / `--primary-text` / `--on-primary` / 发光色），深 / 浅骨架与 `--expense` / `--income` / `--budget-*` 语义色一律不动。选择存于 `settings.accent`；老用户无该字段 → 归一靛蓝，**升级后颜色零变化**。主色当文字一律走 `--primary-text`（8 组均 ≥4.5:1），压在亮主色上的字走 `--on-primary`（青竹 / 琥珀 / 玫红深色配深墨字，不写死白色）。
 
 ## 目录结构
 

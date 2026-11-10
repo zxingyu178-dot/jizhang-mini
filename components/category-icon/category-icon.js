@@ -9,13 +9,13 @@ const { b64encodeAscii } = require('../../utils/b64');
 const { normalizeBody } = require('../../utils/path-normalize');
 
 // tone → 实际颜色（与 components/icon 保持一致；base64 SVG 需具体颜色字符串）
+// brand / onbrand 不写死：跟当前主题色（accent）走，见 resolveColor()。v1.4.5
 const TONE_COLORS = {
   dark: {
     primary: 'rgba(255,255,255,0.86)',
     secondary: 'rgba(255,255,255,0.62)',
     faint: 'rgba(255,255,255,0.40)',
     inverse: '#ffffff',
-    brand: '#7c86ff',
     danger: '#ef606b',
   },
   light: {
@@ -23,7 +23,6 @@ const TONE_COLORS = {
     secondary: 'rgba(25,28,40,0.58)',
     faint: 'rgba(25,28,40,0.38)',
     inverse: '#ffffff',
-    brand: '#6e78f5',
     danger: '#dc4a55',
   },
 };
@@ -68,6 +67,15 @@ Component({
       let t = 'dark';
       try { t = theme.getEffectiveTheme(); } catch (e) { t = 'dark'; }
       const map = TONE_COLORS[t] || TONE_COLORS.dark;
+      // 品牌色 / 压在品牌色上的图标：跟随当前主题色（v1.4.5，不再写死靛蓝）。
+      if (this.data.tone === 'brand' || this.data.tone === 'onbrand') {
+        try {
+          const pal = theme.getAccentPalette();
+          return this.data.tone === 'brand' ? pal.primary : pal.onPrimary;
+        } catch (e) {
+          return t === 'light' ? '#6e78f5' : '#7c86ff';
+        }
+      }
       return map[this.data.tone] || map.primary;
     },
     refresh() {

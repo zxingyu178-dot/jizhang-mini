@@ -101,12 +101,19 @@ page, .theme-dark {
   --text-caption: rgba(255, 255, 255, 0.50);
   --text-inverse: #0b0d16;
 
-  /* ---- 品牌主色（亮紫） ---- */
+  /* ---- 品牌主色（亮紫） ----
+     v1.4.5 拆两层：--primary 只用于图形 / 边框 / 填充（≥3:1）；
+     当文字用一律走 --primary-text（≥4.5:1）。深色下两者同值，浅色下不同。 */
   --primary: #7c86ff;
   --primary-deep: #5b67f0;
+  --primary-text: #7c86ff;
+  /* 按钮渐变的另一端（深色下比主色亮一档；浅色下比 deep 暗一档），
+     保证渐变全程与按钮文字对比度 ≥4.5（见 docs/BACKLOG.md B-1 硬规则 1/2） */
+  --primary-high: #8893ff;
   --primary-glow: rgba(124, 134, 255, 0.32);
   --primary-tint: rgba(124, 134, 255, 0.16);
-  --on-primary: #ffffff;
+  /* 压在 --primary 上的字：亮主色必须配深色字（白字只有 3.13，不达标） */
+  --on-primary: #0b0d16;
 
   /* ---- 业务语义（固定规则：支出=绿、收入=红，不随主题反转） ---- */
   --expense: #3ddc8f;
@@ -166,9 +173,11 @@ page, .theme-dark {
   --icon-brand: #7c86ff;
   --icon-danger: #ef606b;
 
-  /* ---- 按钮：主操作 / 危险 / 禁用 ---- */
-  --button-primary: linear-gradient(135deg, #7c86ff 0%, #5b67f0 100%);
-  --button-primary-text: #ffffff;
+  /* ---- 按钮：主操作 / 危险 / 禁用 ----
+     深色主题：按钮底用 --primary（亮）+ --on-primary（深色字），白字只有 3.13 不达标；
+     浅色主题：按钮底用 --primary-deep（暗一档）+ 白字。按模式分，不能一律 var(--primary)。 */
+  --button-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-high) 100%);
+  --button-primary-text: var(--on-primary);
   --button-primary-shadow: 0 6rpx 18rpx rgba(91, 103, 240, 0.22);
   --button-danger: linear-gradient(135deg, #ef606b 0%, #d94a55 100%);
   --button-danger-text: #ffffff;
@@ -245,9 +254,12 @@ page, .theme-dark {
   --text-caption: rgba(32, 35, 52, 0.50);
   --text-inverse: #ffffff;
 
-  /* ---- 品牌主色（略加深保证白底对比） ---- */
+  /* ---- 品牌主色（略加深保证白底对比） ----
+     v1.4.5：--primary 在白底下当文字只有 3.52（缺陷 1），文字一律用 --primary-text。 */
   --primary: #6e78f5;
   --primary-deep: #5660e0;
+  --primary-text: #4b55cf;
+  --primary-high: #4c54c5;
   --primary-glow: rgba(110, 120, 245, 0.28);
   --primary-tint: rgba(110, 120, 245, 0.14);
   --on-primary: #ffffff;
@@ -309,8 +321,9 @@ page, .theme-dark {
   --icon-brand: #6e78f5;
   --icon-danger: #dc4a55;
 
-  /* ---- 按钮 ---- */
-  --button-primary: linear-gradient(135deg, #6e78f5 0%, #5660e0 100%);
+  /* ---- 按钮 ----
+     浅色主题按钮底用 --primary-deep（暗一档）+ 白字，亮主色配白字只有 3.52 不达标 */
+  --button-primary: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-high) 100%);
   --button-primary-text: #ffffff;
   --button-primary-shadow: 0 6rpx 18rpx rgba(86, 96, 224, 0.32);
   --button-danger: linear-gradient(135deg, #e0474f 0%, #c8363f 100%);
@@ -323,6 +336,196 @@ page, .theme-dark {
 
   background-color: var(--bg);
   color: var(--text-primary);
+}
+
+/* ============================================================
+   三·五、主题色（accent）覆盖块 —— v1.4.5
+   4 套配色（靛蓝 / 青竹 / 琥珀 / 玫红）× 深/浅 = 8 组，由 utils/theme.js 的
+   accentClass（accent-indigo / accent-teal / accent-amber / accent-rose）挂到
+   页面根容器上，与 theme-dark / theme-light 组合生效。
+
+   必须写成 `.theme-x.accent-y` 双类组合：单写 `.accent-y` 会同时盖掉深色与浅色
+   两套的值（后者覆盖前者），导致某个模式取到别模式的色。
+
+   只覆盖「跟着色相走」的变量；--bg / --surface / --text-* / --expense / --income /
+   --budget-* / --cal-* 等语义色四套共用，一律不动。
+   色值严格取自 docs/BACKLOG.md B-1 的已验证色表（36 项对比度全过）。
+   ============================================================ */
+
+/* ---- 靛蓝 indigo（默认，与旧版完全一致） ---- */
+.theme-dark.accent-indigo {
+  --primary: #7c86ff;
+  --primary-deep: #5b67f0;
+  --primary-text: #7c86ff;
+  --on-primary: #0b0d16;
+  --primary-high: #8893ff;
+  --primary-glow: rgba(124, 134, 255, 0.32);
+  --primary-tint: rgba(124, 134, 255, 0.16);
+  --glow-1: rgba(124, 134, 255, 0.34);
+  --glow-2: rgba(91, 103, 240, 0.22);
+  --hero-bg: linear-gradient(135deg, rgba(124, 134, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 46%, rgba(91, 103, 240, 0.10) 100%);
+  --hero-glow: rgba(124, 134, 255, 0.22);
+  --fab-bg: linear-gradient(150deg, rgba(124, 134, 255, 0.34) 0%, rgba(124, 134, 255, 0.10) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(124, 134, 255, 0.28), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
+  --selected-bg: rgba(124, 134, 255, 0.22);
+  --button-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-high) 100%);
+  --button-primary-text: var(--on-primary);
+  --button-primary-shadow: 0 6rpx 18rpx rgba(91, 103, 240, 0.22);
+}
+.theme-light.accent-indigo {
+  --primary: #6e78f5;
+  --primary-deep: #5660e0;
+  --primary-text: #4b55cf;
+  --on-primary: #ffffff;
+  --primary-high: #4c54c5;
+  --primary-glow: rgba(110, 120, 245, 0.28);
+  --primary-tint: rgba(110, 120, 245, 0.14);
+  --glow-1: rgba(124, 134, 255, 0.20);
+  --glow-2: rgba(110, 120, 245, 0.12);
+  --hero-bg: linear-gradient(135deg, rgba(124, 134, 255, 0.14) 0%, rgba(255, 255, 255, 0.72) 46%, rgba(110, 120, 245, 0.10) 100%);
+  --hero-border: 1rpx solid rgba(124, 134, 255, 0.18);
+  --hero-arrow-bg: rgba(124, 134, 255, 0.16);
+  --hero-arrow-active: rgba(124, 134, 255, 0.30);
+  --hero-glow: rgba(124, 134, 255, 0.12);
+  --fab-bg: linear-gradient(150deg, rgba(86, 96, 224, 0.95) 0%, rgba(76, 84, 197, 0.82) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(86, 96, 224, 0.38);
+  --card-border-hi: rgba(124, 134, 255, 0.24);
+  --selected-bg: rgba(110, 120, 245, 0.16);
+  --button-primary: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-high) 100%);
+  --button-primary-text: #ffffff;
+  --button-primary-shadow: 0 6rpx 18rpx rgba(86, 96, 224, 0.32);
+}
+
+/* ---- 青竹 teal ---- */
+.theme-dark.accent-teal {
+  --primary: #2ec4b6;
+  --primary-deep: #1f9e93;
+  --primary-text: #2ec4b6;
+  --on-primary: #06231f;
+  --primary-high: #33d8c8;
+  --primary-glow: rgba(46, 196, 182, 0.32);
+  --primary-tint: rgba(46, 196, 182, 0.16);
+  --glow-1: rgba(46, 196, 182, 0.34);
+  --glow-2: rgba(31, 158, 147, 0.22);
+  --hero-bg: linear-gradient(135deg, rgba(46, 196, 182, 0.16) 0%, rgba(255, 255, 255, 0.04) 46%, rgba(31, 158, 147, 0.10) 100%);
+  --hero-glow: rgba(46, 196, 182, 0.22);
+  --fab-bg: linear-gradient(150deg, rgba(46, 196, 182, 0.34) 0%, rgba(46, 196, 182, 0.10) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(46, 196, 182, 0.28), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
+  --selected-bg: rgba(46, 196, 182, 0.22);
+  --button-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-high) 100%);
+  --button-primary-text: var(--on-primary);
+  --button-primary-shadow: 0 6rpx 18rpx rgba(31, 158, 147, 0.22);
+}
+.theme-light.accent-teal {
+  --primary: #0f8f83;
+  --primary-deep: #0b6f66;
+  --primary-text: #0a6a61;
+  --on-primary: #ffffff;
+  --primary-high: #0a625a;
+  --primary-glow: rgba(15, 143, 131, 0.28);
+  --primary-tint: rgba(15, 143, 131, 0.14);
+  --glow-1: rgba(15, 143, 131, 0.20);
+  --glow-2: rgba(15, 143, 131, 0.12);
+  --hero-bg: linear-gradient(135deg, rgba(15, 143, 131, 0.14) 0%, rgba(255, 255, 255, 0.72) 46%, rgba(11, 111, 102, 0.10) 100%);
+  --hero-border: 1rpx solid rgba(15, 143, 131, 0.18);
+  --hero-arrow-bg: rgba(15, 143, 131, 0.16);
+  --hero-arrow-active: rgba(15, 143, 131, 0.30);
+  --hero-glow: rgba(15, 143, 131, 0.12);
+  --fab-bg: linear-gradient(150deg, rgba(11, 111, 102, 0.95) 0%, rgba(10, 98, 90, 0.82) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(11, 111, 102, 0.38);
+  --card-border-hi: rgba(15, 143, 131, 0.24);
+  --selected-bg: rgba(15, 143, 131, 0.16);
+  --button-primary: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-high) 100%);
+  --button-primary-text: #ffffff;
+  --button-primary-shadow: 0 6rpx 18rpx rgba(11, 111, 102, 0.32);
+}
+
+/* ---- 琥珀 amber ---- */
+.theme-dark.accent-amber {
+  --primary: #f0a33e;
+  --primary-deep: #d4862a;
+  --primary-text: #f0a33e;
+  --on-primary: #2a1a05;
+  --primary-high: #ffb344;
+  --primary-glow: rgba(240, 163, 62, 0.32);
+  --primary-tint: rgba(240, 163, 62, 0.16);
+  --glow-1: rgba(240, 163, 62, 0.34);
+  --glow-2: rgba(212, 134, 42, 0.22);
+  --hero-bg: linear-gradient(135deg, rgba(240, 163, 62, 0.16) 0%, rgba(255, 255, 255, 0.04) 46%, rgba(212, 134, 42, 0.10) 100%);
+  --hero-glow: rgba(240, 163, 62, 0.22);
+  --fab-bg: linear-gradient(150deg, rgba(240, 163, 62, 0.34) 0%, rgba(240, 163, 62, 0.10) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(240, 163, 62, 0.28), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
+  --selected-bg: rgba(240, 163, 62, 0.22);
+  --button-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-high) 100%);
+  --button-primary-text: var(--on-primary);
+  --button-primary-shadow: 0 6rpx 18rpx rgba(212, 134, 42, 0.22);
+}
+.theme-light.accent-amber {
+  --primary: #a8680a;
+  --primary-deep: #8a5408;
+  --primary-text: #8a5408;
+  --on-primary: #ffffff;
+  --primary-high: #794a07;
+  --primary-glow: rgba(168, 104, 10, 0.28);
+  --primary-tint: rgba(168, 104, 10, 0.14);
+  --glow-1: rgba(168, 104, 10, 0.20);
+  --glow-2: rgba(168, 104, 10, 0.12);
+  --hero-bg: linear-gradient(135deg, rgba(168, 104, 10, 0.14) 0%, rgba(255, 255, 255, 0.72) 46%, rgba(138, 84, 8, 0.10) 100%);
+  --hero-border: 1rpx solid rgba(168, 104, 10, 0.18);
+  --hero-arrow-bg: rgba(168, 104, 10, 0.16);
+  --hero-arrow-active: rgba(168, 104, 10, 0.30);
+  --hero-glow: rgba(168, 104, 10, 0.12);
+  --fab-bg: linear-gradient(150deg, rgba(138, 84, 8, 0.95) 0%, rgba(121, 74, 7, 0.82) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(138, 84, 8, 0.38);
+  --card-border-hi: rgba(168, 104, 10, 0.24);
+  --selected-bg: rgba(168, 104, 10, 0.16);
+  --button-primary: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-high) 100%);
+  --button-primary-text: #ffffff;
+  --button-primary-shadow: 0 6rpx 18rpx rgba(138, 84, 8, 0.32);
+}
+
+/* ---- 玫红 rose ---- */
+.theme-dark.accent-rose {
+  --primary: #f0658f;
+  --primary-deep: #d44a75;
+  --primary-text: #f0658f;
+  --on-primary: #2b0a14;
+  --primary-high: #ff6f9d;
+  --primary-glow: rgba(240, 101, 143, 0.32);
+  --primary-tint: rgba(240, 101, 143, 0.16);
+  --glow-1: rgba(240, 101, 143, 0.34);
+  --glow-2: rgba(212, 74, 117, 0.22);
+  --hero-bg: linear-gradient(135deg, rgba(240, 101, 143, 0.16) 0%, rgba(255, 255, 255, 0.04) 46%, rgba(212, 74, 117, 0.10) 100%);
+  --hero-glow: rgba(240, 101, 143, 0.22);
+  --fab-bg: linear-gradient(150deg, rgba(240, 101, 143, 0.34) 0%, rgba(240, 101, 143, 0.10) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(240, 101, 143, 0.28), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
+  --selected-bg: rgba(240, 101, 143, 0.22);
+  --button-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-high) 100%);
+  --button-primary-text: var(--on-primary);
+  --button-primary-shadow: 0 6rpx 18rpx rgba(212, 74, 117, 0.22);
+}
+.theme-light.accent-rose {
+  --primary: #cf3a69;
+  --primary-deep: #ad2b53;
+  --primary-text: #ad2b53;
+  --on-primary: #ffffff;
+  --primary-high: #982649;
+  --primary-glow: rgba(207, 58, 105, 0.28);
+  --primary-tint: rgba(207, 58, 105, 0.14);
+  --glow-1: rgba(207, 58, 105, 0.20);
+  --glow-2: rgba(207, 58, 105, 0.12);
+  --hero-bg: linear-gradient(135deg, rgba(207, 58, 105, 0.14) 0%, rgba(255, 255, 255, 0.72) 46%, rgba(173, 43, 83, 0.10) 100%);
+  --hero-border: 1rpx solid rgba(207, 58, 105, 0.18);
+  --hero-arrow-bg: rgba(207, 58, 105, 0.16);
+  --hero-arrow-active: rgba(207, 58, 105, 0.30);
+  --hero-glow: rgba(207, 58, 105, 0.12);
+  --fab-bg: linear-gradient(150deg, rgba(173, 43, 83, 0.95) 0%, rgba(152, 38, 73, 0.82) 100%);
+  --fab-shadow: 0 10rpx 28rpx rgba(173, 43, 83, 0.38);
+  --card-border-hi: rgba(207, 58, 105, 0.24);
+  --selected-bg: rgba(207, 58, 105, 0.16);
+  --button-primary: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-high) 100%);
+  --button-primary-text: #ffffff;
+  --button-primary-shadow: 0 6rpx 18rpx rgba(173, 43, 83, 0.32);
 }
 
 /* ============================================================

@@ -100,7 +100,7 @@
 .f-chip--active {
   background: var(--primary-tint);
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .f-chip--wide {
   flex: 1;

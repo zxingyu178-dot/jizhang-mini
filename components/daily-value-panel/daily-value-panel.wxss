@@ -138,7 +138,7 @@
 .dv-item__daily {
   font-size: 30rpx;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }

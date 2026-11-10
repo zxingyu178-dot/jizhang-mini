@@ -184,7 +184,7 @@
   padding: 2rpx 14rpx;
   border-radius: 999rpx;
   background: var(--primary-tint);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 20rpx;
   font-weight: 600;
   line-height: 1.6;

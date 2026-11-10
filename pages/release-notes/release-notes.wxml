@@ -1,4 +1,4 @@
-<view class="rn-page {{themeClass}}" style="height:{{windowHeight}}px;">
+<view class="rn-page {{themeClass}} {{accentClass}}" style="height:{{windowHeight}}px;">
   <view class="rn-bg">
     <view class="rn-bg__glow"></view>
   </view>

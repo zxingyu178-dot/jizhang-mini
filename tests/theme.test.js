@@ -468,6 +468,316 @@ async function run() {
   theme._resetForTest();
   eq(theme.getThemeOnlyCounter(), 0, 'THEMEONLY-07 _resetForTest 归零');
 
+  /* ============================================================
+   * v1.4.5：主题色（accent）—— 4 套配色 × 深/浅
+   * ============================================================ */
+
+  /* ---- ACCENT-NORM-01 非法值一律归一 indigo（fail-safe） ---- */
+  eq(theme.normalizeAccent(undefined), 'indigo', 'ACCENT-NORM-01 undefined → indigo');
+  eq(theme.normalizeAccent(null), 'indigo', 'ACCENT-NORM-01 null → indigo');
+  eq(theme.normalizeAccent('blue'), 'indigo', 'ACCENT-NORM-01 非法 blue → indigo');
+  eq(theme.normalizeAccent(123), 'indigo', 'ACCENT-NORM-01 数字 123 → indigo');
+  eq(theme.normalizeAccent(''), 'indigo', 'ACCENT-NORM-01 空串 → indigo');
+  ['indigo', 'teal', 'amber', 'rose'].forEach((a) => {
+    eq(theme.normalizeAccent(a), a, 'ACCENT-NORM-02 合法值 ' + a + ' 保持');
+  });
+
+  /* ---- ACCENT-01 老用户 settings 无 accent → indigo，其余行为不变 ---- */
+  sysTheme = 'dark';
+  s = freshInit({ currency: '¥', theme: 'dark' });
+  eq(s.accent, 'indigo', 'ACCENT-01 无 accent 字段 → indigo');
+  eq(s.accentClass, 'accent-indigo', 'ACCENT-01 accentClass accent-indigo');
+  eq(s.themeClass, 'theme-dark', 'ACCENT-01 themeClass 语义不变');
+  eq(s.themeMode, 'dark', 'ACCENT-01 themeMode 语义不变');
+  eq(s.effectiveTheme, 'dark', 'ACCENT-01 effectiveTheme 语义不变');
+
+  /* ---- ACCENT-02 非法 accent 落盘 → 归一 indigo，不崩 ---- */
+  s = freshInit({ theme: 'light', accent: 'purple' });
+  eq(s.accent, 'indigo', 'ACCENT-02 非法 accent 归一 indigo');
+  eq(s.accentClass, 'accent-indigo', 'ACCENT-02 非法 accent class accent-indigo');
+
+  /* ---- ACCENT-03 snapshot 两两组合 8 种：themeClass + accentClass 同时正确 ---- */
+  const ACCENT_KEYS = ['indigo', 'teal', 'amber', 'rose'];
+  let comboOk = 0;
+  ACCENT_KEYS.forEach((a) => {
+    ['dark', 'light'].forEach((m) => {
+      const st = freshInit({ theme: m, accent: a });
+      if (st.themeClass === 'theme-' + m && st.accentClass === 'accent-' + a && st.accent === a) {
+        comboOk++;
+      } else {
+        assert(false, 'ACCENT-03 组合 ' + a + '/' + m + ' 期望 theme-' + m + ' + accent-' + a + '，实际 ' + st.themeClass + ' + ' + st.accentClass);
+      }
+    });
+  });
+  eq(comboOk, 8, 'ACCENT-03 4 套 × 深/浅 8 种组合 snapshot 全部正确');
+
+  /* ---- ACCENT-04 getAccentPalette 8 种组合的 4 个色值全对 ---- */
+  const EXPECT_PALETTE = {
+    indigo: {
+      dark: ['#7c86ff', '#5b67f0', '#7c86ff', '#0b0d16'],
+      light: ['#6e78f5', '#5660e0', '#4b55cf', '#ffffff'],
+    },
+    teal: {
+      dark: ['#2ec4b6', '#1f9e93', '#2ec4b6', '#06231f'],
+      light: ['#0f8f83', '#0b6f66', '#0a6a61', '#ffffff'],
+    },
+    amber: {
+      dark: ['#f0a33e', '#d4862a', '#f0a33e', '#2a1a05'],
+      light: ['#a8680a', '#8a5408', '#8a5408', '#ffffff'],
+    },
+    rose: {
+      dark: ['#f0658f', '#d44a75', '#f0658f', '#2b0a14'],
+      light: ['#cf3a69', '#ad2b53', '#ad2b53', '#ffffff'],
+    },
+  };
+  ACCENT_KEYS.forEach((a) => {
+    ['dark', 'light'].forEach((m) => {
+      freshInit({ theme: m, accent: a });
+      const p = theme.getAccentPalette();
+      const want = EXPECT_PALETTE[a][m];
+      const got = [p.primary, p.primaryDeep, p.primaryText, p.onPrimary];
+      eq(got.join(','), want.join(','), 'ACCENT-04 ' + a + '/' + m + ' palette 四色');
+      eq(p.effectiveTheme, m, 'ACCENT-04 ' + a + '/' + m + ' effectiveTheme 回传');
+      eq(p.accent, a, 'ACCENT-04 ' + a + '/' + m + ' accent 回传');
+    });
+  });
+
+  /* ---- ACCENT-05 setAccent 持久化 + 即时通知；同值不重复 emit ---- */
+  freshInit({ currency: '¥', theme: 'dark' });
+  let callsA5 = 0;
+  const offA5 = theme.subscribe(() => callsA5++);
+  const rA5 = theme.setAccent('teal');
+  assert(rA5.ok === true, 'ACCENT-05 setAccent 成功返回 ok=true');
+  eq(callsA5, 1, 'ACCENT-05 setAccent 通知订阅一次');
+  eq(rA5.accentClass, 'accent-teal', 'ACCENT-05 返回值带新 accentClass');
+  eq(fsApi.readJSON(paths.FILE.settings, null).accent, 'teal', 'ACCENT-05 磁盘 accent=teal');
+  eq(fsApi.readJSON(paths.FILE.settings, null).currency, '¥', 'ACCENT-05 保留其它 settings 字段');
+  theme.setAccent('teal');
+  eq(callsA5, 1, 'ACCENT-05 同 accent 重复设置不 emit');
+  offA5();
+
+  /* ---- ACCENT-06 写盘失败：保持旧主题色、不 emit、ok=false ---- */
+  freshInit({ theme: 'dark', accent: 'amber' });
+  const fsmA6 = global.wx.getFileSystemManager();
+  const origA6 = fsmA6.writeFileSync;
+  fsmA6.writeFileSync = function () { throw new Error('EIO disk full'); };
+  let callsA6 = 0;
+  const offA6 = theme.subscribe(() => callsA6++);
+  const rA6 = theme.setAccent('rose');
+  fsmA6.writeFileSync = origA6;
+  offA6();
+  assert(rA6.ok === false, 'ACCENT-06 写失败 ok=false');
+  eq(theme.getAccent(), 'amber', 'ACCENT-06 写失败保持旧 accent amber');
+  eq(callsA6, 0, 'ACCENT-06 写失败不 emit 假状态');
+  eq(theme.getAccentClass(), 'accent-amber', 'ACCENT-06 getAccentClass 同步保持');
+
+  /* ---- ACCENT-07 备份恢复：reloadFromStorage 一并重读 accent ---- */
+  freshInit({ theme: 'dark', accent: 'indigo' });
+  fsApi.writeJSON(paths.FILE.settings, { theme: 'light', accent: 'rose', currency: '¥' });
+  let callsA7 = 0;
+  const offA7 = theme.subscribe(() => callsA7++);
+  theme.reloadFromStorage();
+  offA7();
+  eq(theme.getAccent(), 'rose', 'ACCENT-07 reload 后 accent=rose');
+  eq(theme.getAccentClass(), 'accent-rose', 'ACCENT-07 reload 后 class accent-rose');
+  eq(callsA7, 1, 'ACCENT-07 accent+theme 同时变化只通知一次');
+
+  /* ---- ACCENT-08 _resetForTest 归位 indigo ---- */
+  theme._resetForTest();
+  eq(theme.getAccent(), 'indigo', 'ACCENT-08 _resetForTest 归位 indigo');
+  eq(theme.getAccentClass(), 'accent-indigo', 'ACCENT-08 _resetForTest class');
+
+  /* ---- ACCENT-09 app.wxss：4 套 × 深/浅 共 8 组，6 个变量定义齐 + 按钮/文字硬规则 ---- */
+  const nodeFs = require('fs');
+  const wxss = nodeFs.readFileSync(path.join(ROOT, 'app.wxss'), 'utf8').replace(/\s+/g, ' ');
+  /** 取 `.theme-x.accent-y { ... }` 块正文（未闭合返回 null） */
+  function accentBlock(mode, accent) {
+    const sel = '.theme-' + mode + '.accent-' + accent;
+    const at = wxss.indexOf(sel + ' {');
+    if (at < 0) return null;
+    const open = wxss.indexOf('{', at);
+    const close = wxss.indexOf('}', open);
+    if (open < 0 || close < 0) return null;
+    return wxss.slice(open + 1, close);
+  }
+  const VAR6 = ['--primary', '--primary-deep', '--primary-text', '--on-primary', '--primary-glow', '--primary-tint'];
+  ['dark', 'light'].forEach((m) => {
+    ACCENT_KEYS.forEach((a) => {
+      const body = accentBlock(m, a);
+      assert(body !== null, 'ACCENT-09 app.wxss 缺少 .theme-' + m + '.accent-' + a + ' 覆盖块');
+      if (!body) return;
+      VAR6.forEach((v) => {
+        const re = new RegExp('(^|;)\\s*' + v + '\\s*:\\s*[^;]+;');
+        assert(re.test(body), 'ACCENT-09 ' + m + '/' + a + ' 缺少 ' + v);
+      });
+      // 硬规则 2：深色绝不写死白字（亮主色 + 白字只有 2.10~2.17）
+      if (m === 'dark') {
+        assert(!/--on-primary\s*:\s*#ffffff/i.test(body), 'ACCENT-09 深色 ' + a + ' 的 --on-primary 不许是白色');
+      }
+    });
+  });
+  // 硬规则 1：按钮底按模式取不同变量（深色 primary / 浅色 primary-deep）
+  ['indigo', 'teal', 'amber', 'rose'].forEach((a) => {
+    const dk = accentBlock('dark', a) || '';
+    const lt = accentBlock('light', a) || '';
+    assert(/--button-primary\s*:\s*linear-gradient\([^)]*var\(--primary\)/.test(dk),
+      'ACCENT-10 深色 ' + a + ' 按钮底从 --primary 起');
+    assert(/--button-primary\s*:\s*linear-gradient\([^;]*var\(--primary-deep\)/.test(lt),
+      'ACCENT-10 浅色 ' + a + ' 按钮底从 --primary-deep 起');
+  });
+
+  /* ---- ACCENT-11 14 个页面根节点同时挂 themeClass 与 accentClass ---- */
+  const PAGE_WXML = [
+    'packages/importer/pages/import/import.wxml',
+    'packages/importer/pages/preview/preview.wxml',
+    'packages/importer/pages/result/result.wxml',
+    'pages/appearance/appearance.wxml',
+    'pages/backup-restore/backup-restore.wxml',
+    'pages/budget-settings/budget-settings.wxml',
+    'pages/category-manage/category-manage.wxml',
+    'pages/daily-value-detail/detail.wxml',
+    'pages/data-privacy/data-privacy.wxml',
+    'pages/main/main.wxml',
+    'pages/recurring/recurring.wxml',
+    'pages/release-notes/release-notes.wxml',
+    'pages/search/search.wxml',
+    'pages/settings/settings.wxml',
+  ];
+  PAGE_WXML.forEach((rel) => {
+    const wxml = nodeFs.readFileSync(path.join(ROOT, rel), 'utf8');
+    assert(/\{\{themeClass\}\}\s+\{\{accentClass\}\}/.test(wxml.split('\n')[0]),
+      'ACCENT-11 ' + rel + ' 根节点须同时挂 themeClass 与 accentClass');
+  });
+
+  /* ---- ACCENT-12 主色不再被当文字用（应统一走 --primary-text） ---- */
+  const WXSS_DIRS = ['pages', 'components', 'packages'];
+  function walkWxss(dir, out) {
+    nodeFs.readdirSync(dir).forEach((name) => {
+      const full = path.join(dir, name);
+      const st = nodeFs.statSync(full);
+      if (st.isDirectory()) walkWxss(full, out);
+      else if (/\.wxss$/.test(name)) out.push(full);
+    });
+    return out;
+  }
+  let primaryTextOffenders = [];
+  WXSS_DIRS.forEach((d) => {
+    const dir = path.join(ROOT, d);
+    if (!nodeFs.existsSync(dir)) return;
+    walkWxss(dir, []).forEach((file) => {
+      const txt = nodeFs.readFileSync(file, 'utf8');
+      txt.split(/\r?\n/).forEach((line, i) => {
+        if (/^\s*color:\s*var\(--primary\)\s*;/.test(line)) {
+          primaryTextOffenders.push(path.relative(ROOT, file) + ':' + (i + 1));
+        }
+      });
+    });
+  });
+  assert(primaryTextOffenders.length === 0,
+    'ACCENT-12 仍有 color: var(--primary) 未改为 --primary-text：' + primaryTextOffenders.join('、'));
+
+  /* ---- ACCENT-13 6 处 JS 硬编码主色改为跟主题色走（功能级，不是文本扫描） ---- */
+  // a) icon / category-icon 的 brand / onbrand tone
+  let catIconDef = null;
+  const origComponent = global.Component;
+  global.Component = (d) => {
+    if (d.methods && d.methods.resolveColor && d.methods.refresh) {
+      // 通过 properties 里的 iconType 区分 icon 与 category-icon
+      if (d.properties && d.properties.iconType) catIconDef = d;
+      else iconDef = d;
+    } else origComponent(d);
+  };
+  require(path.join(ROOT, 'components', 'category-icon', 'category-icon'));
+  global.Component = origComponent;
+
+  function makeIconOf(def, tone, data) {
+    const d = Object.assign({ uri: '', w: 22, h: 22, name: 'search', size: 22, tone, color: '' }, data || {});
+    const inst = { data: d, setData(p) { Object.assign(d, p); } };
+    Object.keys(def.methods).forEach((k) => { inst[k] = def.methods[k].bind(inst); });
+    return inst;
+  }
+  assert(catIconDef !== null, 'ACCENT-13a 未能捕获 category-icon 组件定义');
+  ['indigo', 'teal', 'amber', 'rose'].forEach((a) => {
+    ['dark', 'light'].forEach((m) => {
+      freshInit({ theme: m, accent: a });
+      const pal = theme.getAccentPalette();
+      const i1 = makeIconOf(iconDef, 'brand');
+      const i2 = makeIconOf(catIconDef, 'brand');
+      const i3 = makeIconOf(iconDef, 'onbrand');
+      const i4 = makeIconOf(catIconDef, 'onbrand');
+      eq(i1.resolveColor(), pal.primary, 'ACCENT-13a icon brand ' + a + '/' + m);
+      eq(i2.resolveColor(), pal.primary, 'ACCENT-13a category-icon brand ' + a + '/' + m);
+      eq(i3.resolveColor(), pal.onPrimary, 'ACCENT-13b icon onbrand ' + a + '/' + m);
+      eq(i4.resolveColor(), pal.onPrimary, 'ACCENT-13b category-icon onbrand ' + a + '/' + m);
+    });
+  });
+
+  // b) 统计页累计折线：buildCumulativeSVG 接受 lineColor，缺省回落默认靛蓝
+  const cumulation = require(path.join(ROOT, 'data', 'statistics', 'cumulative'));
+  const cumPts = [{ day: 1, cumCents: 100 }, { day: 2, cumCents: 300 }];
+  const svgDefault = cumulation.buildCumulativeSVG(cumPts, 300, '#333', { w: 320, h: 180 }, { padLeft: 30 });
+  assert(svgDefault.indexOf('stroke="' + cumulation.LINE_COLOR + '"') >= 0,
+    'ACCENT-13c 未传 lineColor 时回落默认靛蓝（旧调用方行为不变）');
+  ['indigo', 'teal', 'amber', 'rose'].forEach((a) => {
+    ['dark', 'light'].forEach((m) => {
+      freshInit({ theme: m, accent: a });
+      const primary = theme.getAccentPalette().primary;
+      const svg = cumulation.buildCumulativeSVG(cumPts, 300, '#333', { w: 320, h: 180 }, { padLeft: 30, lineColor: primary });
+      assert(svg.indexOf('stroke="' + primary + '"') >= 0, 'ACCENT-13c 累计折线用主题色 ' + a + '/' + m);
+      assert(svg.indexOf('fill="' + primary + '" fill-opacity') >= 0, 'ACCENT-13c 累计面积用主题色 ' + a + '/' + m);
+    });
+  });
+
+  // c) 首页日价曲线（Canvas 调色板）：用假 ctx 跑一次 draw，断言实际下发的线色 / 面积色
+  let curveDef = null;
+  const origComponent2 = global.Component;
+  global.Component = (d) => {
+    if (d.properties && d.properties.billId && d.methods && d.methods.draw) curveDef = d;
+    else origComponent2(d);
+  };
+  require(path.join(ROOT, 'components', 'daily-value-curve', 'daily-value-curve'));
+  global.Component = origComponent2;
+  assert(curveDef !== null, 'ACCENT-13d 未能捕获 daily-value-curve 组件定义');
+
+  function drawColors(accent, mode) {
+    freshInit({ theme: mode, accent });
+    const calls = { stroke: [], fill: [], stops: [] };
+    const ctx = {
+      strokeStyle: '', fillStyle: '', lineWidth: 0, lineJoin: '', font: '', textAlign: '', textBaseline: '',
+      clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, arc() {},
+      fill() { calls.fill.push(this.fillStyle); },
+      stroke() { calls.stroke.push(this.strokeStyle); },
+      fillText() {},
+      createLinearGradient() {
+        return { addColorStop(pos, color) { calls.stops.push(color); } };
+      },
+    };
+    const d = { ready: true, tipShow: false };
+    const inst = {
+      data: d,
+      setData(p) { Object.assign(d, p); },
+      _ctx: ctx,
+      _size: { w: 320, h: 180 },
+      _points: [{ date: '2026-11-01', day: 1, valueCents: 30000 }, { date: '2026-11-02', day: 2, valueCents: 15000 }],
+    };
+    inst.data = Object.assign({}, d, { billId: 'x' });
+    Object.keys(curveDef.methods).forEach((k) => { inst[k] = curveDef.methods[k].bind(inst); });
+    // getPoints 用预置点，避免依赖 store
+    inst.getPoints = () => inst._points;
+    inst.draw();
+    return calls;
+  }
+  ['indigo', 'teal', 'amber', 'rose'].forEach((a) => {
+    ['dark', 'light'].forEach((m) => {
+      const colors = drawColors(a, m);
+      const primary = theme.getAccentPalette().primary;
+      const rgb = [1, 3, 5].map((i) => parseInt(primary.slice(i, i + 2), 16)).join(',');
+      assert(colors.stroke.indexOf(primary) >= 0, 'ACCENT-13d 日价曲线折线用主题色 ' + a + '/' + m + '（实测 ' + colors.stroke.join('|') + '）');
+      const areaHit = colors.stops.concat(colors.fill).some((f) => String(f).indexOf(rgb) >= 0);
+      assert(areaHit, 'ACCENT-13d 日价曲线面积/高亮点用主题色 rgb(' + rgb + ') ' + a + '/' + m + '（实测 ' + colors.stops.concat(colors.fill).join('|') + '）');
+    });
+  });
+
   /* ---- 汇总 ---- */
   console.log('\ntheme tests: ' + pass + ' passed, ' + fail + ' failed');
   if (fail > 0) process.exit(1);

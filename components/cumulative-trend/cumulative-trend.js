@@ -86,6 +86,14 @@ Component({
       try { t = theme.getEffectiveTheme(); } catch (e) { t = 'dark'; }
       return GRID_COLORS[t] || GRID_COLORS.dark;
     },
+    /** 折线主色：跟随当前主题色（v1.4.5，不再写死靛蓝）；取不到退回默认靛蓝 */
+    resolveLineColor() {
+      try {
+        return theme.getAccentPalette().primary || C.LINE_COLOR;
+      } catch (e) {
+        return C.LINE_COLOR;
+      }
+    },
     resolveFontPx() {
       let narrow = false;
       try { narrow = device.isNarrowScreen(); } catch (e) { narrow = false; }
@@ -162,6 +170,7 @@ Component({
             padLeft: gutter,
             tickCount: C.TICK_COUNT,
             spanDays: spanDays,
+            lineColor: this.resolveLineColor(),
           })
         : '';
 

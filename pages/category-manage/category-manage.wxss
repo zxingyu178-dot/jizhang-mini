@@ -88,7 +88,7 @@
   background: var(--glass-input);
 }
 .cm-row__restore {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .cm-empty {
   font-size: 26rpx;

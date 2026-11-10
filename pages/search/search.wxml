@@ -1,4 +1,4 @@
-<view class="search-page {{themeClass}}" style="height:{{windowHeight}}px;">
+<view class="search-page {{themeClass}} {{accentClass}}" style="height:{{windowHeight}}px;">
   <view class="search-bg">
     <view class="search-bg__glow"></view>
   </view>
