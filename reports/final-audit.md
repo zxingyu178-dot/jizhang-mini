@@ -1,3 +1,53 @@
+# 最终审计报告
+
+> **当前版本：1.4.3** — 本轮（v1.4.3 收口轮）审计结论见下方「v1.4.3 审计结论」；
+> 其后的 `v1.4.2` 全文为历史原文，**未改一字**。
+
+---
+
+## v1.4.3 审计结论（2026-11-10 实跑）
+
+- 版本：**1.4.3**｜分支 `fix/stats-hero-narrow-class`｜基线 `origin/main` = `6fa12b9`
+- 改动面：**12 个文件，1133 增 50 删**（`git diff --stat 6fa12b9..HEAD`）
+
+| 审计项 | 结论 | 依据 |
+| --- | --- | --- |
+| 数据合同是否被改 | **未改** | `git diff --name-only 6fa12b9..HEAD` 的 12 个文件里**没有 `data/`、没有 `packages/`** |
+| 是否新增依赖 | **未新增** | `devDependencies` 仍只有 `miniprogram-automator`；`package.json` 本轮只改 `version` |
+| 测试是否真跑 | **真跑** | 12 条命令 + E2E + real-tap 全部本轮执行，日志在 `reports/logs/` |
+| FAIL 数 | **0** | 单元测试 0 / E2E 0 / real-tap 0 / 专项 0 / 三项审计 0 |
+| `release:check` | **FAIL 0 / WARN 1** | 唯一 WARN：`project.config.json libVersion 仍为「latest」`（客户已定不动，见下方 §5 历史说明，处置不变） |
+| libVersion | 实际 `"latest"`，**保持不动 + 说明** | 不靠关检查把警告藏掉 |
+
+### 本轮测试数字（全部来自实跑日志）
+
+| 项 | 结果 | 日志 |
+| --- | --- | --- |
+| `npm test` | **51/51 套件通过** | `reports/logs/unit.log` |
+| `npm run e2e` | **31/31 通过**（19 张截图） | `reports/logs/e2e.log` |
+| `node tests/e2e/real-tap.js` | **14/14 通过**（新增套件） | `reports/logs/spec-real-tap.log` |
+| `quarantine-rollback` | 279 项通过 | `reports/logs/spec-quarantine-rollback.log` |
+| `import-rollback-safety` | 54 项通过 | `reports/logs/spec-import-rollback.log` |
+| `backup-restore-statistics` | 44 项通过 | `reports/logs/spec-backup-restore.log` |
+| `recovery-ui-guard` | 28 项通过 | `reports/logs/spec-recovery-ui.log` |
+| `dedupe-index` | 54 项通过 | `reports/logs/spec-dedupe.log` |
+| `import-e2e-safety` | 48 项通过 | `reports/logs/spec-import-e2e.log` |
+| `stats-hero-layout` | 47 条断言通过（27 → 47） | `reports/logs/unit.log` |
+| `theme:audit` | FAIL 0（3 项既有 WARN） | `reports/logs/audit-theme.log` |
+| `contrast:audit` | dark 3.145 / light 3.249（worst ≥ 3:1） | `reports/logs/audit-contrast.log` |
+| `npm run perf` | 1k 2ms / 5k 7ms / 10k 13ms，比值 6.5x（期望 ≤40x） | `reports/logs/perf.log` |
+| `release:check` | FAIL 0 / WARN 1 | `reports/logs/audit-release.log` |
+
+> 导入预览 5k 104ms / 15k 169ms / 30k 302ms（红线 1500ms）为**上一轮实测**，本轮**未重跑**。
+
+### 本版改了什么（一句话）
+
+补真实点击测试（原 E2E 输入绕过键盘）+ 记账表单两处可用性问题（空金额无提示、备注无上限）+ 统计 Hero 窄屏适配从 `@media` 改为按屏宽挂类名（Skyline 下宽度媒体查询不生效）。详见 `docs/HANDOFF_v1.4.3.md`。
+
+---
+
+# 以下为 v1.4.2 最终审计报告原文（历史，未改）
+
 # 最终审计报告 — v1.4.2
 
 - 版本：**1.4.2**（冻结，本轮不升版本）
