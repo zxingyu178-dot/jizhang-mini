@@ -10,7 +10,16 @@
       { "value": "debug.log", "type": "file" },
       { "value": "docs", "type": "folder" },
       { "value": "tests", "type": "folder" },
-      { "value": "scripts", "type": "folder" }
+      { "value": "scripts", "type": "folder" },
+      { "value": "artifacts", "type": "folder" },
+      { "value": "reports", "type": "folder" },
+      { "value": "logs", "type": "folder" },
+      { "value": "git", "type": "folder" },
+      { "value": "node_modules", "type": "folder" },
+      { "value": "CHANGELOG.md", "type": "file" },
+      { "value": "DEV_LOG.md", "type": "file" },
+      { "value": "TASKS.md", "type": "file" },
+      { "value": ".zip", "type": "suffix" }
     ],
     "include": []
   },
