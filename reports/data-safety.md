@@ -1,3 +1,34 @@
+# 数据安全报告
+
+> **当前版本：1.4.3** — 本轮（v1.4.3 收口轮）数据安全结论见下方「v1.4.3 结论」；
+> 其后的 `v1.4.2` 全文为历史原文，**未改一字**。
+
+---
+
+## v1.4.3 结论：数据安全相关链路**本轮零改动**，回归全绿
+
+- 版本：**1.4.3**｜基线 `origin/main` = `6fa12b9`
+- **本轮改动面不含数据层**：`git diff --name-only 6fa12b9..HEAD` 的 12 个文件里**没有 `data/`、没有 `packages/`** —— 备份 / 恢复 / 回滚 / 安全点四条链路的代码**一行未动**。
+- **回归已重跑（本轮实跑，不是沿用旧结论）**：
+
+| 链路 | 回归套件 | 本轮结果 | 日志 |
+| --- | --- | --- | --- |
+| 备份 | `backup-restore-statistics` | **44 项通过** | `reports/logs/spec-backup-restore.log` |
+| 恢复 | `quarantine-rollback` | **279 项通过** | `reports/logs/spec-quarantine-rollback.log` |
+| 回滚 | `import-rollback-safety` | **54 项通过** | `reports/logs/spec-import-rollback.log` |
+| 安全点 | `import-e2e-safety` | **48 项通过** | `reports/logs/spec-import-e2e.log` |
+| 失败提示 / 阻止重复提交 | `recovery-ui-guard` | **28 项通过** | `reports/logs/spec-recovery-ui.log` |
+| 导入匹配索引 | `dedupe-index` | **54 项通过** | `reports/logs/spec-dedupe.log` |
+
+- 单元测试全套 **51/51 套件通过**（`reports/logs/unit.log`）。
+- **真机上的备份恢复仍未验证** —— 见 `docs/10_DEVICE_ACCEPTANCE.md` 第 6.10 节（自动化覆盖不到真机）。
+
+> 本版动的是表单交互与统计 Hero 布局，**不碰账本读写**，所以下面这份 v1.4.2 的四条链路设计说明**仍然有效**，无需改写。
+
+---
+
+# 以下为 v1.4.2 数据安全报告原文（历史，未改）
+
 # 数据安全报告 — v1.4.2
 
 - 版本：**1.4.2**（冻结）

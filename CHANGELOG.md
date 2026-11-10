@@ -3,6 +3,41 @@
 本文件记录「随时随地大小记」（jizhang-mini）各版本的显著变更。
 版本号遵循语义化版本（SemVer）；测试数量等易变信息不在此维护，以命令实际输出与对应 `docs/HANDOFF_*.md` 为准。
 
+## [1.4.3] — 2026-11-10
+
+Real Tap E2E & Form Usability & Narrow-Screen Fit（真实点击测试 + 记账表单可用性 + 统计 Hero 窄屏适配）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器与视觉体系。
+
+### 测试真实性：补上「真实用户操作」缺口
+- **新增 `tests/e2e/real-tap.js`（928 行，14 条用例）**：原 E2E 虽 31 项，但金额 / 备注都是直接调页面函数赋值、**绕过键盘**，全库真实键盘输入只有 2 次且都在周期页。新套件改用**真实点按 29 次 + 真实键盘输入 23 次**，覆盖：
+  - 金额逐字输入 `1→12→123→1234→1234.→1234.5→1234.56`，落库 123456 分；
+  - 金额边界：`.` / `0` / `00` / `1.999`（截成 1.99）/ `999999999` / 留空，均不写脏数据；
+  - 备注：中文 + 字母数字、63 字超长截断到 40、emoji / 空格 / 尖括号 / 全角标点 / 换行不被破坏；
+  - 分类查找：点「更多」6 格 → 12 格、逐个点选 `categoryId` 正确切换、选中态唯一、几何实测底部分类不被裁掉；
+  - 收支切换：切收入时「计算日价」开关消失、切回恢复；支出 / 收入各存一单，`type` 与 Hero 汇总分别正确；
+  - 真实点保存进时间线且不重复写；金额输入聚焦后输入框与保存按钮仍在可视区。
+- 跑法：`node tests/e2e/real-tap.js`（需非沙箱环境）。本轮实测 **14/14 通过**。
+
+### 记账表单可用性
+- **空金额点保存有提示**：原来静默 `return`，用户以为按钮坏了。现弹「请先填写金额」+ **1.2 秒节流**（连点 5 次只弹 1 条）；按钮灰态判断逻辑未动。
+- **备注 40 字上限**：原来 63 字原样落库，与周期页口径不一致。现 `bill-form.wxml` 加 `maxlength="40"` + `bill-form.js` 代码兜底截断两层，含 **emoji 半字保护**（不切半个代理对）。
+
+### 统计 Hero 窄屏适配（渲染层事实修正）
+- **`@media` 宽度断点在 Skyline 下不生效**：全项目唯一一处宽度断点 `@media (max-width: 360px)` 在 Skyline 渲染下大概率不生效（官方文档：Skyline 的 media queries 只支持 DarkMode），等于写在库里没生效。改为**启动时读屏宽、≤360px 挂窄屏类名**，窗口变化时跟随已有监听更新；原 `@media` 块删净，**全项目宽度断点清零**。
+- **390px 实测证据**：正常态类名无 `narrow`、三列宽 91.1 / 145.6 / 91.1；强制挂类后中间列变 **150.6**、文本高 **20 → 17** —— 证明类切换在 Skyline 下真的生效。
+- **契约测试加强**：`tests/stats-hero-layout.test.js` 断言 3 → **47** 条，新增「宽度媒体查询必须为零」「窄屏规则必须写在基础规则之后」等硬约束；并做**变异测试**（改回 26rpx / 删类绑定 / 判定写死 false / 偷改阈值）**四种破坏全部被抓**。
+
+### 测试
+- `npm test` **51/51 套件通过**。
+- `npm run e2e` **31/31 通过**（含 T31 统计 Hero 长日期 + 长金额三列单行完整）。
+- `node tests/e2e/real-tap.js` **14/14 通过**。
+- 专项：`quarantine-rollback` 279 项、`import-rollback-safety` 54 项、`dedupe-index` 54 项、`import-e2e-safety` 48 项、`backup-restore-statistics` 44 项、`recovery-ui-guard` 28 项，全部通过。
+- 大账本性能 1k 2ms / 5k 7ms / 10k 13ms，10k÷1k = **6.5x**（期望 ≤40x）。
+- `theme:audit` FAIL 0（3 项既有 WARN）；`contrast:audit` worst ≥ 3:1（dark 3.145 / light 3.249）；`release:check` **FAIL 0 / WARN 1**（`libVersion=latest`，客户已定不动）。
+- 真机 iPhone / Android 未测试，见 `docs/10_DEVICE_ACCEPTANCE.md`（本轮新增必查：**键盘弹起是否遮挡输入框** —— 模拟器测不出）。
+
+### 冻结项
+- 数据合同与业务规则零改动；不新增依赖、不更换渲染器；`project.config.json` 的 `libVersion` 不动；微信上传 / 审核 / 发布未执行。
+
 ## [1.4.2] — 2026-11-09
 
 Recovery Integrity & Import Match Safety（恢复完整性与导入匹配安全）。不新增业务功能、不升级数据合同（Bill V3 / Backup V3 / Recurring Store V1 / Budget V1）、不引入第三方依赖、不改渲染器与视觉体系。

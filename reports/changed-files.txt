@@ -25,3 +25,43 @@ tests/recurring.test.js
 
 ## 文件数
 9
+
+
+# ===== 以下为 v1.4.3 收口轮追加（本文件上文 v1.4.2 内容未删未改）=====
+
+# v1.4.3 变更文件清单（真实 git 输出，采集时间 2026-11-10 11:43:42）
+
+## git diff --name-only 6fa12b9..HEAD
+README.md
+components/bill-form/bill-form.js
+components/bill-form/bill-form.wxml
+components/statistics-panel/statistics-panel.js
+components/statistics-panel/statistics-panel.wxml
+components/statistics-panel/statistics-panel.wxss
+package-lock.json
+package.json
+tests/e2e/real-tap.js
+tests/stats-hero-layout.test.js
+utils/device.js
+utils/version.js
+
+## git diff --stat 6fa12b9..HEAD
+ README.md                                         |   2 +-
+ components/bill-form/bill-form.js                 |  38 +-
+ components/bill-form/bill-form.wxml               |   4 +-
+ components/statistics-panel/statistics-panel.js   |  19 +
+ components/statistics-panel/statistics-panel.wxml |   2 +-
+ components/statistics-panel/statistics-panel.wxss |  20 +-
+ package-lock.json                                 |   4 +-
+ package.json                                      |   2 +-
+ tests/e2e/real-tap.js                             | 928 ++++++++++++++++++++++
+ tests/stats-hero-layout.test.js                   | 143 +++-
+ utils/device.js                                   |  19 +
+ utils/version.js                                  |   2 +-
+ 12 files changed, 1133 insertions(+), 50 deletions(-)
+
+## git log --oneline 6fa12b9..HEAD
+5325f4e chore(release): 版本号 1.4.2 -> 1.4.3（version.js / package.json / package-lock / README 四处同步）
+fd601af fix(v1.4.3): 统计 Hero 窄屏差异化改为 JS 判定挂类（Skyline 宽度断点不生效）
+e23ac53 fix(v1.4.3): 空金额点保存有提示 + 备注 40 字上限 + 记录窄屏断点事实
+f3005cf test(e2e): 新增 real-tap 真实点击回归（金额/备注/分类查找/收支切换/点保存）
