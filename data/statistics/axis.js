@@ -240,16 +240,33 @@ function pickXLabels(points, maxCount, plotW, charWidth) {
 }
 
 /**
- * 累计趋势的 X 轴日期标签：首日 / 中间日 / 末日（点太少则自动减少）。
- * 格式 M/DD（如 11/01、9/05），月份不补零（窄屏更省宽），日补两位。
- * @param {Array<{day:number, label?:string}>} points
+ * 累计趋势的 X 轴日期标签：按「实际绘图宽度」自适应定档（v1.4.4）。
+ *
+ * 为什么不能只按「点数」定档：累计折线只画到数据截止日，但横轴仍按整月跨度定位
+ * （见 cumulative-trend 的 spanDays）。所以 10 号看当月时，11 个点只挤在整月宽度的
+ * 左侧 1/3 —— 按点数算「每格几十像素」会严重高估可用空间，标签必然叠在一起。
+ * 因此这里按**像素**算：可画长度 = plotW × (n-1)/(span-1)。
+ *
+ * 规则（三条硬约束，任一破坏都算错）：
+ *   1) 相邻两个标签的像素间距 ≥ 一条标签的渲染宽度 + 间隙（不重叠）；
+ *   2) 首点、末点必有标签：首点给「从哪天开始看」，末点 = 数据截止日（不是月末）；
+ *   3) 条数有业务上限（默认 5），宽度不够就减，绝不为凑数挤成一排。
+ *
+ * 格式 M/DD（如 11/01、9/05）：月份不补零（窄屏省宽），日补两位。
+ * ⛔ 不改 M/D —— 跨月对比时 '9/5' 与 '11/01' 位数不同，视觉上日期会「跳位」。
+ *
+ * @param {Array<{day:number, label?:string}>} points 已按截止日裁剪后的数据点
  * @param {number} month 1-12；非法时退回点名自带的 label（如 '3日'）
+ * @param {{plotW?:number, fontPx?:number, maxCount?:number, spanDays?:number}} [opts]
+ *   plotW：绘图区宽度（px）；fontPx：标签字号；maxCount：条数上限（默认 5）；
+ *   spanDays：横轴总跨度天数（整月天数，缺省 = 点数）
  * @returns {Array<{index:number, label:string, ratio:number}>} ratio：0~1，绘图区横向位置
  */
-function pickDateLabels(points, month) {
+function pickDateLabels(points, month, opts) {
   const list = Array.isArray(points) ? points : [];
   const n = list.length;
   if (n <= 0) return [];
+  const o = opts || {};
   const m = Number(month);
   const useMonth = Number.isFinite(m) && m >= 1 && m <= 12;
   const fmt = (p) => {
@@ -259,22 +276,68 @@ function pickDateLabels(points, month) {
     }
     return m + '/' + (day < 10 ? '0' + day : String(day));
   };
-  let idxs;
-  if (n === 1) idxs = [0];
-  else if (n === 2) idxs = [0, 1];
-  else idxs = [0, Math.floor((n - 1) / 2), n - 1];
-  const seen = {};
-  return idxs
-    .filter((i) => {
-      if (seen[i]) return false;
-      seen[i] = true;
-      return true;
-    })
-    .map((i) => ({
-      index: i,
-      label: fmt(list[i]),
-      ratio: n === 1 ? 0.5 : i / (n - 1),
-    }));
+
+  const fontPx = Number(o.fontPx) > 0 ? Number(o.fontPx) : 11;
+  const plotW = Number(o.plotW) > 0 ? Number(o.plotW) : 300;
+  const capRaw = Number(o.maxCount);
+  const cap = Number.isFinite(capRaw) ? Math.min(8, Math.max(2, Math.round(capRaw))) : 5;
+  // 横轴跨度：至少等于点数（点数超过跨度时按点数算，避免 ratio > 1）
+  const spanRaw = Number(o.spanDays);
+  const span = Number.isFinite(spanRaw) && spanRaw >= n ? spanRaw : n;
+
+  const labels = list.map(fmt);
+  // 一条标签的占位 = 最宽的那条（标签居中渲染，两条相邻只需各自半宽之和 ≈ 一条宽度）
+  // + 一点点空隙，避免两个字贴在一起。空隙取 0.36 字宽（11px 字号 ≈ 4px）：
+  // 再大就会把「11/01 11/05 11/10」这种 10 天跨度硬压成 2 个标签，反而不如原来清楚。
+  let widest = 0;
+  for (let i = 0; i < labels.length; i++) {
+    const w = textWidthPx(labels[i], fontPx);
+    if (w > widest) widest = w;
+  }
+  const gapPx = Math.max(3, fontPx * 0.36);
+  const needW = widest + gapPx;
+
+  const toRatio = (i) => (span > 1 ? i / (span - 1) : 0.5);
+  const px = (i) => toRatio(i) * plotW; // 相对绘图区左边界
+  // 实际画出来的横向长度（截止日 → 折线末端，右侧是留空）
+  const drawnPx = px(n - 1) - px(0);
+
+  const build = (limit) => {
+    if (limit >= n) {
+      const all = [];
+      for (let i = 0; i < n; i++) all.push(i);
+      return all;
+    }
+    if (limit <= 1) return [n - 1]; // 极端窄：只留数据截止日（信息量最大）
+    const step = (n - 1) / (limit - 1);
+    const out = [];
+    for (let k = 0; k < limit; k++) {
+      const idx = Math.round(k * step);
+      if (out.length === 0 || out[out.length - 1] !== idx) out.push(idx);
+    }
+    if (out[out.length - 1] !== n - 1) out[out.length - 1] = n - 1; // 末点必在
+    return out;
+  };
+  /** 真·不重叠校验：取整步长会让间距有 ±1 天抖动，必须实测像素 */
+  const noOverlap = (idxs) => {
+    for (let i = 1; i < idxs.length; i++) {
+      if (px(idxs[i]) - px(idxs[i - 1]) < needW - 1e-6) return false;
+    }
+    return true;
+  };
+
+  let limit = Math.min(cap, n, Math.max(1, Math.floor(drawnPx / needW) + 1));
+  let idxs = build(limit);
+  // 取整抖动导致某两格贴太近 → 降一档重算（宁可少一个标签，也不叠字）
+  while (limit > 2 && !noOverlap(idxs)) {
+    limit -= 1;
+    idxs = build(limit);
+  }
+  return idxs.map((i) => ({
+    index: i,
+    label: labels[i],
+    ratio: toRatio(i),
+  }));
 }
 
 module.exports = {

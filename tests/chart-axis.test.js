@@ -239,22 +239,24 @@ console.log('3. pickXLabels 抽稀（不重叠）');
   assert(Array.isArray(A.pickXLabels(days, NaN, NaN, NaN)), '宽度非法时用兜底值返回数组');
 }
 
-/* ==================== 4. 累计趋势日期标签 ==================== */
-console.log('4. pickDateLabels 日期标签');
+/* ==================== 4. 累计趋势日期标签（按宽度自适应） ==================== */
+console.log('4. pickDateLabels 日期标签（自适应密度）');
 {
   const pts = [];
   for (let d = 1; d <= 30; d++) pts.push({ day: d, label: d + '日', cumCents: d * 100 });
   const x = A.pickDateLabels(pts, 11);
-  eq(x.length, 3, '首 / 中 / 末 3 个日期标签');
+  eq(x.length, 5, '默认宽度（300px 绘图区）→ 5 个日期标签（v1.4.4：原固定 3 个）');
   eq(x[0].label, '11/01', '首日 M/DD');
-  eq(x[2].label, '11/30', '末日 M/DD');
+  eq(x[x.length - 1].label, '11/30', '末日 M/DD');
   eq(x[0].ratio, 0, '首日 ratio=0');
-  eq(x[2].ratio, 1, '末日 ratio=1');
-  assert(x[1].ratio > 0 && x[1].ratio < 1, '中间日落在中间');
+  eq(x[x.length - 1].ratio, 1, '末日 ratio=1');
+  for (let i = 1; i < x.length; i++) {
+    assert(x[i].ratio > x[i - 1].ratio, 'ratio 严格递增（索引 ' + i + '）');
+  }
 
   const one = A.pickDateLabels([{ day: 5, label: '5日', cumCents: 1 }], 3);
   eq(one.length, 1, '单点只显示 1 个日期');
-  eq(one[0].label, '3/05', '单点日期格式');
+  eq(one[0].label, '3/05', '单点日期格式（日补两位）');
   eq(one[0].ratio, 0.5, '单点居中');
 
   const two = A.pickDateLabels([{ day: 1 }, { day: 31 }], 1);
@@ -264,6 +266,167 @@ console.log('4. pickDateLabels 日期标签');
   const fb = A.pickDateLabels(pts, 0);
   eq(fb[0].label, '1日', '月份非法时退回原始 label');
   eq(A.pickDateLabels([], 11).length, 0, '空数据 → 空标签');
+
+  // ---- 4.1 末标签必须是「数据截止日」，不是月末 ----
+  // 当月 10 号：点只到 10 号，横轴跨度仍为 31 天
+  {
+    const cut = [];
+    for (let d = 1; d <= 10; d++) cut.push({ day: d });
+    const cl = A.pickDateLabels(cut, 11, { plotW: 274, fontPx: 11, maxCount: 5, spanDays: 31 });
+    eq(cl[cl.length - 1].label, '11/10', '末标签 = 数据截止日（11/10），不是月末 11/30');
+    eq(cl[0].label, '11/01', '首标签仍是首日');
+    assert(cl.length >= 2 && cl.length <= 5, '截止日 10 号时 2~5 个标签（实际 ' + cl.length + '）');
+    // 末标签的横向位置必须落在「10/31」的比例处（右侧留空），不能贴到右边界
+    eq(cl[cl.length - 1].ratio, Math.round((9 / 30) * 100) / 100, '末标签 ratio = 9/30（与折线末端同一横坐标）');
+  }
+
+  // ---- 4.2 不重叠（硬约束）：扫描宽度 / 字号 / 跨度 ----
+  {
+    let overlaps = 0;
+    let missingEnd = 0;
+    let overCap = 0;
+    let cases = 0;
+    const labelW = (s, f) => A.textWidthPx(s, f);
+    [150, 200, 240, 270, 300, 340].forEach((plotW) => {
+      [10, 11].forEach((fontPx) => {
+        [28, 30, 31].forEach((spanDays) => {
+          for (let days = 1; days <= spanDays; days++) {
+            const list = [];
+            for (let d = 1; d <= days; d++) list.push({ day: d });
+            const out = A.pickDateLabels(list, 11, { plotW, fontPx, maxCount: 5, spanDays });
+            cases++;
+            if (out.length > 5) overCap++;
+            if (out[out.length - 1].index !== days - 1) missingEnd++;
+            if (out.length > 1 && out[0].index !== 0) missingEnd++;
+            // 居中渲染：两条标签不重叠 ⇔ 中心距 ≥ 各自半宽之和
+            for (let i = 1; i < out.length; i++) {
+              const gapPx = (out[i].ratio - out[i - 1].ratio) * plotW;
+              const need = labelW(out[i].label, fontPx) / 2 + labelW(out[i - 1].label, fontPx) / 2;
+              if (gapPx < need - 0.01) overlaps++;
+            }
+          }
+        });
+      });
+    });
+    eq(overlaps, 0, '扫描 ' + cases + ' 组（宽度×字号×跨度×天数）：标签中心距 ≥ 半宽之和（不重叠）');
+    eq(missingEnd, 0, '扫描 ' + cases + ' 组：首末标签必在（唯一例外：可画长度不足一条标签时只留截止日）');
+    eq(overCap, 0, '扫描 ' + cases + ' 组：标签数 ≤ 5（不挤成一排）');
+  }
+
+  // ---- 4.3 宽度越窄，标签数不增（390 / 375 / 360 三档） ----
+  {
+    const full = [];
+    for (let d = 1; d <= 30; d++) full.push({ day: d });
+    const sweep = [390, 375, 360].map((winW) => {
+      const contentPx = Math.round(638 * (winW / 750) * 100) / 100; // 卡片内容宽
+      const fontPx = winW < 375 ? 10 : 11;
+      const gutter = A.axisGutterPx('¥3280', fontPx);
+      const plotW = Math.max(40, contentPx - gutter);
+      const out = A.pickDateLabels(full, 11, { plotW, fontPx, maxCount: 5, spanDays: 30 });
+      return { winW, plotW, fontPx, out };
+    });
+    sweep.forEach((s) => {
+      assert(s.out.length >= 4 && s.out.length <= 5,
+        s.winW + 'px（绘图区 ' + s.plotW + 'px）：' + s.out.length + ' 个日期标签（目标 4~5）');
+      eq(s.out[0].label, '11/01', s.winW + 'px：首标签');
+      eq(s.out[s.out.length - 1].label, '11/30', s.winW + 'px：末标签 = 截止日');
+      let minGap = Infinity;
+      for (let i = 1; i < s.out.length; i++) {
+        minGap = Math.min(minGap, (s.out[i].ratio - s.out[i - 1].ratio) * s.plotW);
+      }
+      const widest = Math.max.apply(null, s.out.map((o) => A.textWidthPx(o.label, s.fontPx)));
+      assert(minGap >= widest,
+        s.winW + 'px：最小间距 ' + minGap.toFixed(1) + 'px ≥ 标签宽 ' + widest.toFixed(1) + 'px（不重叠）');
+    });
+    // 窄屏不会更多（单调性）：绘图区变窄 → 条数不增
+    const w300 = A.pickDateLabels(full, 11, { plotW: 300, fontPx: 11, maxCount: 5, spanDays: 30 });
+    const w120 = A.pickDateLabels(full, 11, { plotW: 120, fontPx: 11, maxCount: 5, spanDays: 30 });
+    assert(w120.length <= w300.length, '绘图区 120px 的标签数 ≤ 300px（' + w120.length + ' ≤ ' + w300.length + '）');
+    assert(w120.length >= 1, '极窄绘图区仍至少 1 个标签');
+  }
+}
+
+/* ==================== 4.4 累计图组件接线（不是只测纯函数） ==================== */
+// 目的：确认 xLabels 真的是「按绘图宽度自适应」算出来的（组件把 plotW / fontPx /
+// maxCount / spanDays 都传下去了），并且渲染坐标就是 C.xAt 的坐标。
+console.log('4.4 cumulative-trend 组件接线');
+{
+  const savedComponent = global.Component;
+  const savedWx = global.wx;
+  global.wx = {
+    getWindowInfo: () => ({ windowWidth: 375, windowHeight: 812, platform: 'devtools' }),
+    getStorageSync: () => undefined,
+    setStorageSync: () => {},
+    getFileSystemManager: () => { throw new Error('no fs'); },
+  };
+  const themePath = require.resolve(path.join(__dirname, '..', 'utils', 'theme.js'));
+  const savedTheme = require.cache[themePath];
+  require.cache[themePath] = {
+    id: themePath,
+    filename: themePath,
+    loaded: true,
+    exports: {
+      init() {},
+      subscribe() { return () => {}; },
+      getEffectiveTheme() { return 'dark'; },
+    },
+  };
+  const savedDevice = require.cache[require.resolve(path.join(__dirname, '..', 'utils', 'device.js'))];
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'utils', 'device.js'))];
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'components', 'cumulative-trend', 'cumulative-trend.js'))];
+
+  let def = null;
+  global.Component = (d) => { def = d; };
+  require(path.join(__dirname, '..', 'components', 'cumulative-trend', 'cumulative-trend.js'));
+  global.Component = savedComponent;
+
+  assert(!!def && !!def.methods, '累计图组件定义已加载');
+  // 取一个「不是当月」的月份：历史月 截止日 = 该月天数 → 折线铺满横轴
+  const now = new Date();
+  const histMonth = (now.getMonth() + 2) % 12 || 12;
+  const days = new Date(now.getFullYear(), histMonth, 0).getDate();
+  const pts = [];
+  for (let d = 1; d <= days; d++) pts.push({ day: d, cumCents: d * 1000 });
+  const inst = {
+    data: Object.assign({}, JSON.parse(JSON.stringify(def.data)), {
+      points: pts,
+      max: days * 1000,
+      width: 319,
+      height: 180,
+      month: histMonth,
+      gutter: 38,
+    }),
+    setData(patch) { Object.keys(patch).forEach((k) => { inst.data[k] = patch[k]; }); },
+    triggerEvent() {},
+  };
+  Object.keys(def.methods).forEach((k) => { inst[k] = def.methods[k].bind(inst); });
+  inst.refresh();
+
+  const xLabels = inst.data.xLabels;
+  assert(Array.isArray(xLabels) && xLabels.length >= 4 && xLabels.length <= 5,
+    '组件渲染 ' + xLabels.length + ' 个 X 轴日期标签（目标 4~5）');
+  eq(xLabels[0].label, histMonth + '/01', '首个标签 = 首日');
+  eq(xLabels[xLabels.length - 1].label, histMonth + '/' + days, '末个标签 = 数据截止日');
+  // 渲染坐标 = xAt 坐标（标签跟着折线走，不是另算一套）
+  const geo = C.computeGeometry({ w: 319, h: 180 }, 38, C.TICK_COUNT);
+  const expected = A.pickDateLabels(pts, histMonth, {
+    plotW: geo.plotW, fontPx: inst.data.fontPx, maxCount: 5, spanDays: days,
+  });
+  eq(xLabels.map((x) => x.label).join(','), expected.map((x) => x.label).join(','),
+    '组件标签 = 纯函数同一结果（组件真的把宽度/跨度传下去了）');
+  for (let i = 1; i < xLabels.length; i++) {
+    assert(xLabels[i].leftPx > xLabels[i - 1].leftPx, '标签 leftPx 严格递增（' + i + '）');
+  }
+  const widest = Math.max.apply(null, xLabels.map((x) => A.textWidthPx(x.label, inst.data.fontPx)));
+  let minGap = Infinity;
+  for (let i = 1; i < xLabels.length; i++) minGap = Math.min(minGap, xLabels[i].leftPx - xLabels[i - 1].leftPx);
+  assert(minGap >= widest, '渲染间距 ' + minGap.toFixed(1) + 'px ≥ 标签宽 ' + widest.toFixed(1) + 'px（真机不叠）');
+
+  // 还原环境
+  require.cache[themePath] = savedTheme;
+  if (savedDevice) require.cache[require.resolve(path.join(__dirname, '..', 'utils', 'device.js'))] = savedDevice;
+  global.wx = savedWx;
+  if (savedWx === undefined) delete global.wx;
 }
 
 /* ==================== 5. Y 轴留白宽度 ==================== */

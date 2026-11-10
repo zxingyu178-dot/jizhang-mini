@@ -7,7 +7,8 @@
 // 缩成正方形、两侧留白（真机上表现为「曲线只画到卡片 2/3 就断了」）。
 // 做法：ready 后用 createSelectorQuery 量一次容器真实宽高，按该尺寸生成 SVG。
 //
-// v1.4.4：加坐标轴 —— Y 轴 3 档金额刻度（0 / ½顶档 / 顶档）+ 底部 3 个日期标签。
+// v1.4.4：加坐标轴 —— Y 轴 3 档金额刻度（0 / ½顶档 / 顶档）+ 底部日期标签。
+// 日期标签在 v1.4.4 收尾时改为**按绘图宽度自适应加密**（原固定首/中/末 3 个 → 375px 下 5 个）。
 // 刻度文字**不画进 SVG**：<image> 走的是图片渲染管线，SVG <text> 的字体与基线在不同
 // 设备/字体缩放设置下不保证一致（可能被系统字体替换、也可能基线偏移）。改为 WXML 原生
 // <text> 绝对定位叠在图上：字体走小程序原生、颜色走主题变量、窄屏可单独调字号。
@@ -33,6 +34,9 @@ const GRID_COLORS = {
 /** 刻度字号（px）：窄屏 10px，其余 11px；不用 rpx，避免窄屏被缩到 9px 以下看不清 */
 const FONT_NARROW = 10;
 const FONT_NORMAL = 11;
+
+/** X 轴日期标签条数上限（业务上限）：375px 下实际取 5，宽度不够由 axis 自动减 */
+const X_LABEL_MAX = 5;
 
 function r2(n) { return Math.round(n * 100) / 100; }
 
@@ -170,9 +174,17 @@ Component({
           }))
         : [];
 
-      // 5) 底部日期标签：首日 / 中间日 / 末日（末 = 数据截止日），横向位置与折线同一 xAt
+      // 5) 底部日期标签：按**实际绘图宽度**自动定档（375px 下 4~5 个），
+      //    首末必在，末 = 数据截止日（points 已裁剪）；横向位置与折线同一 xAt。
+      //    必须传 spanDays：折线只画到截止日，但横轴按整月跨度定位，
+      //    只按点数定档会把「11 个点挤在整月左侧 1/3」误当成宽裕，标签就会叠在一起。
       const xLabels = hasData
-        ? axis.pickDateLabels(points, this.data.month).map((x) => ({
+        ? axis.pickDateLabels(points, this.data.month, {
+            plotW: geo.plotW,
+            fontPx: fontPx,
+            maxCount: X_LABEL_MAX,
+            spanDays: spanDays,
+          }).map((x) => ({
             key: 'x-' + x.index,
             label: x.label,
             leftPx: C.xAt(geo, x.index, spanDays),

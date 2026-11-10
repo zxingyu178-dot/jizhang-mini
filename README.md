@@ -6,7 +6,7 @@
 - 渲染：Skyline + glass-easel（关闭时自动回退 WebView）
 - 数据：`wx.env.USER_DATA_PATH` 本地文件 + Bill V3（兼容 V1/V2，整数分金额）
 - 适用工具：微信开发者工具 Stable 2.02 及以上
-- 当前版本：1.4.3（Real Tap E2E & Form Usability & Narrow-Screen Fit：真实点击测试、记账表单可用性、统计 Hero 窄屏适配）。
+- 当前版本：1.4.4（Chart Readability：统计页图表补齐横纵坐标轴、刻度对比度、累计折线截止日与日期标签自适应、空态口径统一）。
 - 版本历史与各版变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 测试

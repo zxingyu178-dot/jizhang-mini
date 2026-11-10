@@ -7,7 +7,7 @@
         <text wx:if="{{item.label}}" class="ct__tick" style="top:{{item.topPx}}px;font-size:{{fontPx}}px;">{{item.label}}</text>
       </block>
     </view>
-    <!-- X 轴日期（首日 / 中间日 / 数据截止日） -->
+    <!-- X 轴日期（按绘图宽度自适应 4~5 个；首末必在，末 = 数据截止日） -->
     <view class="ct__xaxis">
       <block wx:for="{{xLabels}}" wx:key="key">
         <text class="ct__tick ct__tick--x" style="left:{{item.leftPx}}px;top:{{xTopPx}}px;font-size:{{fontPx}}px;">{{item.label}}</text>
