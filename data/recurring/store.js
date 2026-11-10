@@ -62,26 +62,92 @@ function isValidCreatedAt(v) {
   return typeof v === 'number' && Number.isFinite(v) && v > 0;
 }
 
+/** QA-03：createdAt「给了但非法」被补齐时的诊断码（上层据此查日志 / 提示用户） */
+const WARN_CREATED_AT_INVALID = 'recurring-createdAt-invalid';
+
+/**
+ * 该字段是否「完全没给」。V1/V2 备份本来就没有 createdAt，属正常情况，静默补齐；
+ * 只有「给了却不是合法时间戳」才需要留诊断 —— 两类不能混为一谈。
+ */
+function isCreatedAtMissing(raw) {
+  if (!raw || !Object.prototype.hasOwnProperty.call(raw, 'createdAt')) return true;
+  return raw.createdAt === undefined || raw.createdAt === null;
+}
+
+/** 原值摘要（诊断用）：类型 + 截断取值，避免把整段脏数据写进日志 */
+function describeValue(v) {
+  const type =
+    v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+  let text;
+  if (typeof v === 'string') text = v.length > 24 ? v.slice(0, 24) + '…' : v;
+  else if (typeof v === 'number') text = String(v);
+  else if (v && typeof v === 'object') text = '[object]';
+  else text = String(v);
+  return { type: type, text: text };
+}
+
+/** 收集诊断（调用方不传容器时静默：addRule / updateRule 等正常路径不受影响） */
+function pushDiagnostic(diagnostics, item) {
+  if (diagnostics && typeof diagnostics.push === 'function') diagnostics.push(item);
+}
+
+/**
+ * 构造「createdAt 非法已补齐」诊断项。
+ * 结构对齐 data/health.js 的 issue（level/code/scope/ref/detail），
+ * 因此可以直接并入恢复结果的 warnings 数组，上层按 code 过滤即可。
+ */
+function buildInvalidCreatedAtWarning(ruleId, original, replacedWith) {
+  const d = describeValue(original);
+  return {
+    level: 'warning',
+    code: WARN_CREATED_AT_INVALID,
+    scope: 'recurring',
+    ref: ruleId,
+    ruleId: ruleId,
+    field: 'createdAt',
+    originalType: d.type,
+    originalValue: d.text,
+    replacedWith: replacedWith,
+    detail:
+      'createdAt 非法（类型 ' + d.type + '，值 ' + d.text + '），' +
+      '已按本次操作时刻 ' + replacedWith + ' 补齐；规则本身仍恢复成功',
+  };
+}
+
 /**
  * 规范化单条规则（补全字段 + 周期字段钳制；金额整数分）。
  *
  * createdAt 归一规则（单一事实源，明确且可复现）：
  *   - 合法（有限正数）→ **原样保留**，绝不改写已有值，不做取整；
- *   - 缺失 / 非法（undefined / null / '' / 字符串 / NaN / 0 / 负数）→ 视为缺失，
- *     取 `now`（默认本次规范化时刻）。
+ *   - 缺失（无该字段 / undefined / null，V1/V2 备份的正常情况）→ 取 `now`，静默补齐；
+ *   - 非法（字符串 / 0 / 负数 / NaN 等任何给了但不是有限正数的值）→ 同样取 `now`
+ *     （**恢复结果不变**：规则仍然恢复成功），但**必须**留下可查诊断
+ *     `recurring-createdAt-invalid`（含规则 id + 原值类型/摘要），不再静默改写。
  * @param {object} raw 原始规则
  * @param {number} [now] 本次规范化的统一时间戳（批量规范化时由调用方只取一次）
+ * @param {Array} [diagnostics] 诊断收集容器（可选；传入时非法值会 push 一条 warning）
  */
-function normalizeRule(raw, now) {
+function normalizeRule(raw, now, diagnostics) {
   raw = raw || {};
+  const id = raw.id || genId();
   const frequency = core.FREQUENCIES.indexOf(raw.frequency) >= 0 ? raw.frequency : 'daily';
   const safe = core.sanitizeRecurringRule(Object.assign({}, raw, { frequency }));
   // amountCents：非有限值（undefined/NaN）兜底为 0，避免 NaN 入库（generator 会跳过 0 金额规则）
   const amountCents = Number.isFinite(raw.amountCents)
     ? Math.max(0, Math.round(raw.amountCents))
     : 0;
+  let createdAt;
+  if (isValidCreatedAt(raw.createdAt)) {
+    createdAt = raw.createdAt;
+  } else {
+    createdAt = isValidCreatedAt(now) ? now : Date.now();
+    // 缺失 → 静默补齐；给了但非法 → 补齐同时留诊断（用户 / 日志都能查到）
+    if (!isCreatedAtMissing(raw)) {
+      pushDiagnostic(diagnostics, buildInvalidCreatedAtWarning(id, raw.createdAt, createdAt));
+    }
+  }
   const out = {
-    id: raw.id || genId(),
+    id: id,
     enabled: safe.enabled,
     type: raw.type === 'income' ? 'income' : 'expense',
     amountCents,
@@ -94,11 +160,7 @@ function normalizeRule(raw, now) {
     // 避免损坏规则被悄悄改写成「今天开始」而生成意外账单）。
     startDate: typeof raw.startDate === 'string' ? raw.startDate : '',
     time: safe.time,
-    createdAt: isValidCreatedAt(raw.createdAt)
-      ? raw.createdAt
-      : isValidCreatedAt(now)
-        ? now
-        : Date.now(),
+    createdAt: createdAt,
   };
   if (safe.month != null) out.month = safe.month;
   if (raw.scheduleEffectiveAt != null) {
@@ -168,11 +230,13 @@ function countRulesByCategory(categoryId) {
  * 「本次操作时刻」，不虚构历史时间，也不会同一批里出现两个时间戳。
  * @param {Array} rules 原始规则数组
  * @param {number} [now] 统一时间戳（缺省取一次 Date.now()）
+ * @param {Array} [diagnostics] 诊断收集容器（可选；非法 createdAt 会 push warning，
+ *   缺失 createdAt 不 push —— 那是历史备份的正常情况）
  * @returns {Array} 规范化后的新数组（不修改入参）
  */
-function normalizeRules(rules, now) {
+function normalizeRules(rules, now, diagnostics) {
   const stamp = isValidCreatedAt(now) ? now : Date.now();
-  return (Array.isArray(rules) ? rules : []).map((r) => normalizeRule(r, stamp));
+  return (Array.isArray(rules) ? rules : []).map((r) => normalizeRule(r, stamp, diagnostics));
 }
 
 /**
@@ -200,6 +264,7 @@ function replaceAllRulesPrepared(rules) {
 module.exports = {
   STORE_VERSION,
   EMPTY,
+  WARN_CREATED_AT_INVALID,
   normalizeRule,
   normalizeRules,
   isValidCreatedAt,

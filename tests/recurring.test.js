@@ -614,6 +614,78 @@ console.log('L. countDueForRule 补记预估');
   eq(reread[0].createdAt, prepared[0].createdAt, 'replaceAllRulesPrepared 写入值 === 重新读取值');
 }
 
+/* ============ QA-03：非法 createdAt 必须留可查诊断（缺失 ≠ 非法） ============
+ * 要求：非法值规则仍然恢复成功（有限正数），但必须产生
+ *       code=recurring-createdAt-invalid + 规则 id + 原值类型/摘要；
+ *       「缺 createdAt」是历史备份正常情况，不得与「非法值」混为一谈（不告警）。 */
+{
+  freshStore();
+  const rstore = require(path.join(ROOT, 'data', 'recurring', 'store'));
+  const STAMP = 1715300000000;
+  const diags = [];
+  const out = rstore.normalizeRules(
+    [
+      { id: 'bad-string', amountCents: 100, startDate: '2026-09-01', createdAt: '1715000000000' },
+      { id: 'bad-zero', amountCents: 100, startDate: '2026-09-01', createdAt: 0 },
+      { id: 'bad-negative', amountCents: 100, startDate: '2026-09-01', createdAt: -5 },
+      { id: 'bad-nan', amountCents: 100, startDate: '2026-09-01', createdAt: NaN },
+      { id: 'missing', amountCents: 100, startDate: '2026-09-01' },
+      { id: 'valid', amountCents: 100, startDate: '2026-09-01', createdAt: 1700000000000 },
+    ],
+    STAMP,
+    diags
+  );
+
+  eq(out.length, 6, 'QA-03 诊断用例：6 条规则一条不丢');
+  eq(diags.length, 4, 'QA-03 字符串/0/负数/NaN 各产生 1 条诊断（共 4 条）');
+  eq(
+    diags.every((d) => d.code === 'recurring-createdAt-invalid'),
+    true,
+    'QA-03 诊断码统一为 recurring-createdAt-invalid'
+  );
+  eq(rstore.WARN_CREATED_AT_INVALID, 'recurring-createdAt-invalid', 'QA-03 诊断码已导出供上层引用');
+  eq(
+    JSON.stringify(diags.map((d) => d.ruleId).sort()),
+    JSON.stringify(['bad-nan', 'bad-negative', 'bad-string', 'bad-zero']),
+    'QA-03 每条诊断都带规则 id'
+  );
+  const stringDiag = diags.find((d) => d.ruleId === 'bad-string');
+  eq(stringDiag.originalType, 'string', 'QA-03 诊断记录原值类型（字符串）');
+  assert(
+    String(stringDiag.originalValue).indexOf('1715000000000') >= 0,
+    'QA-03 诊断记录原值摘要（实际 ' + String(stringDiag.originalValue) + '）'
+  );
+  eq(
+    diags.some((d) => d.ruleId === 'missing'),
+    false,
+    'QA-03 缺 createdAt 不告警（缺失是历史备份正常情况，不与非法值混同）'
+  );
+  eq(
+    diags.some((d) => d.ruleId === 'valid'),
+    false,
+    'QA-03 合法 createdAt 不告警'
+  );
+
+  // 恢复结果不变：全部规则仍是有限正数时间戳
+  out.forEach((r) => {
+    assert(
+      typeof r.createdAt === 'number' && Number.isFinite(r.createdAt) && r.createdAt > 0,
+      'QA-03 规则 ' + r.id + ' 的 createdAt 仍为有限正数（实际 ' + r.createdAt + '）'
+    );
+  });
+  eq(out.find((r) => r.id === 'valid').createdAt, 1700000000000, 'QA-03 合法 createdAt 未被改写');
+  eq(out.find((r) => r.id === 'missing').createdAt, STAMP, 'QA-03 缺失 createdAt 取本次统一时刻');
+  eq(out.find((r) => r.id === 'bad-zero').createdAt, STAMP, 'QA-03 非法值补齐为本次统一时刻（同批一致）');
+
+  // 不传诊断容器时行为完全不变（addRule / updateRule / 普通规范化路径不受影响）
+  const noSink = rstore.normalizeRules([{ id: 'x', amountCents: 100, createdAt: 'bad' }]);
+  eq(noSink.length, 1, 'QA-03 不传诊断容器时仍正常返回规则');
+  assert(
+    Number.isFinite(noSink[0].createdAt) && noSink[0].createdAt > 0,
+    'QA-03 不传诊断容器时非法值仍补齐为有限正数'
+  );
+}
+
 /* ================= 汇总 ================= */
 const asyncChecks = global.__v061AsyncChecks || [];
 Promise.all(asyncChecks).then(() => {

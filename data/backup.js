@@ -138,7 +138,14 @@ function restoreBackup(input, options) {
     //    这里得到 preparedRules 后，写入与第 5 步核对共用同一份对象 ——
     //    旧实现写入时 normalizeRule 取一次 Date.now、核对时再 normalizeRule 又取一次，
     //    缺 createdAt 的合法备份会因此被判成 recurring-mismatch 而整体恢复失败。
-    const preparedRules = recurringStore.normalizeRules(backup.data.recurringRules, Date.now());
+    //    QA-03：非法 createdAt（字符串 / 0 / 负数 / NaN）仍然补齐（恢复结果不变），
+    //    但补齐必须留可查诊断 —— 收集进 createdAtDiagnostics，随后并入返回的 warnings。
+    const createdAtDiagnostics = [];
+    const preparedRules = recurringStore.normalizeRules(
+      backup.data.recurringRules,
+      Date.now(),
+      createdAtDiagnostics
+    );
     recurringStore.replaceAllRulesPrepared(preparedRules);
 
     // 5. 元数据核对（结构 / 条数 / 内容；周期规则用同一份 preparedRules 比对）
@@ -160,6 +167,13 @@ function restoreBackup(input, options) {
       warningCount = report.warnings.length;
     }
 
+    // 6.1 QA-03：周期规则 createdAt 非法值诊断并入 warnings（与健康扫描同一套 issue 结构），
+    //     恢复结果不变（规则照常恢复），但用户与日志都看得见；同时单独给一份结构化清单。
+    if (createdAtDiagnostics.length) {
+      warnings = createdAtDiagnostics.concat(warnings);
+      warningCount = warnings.length;
+    }
+
     // 7. 同步 Theme Manager：恢复覆盖了 settings.theme（如深色→浅色），
     //    立即从磁盘重新加载并通知，当前 App 即时切换，无需重启。
     theme.reloadFromStorage();
@@ -169,6 +183,8 @@ function restoreBackup(input, options) {
       months: result.months,
       warningCount,
       warnings,
+      // QA-03：createdAt 非法被补齐的规则诊断（code=recurring-createdAt-invalid，含 ruleId）
+      createdAtDiagnostics,
       quarantine: {
         complete: q.complete,
         safeToProceed: q.safeToProceed,
@@ -520,12 +536,24 @@ function rollback(safetyPath) {
     Object.assign({}, settings.DEFAULT_SETTINGS, saved.data.settings || {})
   );
   // 周期规则：同恢复路径，只规范化一次，写入与核对共用同一份对象。
-  const rollbackRules = recurringStore.normalizeRules(saved.data.recurringRules, Date.now());
+  // QA-03：非法 createdAt 同样留诊断（回滚路径的清单随返回值带出）。
+  const rollbackCreatedAtDiagnostics = [];
+  const rollbackRules = recurringStore.normalizeRules(
+    saved.data.recurringRules,
+    Date.now(),
+    rollbackCreatedAtDiagnostics
+  );
   recurringStore.replaceAllRulesPrepared(rollbackRules);
   verifyMetadata(saved.data, 'ROLLBACK_META_INTEGRITY_FAILED', rollbackRules);
   // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。
   theme.reloadFromStorage();
-  return { attempted: true, completed: true, restored: result.total, months: result.months };
+  return {
+    attempted: true,
+    completed: true,
+    restored: result.total,
+    months: result.months,
+    createdAtDiagnostics: rollbackCreatedAtDiagnostics,
+  };
 }
 
 module.exports = {
