@@ -9,6 +9,21 @@ const keyboard = require('../../utils/keyboard');
 const submitGuard = require('../../utils/submit-guard');
 
 const RECENT_LIMIT = 5;
+/** 备注长度上限：与周期页 pages/recurring/recurring.wxml 的 maxlength 保持同一口径 */
+const NOTE_MAX = 40;
+/**
+ * 备注截断兜底：WXML 的 maxlength 只在真实按键输入时生效，
+ * 「整值设入」（粘贴、自动填充、自动化 input 注入）可能绕过它，因此处理函数里再截一次。
+ * 末位若是高代理（emoji 前半），少切一位，避免把 emoji 切成半个字符。
+ */
+function clampNote(v) {
+  const s = typeof v === 'string' ? v : '';
+  if (s.length <= NOTE_MAX) return s;
+  let cut = s.slice(0, NOTE_MAX);
+  const code = cut.charCodeAt(cut.length - 1);
+  if (code >= 0xd800 && code <= 0xdbff) cut = cut.slice(0, NOTE_MAX - 1);
+  return cut;
+}
 
 /**
  * 可选分类：全部未归档分类（getActiveCategories）。
@@ -91,10 +106,23 @@ Component({
       if (!this._submitGuard) this._submitGuard = submitGuard.createSubmitGuard();
       return this._submitGuard;
     },
+    /**
+     * 空金额点「确认记一笔」的提示。
+     * 灰态按钮点了不能毫无反应，必须让用户知道为什么点不动。
+     * 节流 1.2s：连点只提示一次，不叠多个 toast（微信 toast 默认停留 1.5s）。
+     */
+    _notifyAmountRequired() {
+      const now = Date.now();
+      if (now - (this._amountHintAt || 0) < 1200) return;
+      this._amountHintAt = now;
+      // 沿用全项目统一提示方式：wx.showToast + icon:'none'（与保存失败等提示一致）
+      wx.showToast({ title: '请先填写金额', icon: 'none' });
+    },
     /** 新增模式：重置为默认（今天/支出） */
     reset() {
       // 重新进入表单 = 上一笔的提交流程已结束，解锁（见 utils/submit-guard.js）
       this._guard().end();
+      this._amountHintAt = 0; // 新一轮表单可以重新提示一次
       const dateStr = util.formatDate(new Date());
       const defaultId = defaultCategoryId('expense');
       this.setData({
@@ -120,6 +148,7 @@ Component({
     edit(id) {
       // 重新进入表单 = 上一笔的提交流程已结束，解锁
       this._guard().end();
+      this._amountHintAt = 0;
       const bill = store.getBill(id);
       if (!bill) {
         this.reset();
@@ -202,7 +231,8 @@ Component({
       this.setData({ merchant: e.detail.value });
     },
     onNote(e) {
-      this.setData({ note: e.detail.value });
+      // 长度上限 40 字（与周期页一致）：WXML maxlength 挡真实按键，这里兜底整值设入
+      this.setData({ note: clampNote(e.detail.value) });
     },
     onMerchantConfirm(e) {
       this.onMerchant(e);
@@ -238,7 +268,11 @@ Component({
       });
     },
     onSubmit() {
-      if (!this.data.canSubmit) return;
+      if (!this.data.canSubmit) {
+        // 灰态按钮点下去不能没反应：提示原因（节流，连点只弹一次）
+        this._notifyAmountRequired();
+        return;
+      }
       const cents = Math.abs(money.parseAmountToCents(this.data.amountText));
       if (!cents) return;
       // 防连点：上一笔还在写 / Sheet 还在关闭动画中，直接丢弃本次点击

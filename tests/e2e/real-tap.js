@@ -165,6 +165,51 @@ async function main() {
     return panel;
   }
 
+  /* ---------- toast 探针（wx.showToast 是原生 UI，DOM 里查不到，只能拦调用） ---------- */
+  /**
+   * 用 automator 的 mockWxMethod 把 wx.showToast 换成「记录 title 的函数」。
+   * 直接给 wx.showToast 赋值无效（实测：宿主的属性不可写，赋值静默失败），
+   * 只有 mockWxMethod（走 App.mockWxMethod 通道注入函数实现）能拦到。
+   * 装完先自检一次：自己调一次 wx.showToast，确认探针真能收到，
+   * 否则断言等于空转（装不上就如实报 installed=false，不伪造结论）。
+   */
+  async function installToastSpy() {
+    try {
+      await mp.mockWxMethod('showToast', function (opt) {
+        try {
+          const app = getApp();
+          const title = String((opt && opt.title) || '');
+          app.__rtToasts = (app.__rtToasts || []).concat([title]);
+        } catch (e) { /* 记录失败不影响真实行为 */ }
+      });
+    } catch (e) {
+      return { installed: false, reason: String((e && e.message) || e) };
+    }
+    await resetToasts();
+    let selftest = null;
+    try {
+      await mp.evaluate(() => { wx.showToast({ title: '__spy_selftest__', icon: 'none' }); return true; });
+      await sleepMs(300);
+      selftest = await readToasts();
+    } catch (e) {
+      return { installed: false, reason: String((e && e.message) || e) };
+    }
+    await resetToasts();
+    return {
+      installed: selftest.length === 1 && selftest[0] === '__spy_selftest__',
+      selftest: selftest,
+    };
+  }
+  async function restoreToastSpy() {
+    try { await mp.restoreWxMethod('showToast'); } catch (e) { /* 恢复失败不影响断言 */ }
+  }
+  async function resetToasts() {
+    return mp.evaluate(() => { getApp().__rtToasts = []; return true; });
+  }
+  async function readToasts() {
+    return mp.evaluate(() => (getApp().__rtToasts || []).slice());
+  }
+
   function r1(v) { return Math.round(v * 10) / 10; }
 
   try {
@@ -362,6 +407,48 @@ async function main() {
       await closeSheet(page);
     });
 
+    /* ================= A4. 空金额点保存 → 必须有提示（v1.4.3 新增） ================= */
+    await ctx.test('A4 空金额点保存：弹「请先填写金额」提示，连点 5 次只提示 1 次', async () => {
+      page = await mp.currentPage();
+      const before = await readLedger();
+      const form = await openSheet(page);
+      ctx.eq((await form.data()).canSubmit, false, '新开表单空金额不可提交');
+
+      const spy = await installToastSpy();
+      ctx.eq(spy.installed, true, 'wx.showToast 探针已装上并通过自检（装不上则本条断言无效）'
+        + (spy.reason ? '：' + spy.reason : '') + (spy.selftest ? ' 自检收到：' + JSON.stringify(spy.selftest) : ''));
+      if (!spy.installed) throw new Error('toast 探针装不上，无法验证提示：' + (spy.reason || ''));
+      await resetToasts();
+
+      const submit = await form.$('.bf-submit');
+      if (!submit) throw new Error('找不到保存按钮 .bf-submit');
+
+      // 连点 5 次（间隔 60ms，远小于 1.2s 节流窗口）
+      for (let i = 0; i < 5; i++) {
+        await submit.tap();
+        await sleepMs(60);
+      }
+      await sleepMs(400);
+      const toasts = await readToasts();
+      log('  连点 5 次 → 收到提示 ' + toasts.length + ' 条：' + JSON.stringify(toasts));
+      ctx.eq(toasts.length, 1, '连点 5 次只弹 1 个提示（节流生效，不叠加）');
+      ctx.includes(String(toasts[0] || ''), '金额', '提示文案说清了原因（含「金额」）');
+
+      // 节流窗口过后可以再次提示（不是永久锁死）
+      await sleepMs(1400);
+      await submit.tap();
+      await sleepMs(300);
+      const toasts2 = await readToasts();
+      ctx.eq(toasts2.length, 2, '间隔 1.4s 后再点会再提示一次（节流而非永久静音）');
+
+      ctx.eq((await page.data()).sheetShow, true, '弹提示不会关闭 Sheet');
+      const after = await readLedger();
+      ctx.eq(after.length, before.length, '空金额点保存不产生任何账单');
+      ctx.eq(after.filter((b) => !before.find((x) => x.id === b.id)).length, 0, '账本没有新增脏数据');
+      await restoreToastSpy(); // 撤掉 mock，别影响后续用例
+      await closeSheet(page);
+    });
+
     /* ================= B. 备注输入（真实键盘） ================= */
     await ctx.test('B1 备注中文+字母数字：落库与输入完全一致', async () => {
       page = await mp.currentPage();
@@ -386,7 +473,10 @@ async function main() {
       ctx.eq(bill.amountCents, 888, '落库金额 8.88 元 = 888 分');
     });
 
-    await ctx.test('B2 备注超长（63 字）：不报错，落库值必须是输入的前缀', async () => {
+    // v1.4.3 期望值变更：原先断言「63 字原样落库」，现在备注有 40 字上限
+    // （与周期页 recurring.wxml maxlength=40 统一口径），断言改为「截断到 40 字前缀」。
+    // 这不是放水：上限本身是需求，断言值随需求改，仍然钉死「不中间丢字、不超上限」。
+    await ctx.test('B2 备注超长（63 字）：截断到 40 字上限后落库', async () => {
       page = await mp.currentPage();
       const form = await openSheet(page);
       const amount = await form.$('.bf-amount__input');
@@ -395,22 +485,27 @@ async function main() {
       await sleepMs(150);
       const inputs = await textInputs(form);
       const longText = '长文本' + 'x'.repeat(60); // 3 + 60 = 63 字
+      const expect = longText.slice(0, 40);
       await inputs[1].tap();
       await inputs[1].input(longText);
       await sleepMs(250);
-      ctx.eq((await form.data()).note, longText, '63 字备注页面完整保留（未被中间丢字）');
+
+      const pageNote = String((await form.data()).note || '');
+      log('  B2 输入 ' + longText.length + ' 字 → 页面 note ' + pageNote.length + ' 字');
+      ctx.eq(pageNote.length, 40, '页面 note 被截断到 40 字（maxlength + onNote 兜底）');
+      ctx.eq(pageNote, expect, '截断值 = 输入的前 40 字（前缀，不中间丢字）');
 
       await tapSubmit(form);
       await waitData(page, 'sheetShow', false);
       await sleepMs(650);
-      const bill = findBill(await readLedger(), longText)
-        || (await readLedger()).find((b) => longText.indexOf(String(b.note || '')) === 0 && b.amountCents === 999);
-      ctx.truthy(bill, '超长备注的账单已落库');
+      const bill = findBill(await readLedger(), expect);
+      ctx.truthy(bill, '超长备注的账单已落库（按 40 字前缀可查到）');
       const saved = String(bill.note || '');
-      log('  B2 输入 ' + longText.length + ' 字，落库 ' + saved.length + ' 字');
-      ctx.ok(longText.indexOf(saved) === 0, '落库备注是输入的前缀（没有中间截断 / 乱码）');
-      ctx.ok(saved.length === longText.length || saved.length === 40,
-        '落库长度 = 输入长度或 maxlength=40 上限（实际 ' + saved.length + '）');
+      log('  B2 落库 ' + saved.length + ' 字');
+      ctx.eq(saved.length, 40, '落库备注长度 = 40（上限生效，不再原样存 63 字）');
+      ctx.eq(saved, expect, '落库备注 = 输入的前 40 字');
+      ctx.ok(saved.length < longText.length, '落库长度小于输入长度（确已截断，' + saved.length + ' < ' + longText.length + '）');
+      ctx.eq(bill.amountCents, 999, '落库金额 9.99 元 = 999 分');
     });
 
     await ctx.test('B3 备注特殊字符（emoji / 空格 / 尖括号 / 全角标点 / 换行）不被破坏', async () => {

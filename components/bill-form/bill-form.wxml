@@ -72,10 +72,10 @@
     <input class="bf-row__input" type="text" placeholder="如：瑞幸咖啡" placeholder-class="bf-row__ph" value="{{merchant}}" bindinput="onMerchant" confirm-type="done" bindconfirm="onMerchantConfirm" />
   </view>
 
-  <!-- 备注 -->
+  <!-- 备注：上限 40 字（与周期页口径一致；WXML maxlength 挡真实按键，onNote 里另有兜底截断） -->
   <view class="bf-row">
     <text class="bf-row__label">备注</text>
-    <input class="bf-row__input" type="text" placeholder="添加备注" placeholder-class="bf-row__ph" value="{{note}}" bindinput="onNote" confirm-type="done" bindconfirm="onNoteConfirm" />
+    <input class="bf-row__input" type="text" placeholder="添加备注" placeholder-class="bf-row__ph" maxlength="40" value="{{note}}" bindinput="onNote" confirm-type="done" bindconfirm="onNoteConfirm" />
   </view>
 
   <!-- 删除（仅编辑模式） -->
