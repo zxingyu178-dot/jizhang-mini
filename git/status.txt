@@ -45,3 +45,33 @@
 # ★ 建议：这 8 个 ZIP 建议后续加入 .gitignore（或移入 artifacts/releases 目录并登记），
 #   避免每次 status 都被误读为「工作区有未提交改动」。
 #   本轮按任务书要求：绝对不许删除 / 修改 / 移走，故未做任何处理 —— 仅登记。
+
+
+============================================================
+★ 最终小节（Gate 5 收口 · 合并推送之后，追加记录，上文原内容未改动）
+采集时间：2026-11-10（合并 + 推送 + 二次提交推送全部完成之后）
+采集分支：main
+============================================================
+
+$ git rev-parse HEAD
+cdec161fe3448957dc19baf6406f28dcde812f85
+
+$ git rev-parse origin/main
+cdec161fe3448957dc19baf6406f28dcde812f85
+
+★ HEAD 与 origin/main 是否一致：**一致（SAME）**
+
+$ git status --short
+?? DailyValueMini_v1.4.1_Review.zip
+?? DailyValueMini_v1.4.2_Review.zip
+?? DailyValue_Mini_v1.4.0_Acceptance.zip
+?? jizhang-mini_v1.3.2_acceptance.zip
+?? jizhang-mini_v1.3.3_acceptance.zip
+?? jizhang-mini_v1.3.4_acceptance.zip
+?? jizhang-mini_v1.3.5_acceptance.zip
+?? jizhang-mini_v1.3.6_acceptance.zip
+
+★ 结论与前面一致：**8 条全部是 `??` 未跟踪的历史 ZIP，无 M / D / R，已跟踪文件与 HEAD 完全一致。**
+  （注：`reports/logs/*.log` 因 `.gitignore` 的 `logs/` 规则不进入版本库；文件实体仍在工作区，
+    已原样打进最终验收 ZIP，未改动 `.gitignore`。）
+

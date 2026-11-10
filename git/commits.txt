@@ -110,3 +110,41 @@ tests/recurring.test.js
 - 打 tag：**未执行**
 
 本轮 Gate 3 只做文档整理，以上动作一件未做。
+
+
+============================================================
+九、最终小节（Gate 5 收口 · 实际执行记录，追加记录，上文原内容未改动）
+执行时间：2026-11-10
+============================================================
+
+【1. 分支提交】branch = fix/v1.4.2-final-stabilization
+  $ git add -A -- . ':!*.zip'      → 暂存 10 个文件（ZIP 被排除）
+  $ git commit -m "docs(v1.4.2): 交付文档统一 + 回归日志归档"
+  → 37de352f89d0103c837d615ca0d2224ba0765134
+  → 10 files changed, 1338 insertions(+), 2 deletions(-)
+  提交后 `git status --short` 只剩 8 个 `??` 历史 ZIP。
+
+【2. 合并到 main】（合并前 main = origin/main = 5c33d6da8b9e72308abc640ad7810e75b29032dc）
+  $ git checkout main
+  $ git merge --no-ff fix/v1.4.2-final-stabilization -m "merge: v1.4.2 最终稳定性收口（周期规则恢复 + 临时安全点清理）"
+  → 合并成功，**无冲突**（未执行任何冲突解决动作；未 abort）
+  → 19 files changed, 2354 insertions(+), 28 deletions(-)
+  → merge commit = cdec161fe3448957dc19baf6406f28dcde812f85
+
+【3. 推送】
+  $ git push origin main
+  → 成功：5c33d6d..cdec161  main -> main
+  → 未使用 force push
+
+【4. SHA 核对】
+  HEAD        = cdec161fe3448957dc19baf6406f28dcde812f85
+  origin/main = cdec161fe3448957dc19baf6406f28dcde812f85
+  → **一致**
+
+【5. 记录本小节后按任务书要求二次提交并推送】
+
+$ git log --oneline -3
+cdec161 merge: v1.4.2 最终稳定性收口（周期规则恢复 + 临时安全点清理）
+37de352 docs(v1.4.2): 交付文档统一 + 回归日志归档
+959f21e fix(v1.4.2): QA-03 createdAt 非法值留可查诊断 + QA-01 性能基准去掉写死日期
+
