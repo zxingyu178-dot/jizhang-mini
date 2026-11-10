@@ -1,3 +1,19 @@
 <view class="ct" style="width:100%;height:{{height}}px;">
-  <image class="ct__img" src="{{uri}}" style="width:100%;height:100%;" mode="scaleToFill"/>
+  <image class="ct__img" src="{{uri}}" style="width:100%;height:100%;" mode="scaleToFill" wx:if="{{hasData}}"/>
+  <block wx:if="{{hasData}}">
+    <!-- Y 轴金额刻度（叠加层，占左侧留白列，不压曲线） -->
+    <view class="ct__yaxis" style="width:{{gutterPx}}px;">
+      <block wx:for="{{yTicks}}" wx:key="key">
+        <text wx:if="{{item.label}}" class="ct__tick" style="top:{{item.topPx}}px;font-size:{{fontPx}}px;">{{item.label}}</text>
+      </block>
+    </view>
+    <!-- X 轴日期（首日 / 中间日 / 数据截止日） -->
+    <view class="ct__xaxis">
+      <block wx:for="{{xLabels}}" wx:key="key">
+        <text class="ct__tick ct__tick--x" style="left:{{item.leftPx}}px;top:{{xTopPx}}px;font-size:{{fontPx}}px;">{{item.label}}</text>
+      </block>
+    </view>
+  </block>
+  <!-- 兜底空态：外层卡片通常已用 .chart__empty，这里只防「组件挂载了但没数据」留白 -->
+  <text class="ct__empty" wx:else>本月还没有支出</text>
 </view>

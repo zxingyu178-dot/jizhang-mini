@@ -172,7 +172,7 @@ console.log('C. cumulative-trend');
   inst.refresh();
   const svgLight = decode(inst.data.uri, 'cumulative light');
   checkSvg(svgLight, 'cumulative light');
-  assert(svgLight.indexOf('stroke="rgba(25,28,40,0.10)"') >= 0, '浅色网格使用既有深色 rgba');
+  assert(svgLight.indexOf('stroke="rgba(80,90,130,0.20)"') >= 0, '浅色网格使用 --chart-grid 同口径 rgba（0.20，1.35:1）');
 
   // v1.4.3：断言改为测「规则」而不是记死写法——
   // 图表必须在布局完成后铺满容器整宽（组件量容器真实宽度生成同比例 viewBox），

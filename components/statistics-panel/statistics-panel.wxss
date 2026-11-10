@@ -288,22 +288,67 @@
 }
 .chart__empty {
   font-size: 24rpx;
-  color: var(--text-faint);
+  /* v1.4.4 终检：空态文案是「本卡主体信息」，不是可有可无的辅助字。
+     原 --text-faint（深色 2.30:1）糊在玻璃卡背景上，改用刻度同一档 --text-axis。 */
+  color: var(--text-axis);
   padding: 24rpx 0;
   text-align: center;
 }
 
 /* ---- 柱状图（纯 WXSS） ---- */
-.chart__bars {
+/* v1.4.4：柱图改为「Y 轴刻度列 + 柱区 + X 标签行」三段结构。
+   刻度文字与网格线全部落在左侧留白列 / 柱区内部绝对定位，不用 overflow 裁剪
+   （Skyline 下 overflow 行为与 WebView 不同，柱子不能靠裁剪收边）。 */
+.ca {
+  display: block;
+}
+.ca__row {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-start;
 }
-.chart__bars--daily {
-  height: 220rpx;
+.ca__ycol {
+  position: relative;
+  flex-shrink: 0;
 }
-.chart__bars--month {
-  height: 240rpx;
+.ca__tick {
+  position: absolute;
+  right: 6px;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: right;
+  /* v1.4.4 终检：刻度专用色（--text-axis）。--text-faint 是「辅助文字」色，
+     坐标轴要读数，不能吃 0.40（浅色实测 2.3:1） */
+  color: var(--text-axis);
+  transform: translateY(50%);
+  pointer-events: none;
+}
+.ca__plot {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.ca__grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  /* 网格线专用色（--chart-grid）：--divider 做网格线太淡（浅色实测 1.13:1） */
+  background: var(--chart-grid);
+  /* 1px 线在 rpx 取整后系统性偏高约 0.5~1.4px，下移 1px 与刻度文字对齐 */
+  transform: translateY(1px);
+}
+.ca__bars {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  height: 100%;
+}
+.ca__xrow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  height: 34rpx;
 }
 .bar-col {
   flex: 1;
@@ -326,16 +371,20 @@
 }
 .bar--exp {
   background: linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
-  box-shadow: 0 0 12rpx var(--primary-glow);
+  /* v1.4.4 终检：去掉柱体发光。原来 0 0 12rpx 的光晕在 13 根柱、柱距 4.5px 的图上
+     会把整片糊成紫雾（柱外 1px 与底色差 Δ=18），肉眼数不清几根柱 */
+  box-shadow: none;
 }
 .bar-label {
-  width: 60rpx;
+  /* 不再写死 60rpx（≈34px）：12 列时列宽只有 ≈26px，写死会让相邻标签的可点区域重叠 8px，
+     点 3 月却命中 4 月。改为撑满本列 + 居中，点哪个月就命中哪个月。 */
+  width: 100%;
   flex-shrink: 0;
   white-space: nowrap;
   height: 34rpx;
   line-height: 34rpx;
-  font-size: 18rpx;
-  color: var(--text-faint);
+  font-size: 22rpx; /* 11px：字号由 JS 按窗口宽度内联覆盖（正常 11 / 窄屏 10） */
+  color: var(--text-axis);
   text-align: center;
 }
 .bar-label--hide {

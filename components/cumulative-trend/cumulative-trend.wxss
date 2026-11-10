@@ -1,6 +1,48 @@
 .ct {
   margin: 0 auto;
+  /* 刻度文字用绝对定位叠在 SVG 上，父级必须是定位上下文 */
+  position: relative;
 }
 .ct__img {
   display: block;
+}
+/* Y 轴刻度列：贴左侧，与 SVG 的 padLeft 同宽；文字右对齐，右边缘留 4px 不贴曲线 */
+.ct__yaxis {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+}
+.ct__xaxis {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+.ct__tick {
+  position: absolute;
+  right: 4px;
+  line-height: 1;
+  white-space: nowrap;
+  /* v1.4.4 终检：刻度专用色（--text-axis），不再吃 --text-faint（那是辅助文字色，对比度 2.3:1 看不清） */
+  color: var(--text-axis);
+  text-align: right;
+  /* 纯展示文字，不吃点击 */
+  pointer-events: none;
+}
+/* X 轴日期：以点的横坐标为中心，左右各展开一半（translateX(-50%)） */
+.ct__tick--x {
+  right: auto;
+  text-align: center;
+  transform: translateX(-50%);
+}
+/* 空态（整月无支出）：口径与年度卡 .chart__empty 一致 */
+.ct__empty {
+  display: block;
+  font-size: 24rpx;
+  /* v1.4.4 终检：与 .chart__empty 同一句文案，配色统一到 --text-axis（原 --text-faint 2.30:1 看不清） */
+  color: var(--text-axis);
+  padding: 24rpx 0;
+  text-align: center;
 }

@@ -10,6 +10,7 @@ const R = require('../../data/statistics/range');
 const dateUtil = require('../../data/date');
 const statCfg = require('../../data/statistics/config');
 const donut = require('../../data/statistics/donut');
+const axis = require('../../data/statistics/axis');
 const theme = require('../../utils/theme');
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
@@ -61,6 +62,145 @@ function withBarHeight(points, zoneRpx) {
   }));
 }
 
+/* ---------- 坐标轴（v1.4.4）：Y 轴 3 档金额刻度 + X 标签按宽度抽稀 ---------- */
+
+/** 刻度字号（px）：窄屏 10px，其余 11px；与 cumulative-trend 同口径，不用 rpx（窄屏会被缩到 9px 以下） */
+var AXIS_FONT_NARROW = 10;
+var AXIS_FONT_NORMAL = 11;
+/** 字号下限：标签实在放不下时可以缩到 10px，但不许再小（再小就是「看不清」） */
+var AXIS_FONT_MIN = 10;
+/** 图表卡内容区宽度（rpx）= 750 - .sta 左右 padding(28×2) - .chart 左右 padding(28×2) */
+var CHART_CONTENT_RPX = 638;
+/** Y 轴刻度文字宽度（px），按文字实际长度算，不写死 */
+function axisFontPx(isNarrow) {
+  return isNarrow ? AXIS_FONT_NARROW : AXIS_FONT_NORMAL;
+}
+/** 图表卡内容区宽度（px）：按窗口宽度换算，取不到窗口信息时按 375 兜底 */
+function chartContentPx(winW) {
+  const w = Number.isFinite(winW) && winW > 0 ? winW : 375;
+  return Math.round(CHART_CONTENT_RPX * (w / 750) * 100) / 100;
+}
+
+/** 某张图「只看刻度文字」所需的 Y 轴留白（px）：与 buildBarChart / cumulative 同口径 */
+function gutterOfChart(maxCents, fontPx) {
+  const ticks = axis.buildTicks(maxCents, 3, { prefix: '¥' });
+  const topLabel = ticks.length ? ticks[ticks.length - 1].label : '0';
+  return axis.axisGutterPx(topLabel, fontPx);
+}
+/** 同一列里多张图共用同一个 Y 轴留白（终检⑥：左边界也要对齐，不能各算各的） */
+function sharedGutterPx(opt, maxList) {
+  const fontPx = Number(opt && opt.fontPx) > 0 ? Number(opt.fontPx) : AXIS_FONT_NORMAL;
+  let g = 0;
+  (maxList || []).forEach((m) => {
+    const v = gutterOfChart(m, fontPx);
+    if (v > g) g = v;
+  });
+  return g;
+}
+
+/**
+ * 柱状图坐标轴：算出 Y 轴 nice 刻度、留白列宽，并按可用宽度重写每个点的 showLabel。
+ *
+ * v1.4.4 终检改动（三条，都影响「读不读得出数」）：
+ *   1) **刻度取整（nice ticks）**：顶档 = 向上取整到 1/1.5/2/2.5/3/4/5/6/8 ×10ⁿ（≥ 实际最大值），
+ *      中档 = 顶档 / 2。原来顶档直接等于 max（¥127 / ¥5999），要在 63 和 127 之间心算。
+ *   2) **柱高比例尺跟着 niceMax 走**：柱高 = 值 / niceMax × 柱区高。最高柱不再顶到顶线
+ *      （顶线是「够用且好读」的上界）——这是正确的，柱子与刻度必须同一比例尺。
+ *   3) **12 个月标签绝不允许抽稀**（opt.requireAll）：宽度不够先缩格式（'1月'→'1'），
+ *      再缩字号（下限 10px）。用户要靠 12 个标签找「哪个月没数据」。
+ *
+ * @param {Array} points 点数组（不修改入参）
+ * @param {(p:Object)=>number} valueOf 取该点的金额（分）
+ * @param {number} zoneRpx 柱区高度（rpx）
+ * @param {number} maxXCount X 轴标签业务上限（每日图 7 个 / 月份图 12 个）
+ * @param {{fontPx:number, contentPx:number, requireAll?:boolean, shortLabels?:boolean}} opt
+ * @returns {{points:Array, axis:{gutterPx:number, fontPx:number, zoneRpx:number, ticks:Array, maxCents:number}}}
+ */
+function buildBarChart(points, valueOf, zoneRpx, maxXCount, opt) {
+  const o = opt || {};
+  let fontPx = Number(o.fontPx) > 0 ? Number(o.fontPx) : AXIS_FONT_NORMAL;
+  const contentPx = Number(o.contentPx) > 0 ? Number(o.contentPx) : chartContentPx(375);
+  const list = (points || []).map((p) => Object.assign({}, p));
+  let maxVal = 0;
+  list.forEach((p) => {
+    const v = Number(valueOf(p));
+    if (Number.isFinite(v) && v > maxVal) maxVal = v;
+  });
+
+  // ① nice 刻度：顶档 = 向上取整档位，中档 = 顶档 / 2
+  const ticks = axis.buildTicks(maxVal, 3, { prefix: '¥' });
+  const maxCents = ticks.length ? ticks[ticks.length - 1].cents : 0;
+
+  // ② 柱高按 niceMax 归一（与刻度同一比例尺，绝不越过顶线）
+  list.forEach((p) => {
+    const v = Number(valueOf(p));
+    const ratio = maxCents > 0 && Number.isFinite(v) ? Math.min(1, v / maxCents) : 0;
+    p.barHeightRpx = Math.round(ratio * zoneRpx);
+  });
+
+  // ③ 窄屏优先缩「格式」而不是缩「字号」：'1日' → '1'
+  if (o.shortLabels) list.forEach((p) => { p.label = axis.shortAxisLabel(p.label); });
+
+  let topLabel = ticks.length ? ticks[ticks.length - 1].label : '0';
+  // 统一内边距（终检⑥）：同一列里的图共用同一个留白宽度，左右边界才对得齐
+  const forced = Number(o.gutterPx);
+  let gutterPx = Number.isFinite(forced) && forced > 0
+    ? Math.min(56, Math.max(22, Math.round(forced)))
+    : axis.axisGutterPx(topLabel, fontPx);
+  let plotW = Math.max(40, contentPx - gutterPx);
+
+  const labelW = (fs) => {
+    let w = 0;
+    list.forEach((p) => {
+      const t = axis.textWidthPx(p.label, fs);
+      if (t > w) w = t;
+    });
+    return w;
+  };
+
+  if (o.requireAll && list.length) {
+    // 标签必须全在：先缩格式，再缩字号（下限 AXIS_FONT_MIN），绝不抽稀
+    const colW = plotW / list.length;
+    if (labelW(fontPx) > colW - 1) {
+      list.forEach((p) => { p.label = axis.shortAxisLabel(p.label); });
+    }
+    const need = labelW(fontPx);
+    const colW2 = plotW / list.length;
+    if (need > colW2 - 1 && need > 0) {
+      const fit = Math.floor((fontPx * (colW2 - 1)) / need);
+      fontPx = Math.max(AXIS_FONT_MIN, Math.min(fontPx, fit));
+      topLabel = ticks.length ? ticks[ticks.length - 1].label : '0';
+      gutterPx = Number.isFinite(forced) && forced > 0
+        ? Math.min(56, Math.max(22, Math.round(forced)))
+        : axis.axisGutterPx(topLabel, fontPx);
+      plotW = Math.max(40, contentPx - gutterPx);
+    }
+    list.forEach((p) => { p.showLabel = true; });
+  } else {
+    const idxs = axis.pickXLabels(list, maxXCount, plotW, fontPx * 0.58);
+    const shown = {};
+    idxs.forEach((i) => { shown[i] = true; });
+    // 覆写 showLabel：原逻辑按固定步长抽稀（窄屏会叠字），改为按实际可用宽度算
+    list.forEach((p, i) => { p.showLabel = !!shown[i]; });
+  }
+
+  return {
+    points: list,
+    axis: {
+      gutterPx,
+      fontPx,
+      zoneRpx,
+      maxCents,
+      ticks: ticks.map((t) => ({
+        key: t.key,
+        label: t.label,
+        bottomRpx: Math.round(t.ratio * zoneRpx),
+        showGrid: !!t.showGrid,
+      })),
+    },
+  };
+}
+
 /** 账单 → 分类明细列表项（点击支出排行时弹；只含该分类支出，收入不混入） */
 function toCatItems(bills, catId) {
   return M.listCategoryExpenseBills(bills, catId).map((b) => {
@@ -105,9 +245,14 @@ Component({
     shareSelectedId: '', // 圆环 / 图例选中的分类 id（聚合为 AGGREGATE id）
     shareAggCount: 0, // 聚合「其他」包含的真实分类数
     daily: [],
+    dailyAxis: null, // 每日花费趋势的 Y 轴刻度（buildBarAxis 产出）
+    dailyEmpty: false, // 整月无支出（显示空态文案，不画空图）
     // 累计消费趋势（cumulative-trend，默认关闭）
     cumPoints: [],
     cumMax: 0,
+    cumEmpty: false, // 整月无支出（同上）
+    cumGutter: 0, // 与日柱图共用的 Y 轴留白（px，0 = 组件自适应）
+    cumMonth: 0, // 1-12：X 轴日期标签用（M/DD）
     rank: [],
     cmp: { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 },
     // 预算日历 + 节奏摘要（无任何预算规则时显示轻空态）
@@ -125,6 +270,7 @@ Component({
     highest: '',
     lowest: '',
     monthly: [],
+    monthlyAxis: null, // 12 个月趋势的 Y 轴刻度
     yearRank: [],
     // 全年分类占比（复用 category-donut，使用完整年度分类列表）
     yearShareSegments: [],
@@ -175,7 +321,11 @@ Component({
       // 不新增监听器；仅当跨过 360 阈值时才 setData（键盘收起等无关事件不产生多余渲染）。
       this._offViewport = viewport.onRecover(() => {
         const next = device.isNarrowScreen();
-        if (next !== this.data.isNarrow) this.setData({ isNarrow: next });
+        if (next !== this.data.isNarrow) {
+          this.setData({ isNarrow: next });
+          // 刻度字号与 X 轴标签密度跟着宽度变（只重算坐标轴，不重读账本）
+          this.rebuildAxis(next);
+        }
       });
     },
     detached() {
@@ -199,6 +349,47 @@ Component({
       // 直接 loadMonth('') 会解析出 NaN 年月，需回退到当前月 / 当前年。
       if (this.data.mode === 'year') this.loadYear(this.data.year || new Date().getFullYear());
       else this.loadMonth(this.data.ym || currentYM());
+    },
+    /** 坐标轴尺寸参数（刻度字号随窄屏变、绘图区宽度随窗口宽度变） */
+    axisOpt(narrow) {
+      let winW = 375;
+      try {
+        const info = device.measure();
+        winW = info && info.windowWidth ? info.windowWidth : 375;
+      } catch (e) {
+        winW = 375; // 取不到窗口信息：按 375 兜底，只影响 X 标签抽稀精度，不影响数值正确性
+      }
+      const isNarrow = narrow == null ? this.data.isNarrow : !!narrow;
+      return {
+        fontPx: axisFontPx(isNarrow),
+        contentPx: chartContentPx(winW),
+        // 窄屏优先缩标签格式（'1日' → '1'），不靠缩字号省宽度
+        shortLabels: isNarrow,
+      };
+    },
+    /** 窗口宽度变化（旋转 / 分屏）后只重算坐标轴：不重读账本、不重算统计 */
+    rebuildAxis(narrow) {
+      const opt = this.axisOpt(narrow);
+      const patch = {};
+      // 统一留白（终检⑥）：用缓存的两张图最大值重算，保证左右边界继续对齐
+      const sharedGutter = sharedGutterPx(opt, [
+        (this.data.daily || []).reduce((m, p) => Math.max(m, Number(p.cents) || 0), 0),
+        Number(this.data.cumMax) || 0,
+      ]);
+      if (this.data.daily && this.data.daily.length) {
+        const bc = buildBarChart(this.data.daily, (p) => p.cents, BAR_ZONE_DAILY_RPX, 7,
+          Object.assign({}, opt, { gutterPx: sharedGutter }));
+        patch.daily = bc.points;
+        patch.dailyAxis = bc.axis;
+      }
+      patch.cumGutter = sharedGutter;
+      if (this.data.monthly && this.data.monthly.length) {
+        const bc = buildBarChart(this.data.monthly, (p) => p.expense, BAR_ZONE_MONTH_RPX, 12,
+          Object.assign({}, opt, { requireAll: true }));
+        patch.monthly = bc.points;
+        patch.monthlyAxis = bc.axis;
+      }
+      if (Object.keys(patch).length) this.setData(patch);
     },
 
     /**
@@ -367,18 +558,40 @@ Component({
       }
 
       // —— 每日花费趋势（daily-expense-trend） ——
-      patch.daily = on('daily-expense-trend')
-        ? withBarHeight(M.computeDailyExpenseTrend(bills, y, m).points, BAR_ZONE_DAILY_RPX)
-        : [];
+      const optM = this.axisOpt();
+      const dailyRaw = on('daily-expense-trend') ? M.computeDailyExpenseTrend(bills, y, m) : null;
+      const cum = on('cumulative-trend') ? M.computeCumulativeTrend(bills, y, m) : null;
+      // 同一列里的日柱图与累计图共用 Y 轴留白（终检⑥：左右边界都要对齐）
+      const sharedGutter = sharedGutterPx(optM, [
+        dailyRaw ? dailyRaw.max : 0,
+        cum ? cum.max : 0,
+      ]);
+      if (dailyRaw) {
+        const pts = withBarHeight(dailyRaw.points, BAR_ZONE_DAILY_RPX);
+        // X 轴标签按「每日图最多 7 个」+ 实际可用宽度抽稀（窄屏自动减，不叠字）
+        const bc = buildBarChart(pts, (p) => p.cents, BAR_ZONE_DAILY_RPX, 7,
+          Object.assign({}, optM, { gutterPx: sharedGutter }));
+        patch.daily = bc.points;
+        patch.dailyAxis = bc.axis;
+        // 整月无支出 → 空态文案（不再画一根 0 高度的空图 + 顶部挂个 0）
+        patch.dailyEmpty = !(bc.axis.maxCents > 0);
+      } else {
+        patch.daily = [];
+        patch.dailyAxis = null;
+        patch.dailyEmpty = false;
+      }
 
       // —— 累计消费趋势（cumulative-trend，默认关闭） ——
-      if (on('cumulative-trend')) {
-        const cum = M.computeCumulativeTrend(bills, y, m);
+      patch.cumMonth = m;
+      patch.cumGutter = sharedGutter;
+      if (cum) {
         patch.cumPoints = cum.points;
         patch.cumMax = cum.max;
+        patch.cumEmpty = !(cum.max > 0);
       } else {
         patch.cumPoints = [];
         patch.cumMax = 0;
+        patch.cumEmpty = false;
       }
 
       // —— 收入 / 支出对比（income-expense-compare） ——
@@ -503,9 +716,17 @@ Component({
       };
 
       // —— 12 个月支出趋势（year-monthly-trend） ——
-      patch.monthly = on('year-monthly-trend')
-        ? withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX)
-        : [];
+      if (on('year-monthly-trend')) {
+        const pts = withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX);
+        // 12 个月标签必须全在（用户靠它找「哪个月没数据」）：宽度不够先缩格式再缩字号，绝不抽稀
+        const bc = buildBarChart(pts, (p) => p.expense, BAR_ZONE_MONTH_RPX, 12,
+          Object.assign({}, this.axisOpt(), { requireAll: true }));
+        patch.monthly = bc.points;
+        patch.monthlyAxis = bc.axis;
+      } else {
+        patch.monthly = [];
+        patch.monthlyAxis = null;
+      }
 
       // —— 年度回顾（year-review）：最大单笔 / 记录最多分类 / 最常消费月 ——
       if (on('year-review')) {

@@ -101,12 +101,35 @@
       </view>
 
       <!-- 每日花费趋势 -->
-      <view class="glass-card chart" wx:if="{{modMap['daily-expense-trend']}}">
+      <view class="glass-card chart" id="dailyCard" wx:if="{{modMap['daily-expense-trend']}}">
         <text class="chart__title">每日花费趋势</text>
-        <view class="chart__bars chart__bars--daily">
-          <view class="bar-col" wx:for="{{daily}}" wx:key="day">
-            <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
-            <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
+        <!-- 空态：整月无支出（口径对齐年度卡「这一年还没有支出」） -->
+        <view class="chart__empty" wx:if="{{dailyEmpty}}">本月还没有支出</view>
+        <view class="ca" wx:elif="{{dailyAxis}}">
+          <view class="ca__row">
+            <!-- Y 轴金额刻度（0 / ½顶档 / 顶档），占左侧留白列 -->
+            <view class="ca__ycol" style="width:{{dailyAxis.gutterPx}}px;height:{{dailyAxis.zoneRpx}}rpx;">
+              <block wx:for="{{dailyAxis.ticks}}" wx:key="key">
+                <text wx:if="{{item.label}}" class="ca__tick" style="bottom:{{item.bottomRpx}}rpx;font-size:{{dailyAxis.fontPx}}px;">{{item.label}}</text>
+              </block>
+            </view>
+            <!-- 柱区：柱高与刻度共用同一比例尺（value / 顶档 × 柱区高，不越过顶线） -->
+            <view class="ca__plot" style="height:{{dailyAxis.zoneRpx}}rpx;">
+              <block wx:for="{{dailyAxis.ticks}}" wx:key="key">
+                <view class="ca__grid" wx:if="{{item.showGrid}}" style="bottom:{{item.bottomRpx}}rpx;"></view>
+              </block>
+              <view class="ca__bars">
+                <view class="bar-col" wx:for="{{daily}}" wx:key="day">
+                  <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
+                </view>
+              </view>
+            </view>
+          </view>
+          <!-- X 轴日标签（按可用宽度抽稀，互不重叠） -->
+          <view class="ca__xrow" style="margin-left:{{dailyAxis.gutterPx}}px;">
+            <view class="bar-col" wx:for="{{daily}}" wx:key="day">
+              <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}" style="font-size:{{dailyAxis.fontPx}}px;">{{item.label}}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -114,7 +137,9 @@
       <!-- 累计消费趋势（默认关闭，在管理中开启） -->
       <view class="glass-card chart" id="cumCard" wx:if="{{modMap['cumulative-trend']}}">
         <text class="chart__title">累计消费趋势</text>
-        <cumulative-trend points="{{cumPoints}}" max="{{cumMax}}" width="320" height="180"/>
+        <!-- 空态：整月无支出（折线只画到数据截止日，无数据时不画空图） -->
+        <view class="chart__empty" wx:if="{{cumEmpty}}">本月还没有支出</view>
+        <cumulative-trend wx:else points="{{cumPoints}}" max="{{cumMax}}" month="{{cumMonth}}" gutter="{{cumGutter}}" width="320" height="180"/>
       </view>
 
       <!-- 预算空态：从未设置过预算规则（不显示整页灰色日历） -->
@@ -308,12 +333,32 @@
       </view>
 
       <!-- 12 个月趋势 -->
-      <view class="glass-card chart" wx:if="{{modMap['year-monthly-trend']}}">
+      <view class="glass-card chart" id="yearMonthlyCard" wx:if="{{modMap['year-monthly-trend']}}">
         <text class="chart__title">12 个月支出趋势</text>
-        <view class="chart__bars chart__bars--month">
-          <view class="bar-col bar-col--tap" wx:for="{{monthly}}" wx:key="month" data-month="{{item.month}}" bindtap="onTapMonthBar">
-            <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
-            <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}">{{item.label}}</text>
+        <view class="ca" wx:if="{{monthlyAxis}}">
+          <view class="ca__row">
+            <!-- Y 轴金额刻度（0 / ½max / max） -->
+            <view class="ca__ycol" style="width:{{monthlyAxis.gutterPx}}px;height:{{monthlyAxis.zoneRpx}}rpx;">
+              <block wx:for="{{monthlyAxis.ticks}}" wx:key="key">
+                <text wx:if="{{item.label}}" class="ca__tick" style="bottom:{{item.bottomRpx}}rpx;font-size:{{monthlyAxis.fontPx}}px;">{{item.label}}</text>
+              </block>
+            </view>
+            <view class="ca__plot" style="height:{{monthlyAxis.zoneRpx}}rpx;">
+              <block wx:for="{{monthlyAxis.ticks}}" wx:key="key">
+                <view class="ca__grid" wx:if="{{item.showGrid}}" style="bottom:{{item.bottomRpx}}rpx;"></view>
+              </block>
+              <view class="ca__bars">
+                <view class="bar-col bar-col--tap" wx:for="{{monthly}}" wx:key="month" data-month="{{item.month}}" bindtap="onTapMonthBar">
+                  <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
+                </view>
+              </view>
+            </view>
+          </view>
+          <!-- X 轴月份标签：12 个全保留（宽度不够先缩格式 / 缩字号，绝不抽稀） -->
+          <view class="ca__xrow" style="margin-left:{{monthlyAxis.gutterPx}}px;">
+            <view class="bar-col bar-col--tap" wx:for="{{monthly}}" wx:key="month" data-month="{{item.month}}" bindtap="onTapMonthBar">
+              <text class="bar-label {{item.showLabel?'':'bar-label--hide'}}" style="font-size:{{monthlyAxis.fontPx}}px;">{{item.label}}</text>
+            </view>
           </view>
         </view>
       </view>

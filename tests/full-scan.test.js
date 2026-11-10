@@ -447,6 +447,29 @@ function partC() {
     const ys = g.coords.map((c) => c.y);
     near(Math.max.apply(null, ys), g.vbH - g.vbH * 0.12, 1.5, 'C4 面积底边 = 绘图区底边');
   }
+
+  // C5 v1.4.4：带 Y 轴刻度列（padLeft）时，折线只铺满绘图区、不压刻度文字
+  // 判据说明：C1 测的是「铺满显示盒」，加了刻度列后合理标准变成「铺满绘图区」，
+  // 因此这里用同一套 computeGeometry 反算期望边界，而不是记死像素。
+  {
+    const bills = [];
+    for (let d = 1; d <= 30; d++) bills.push(mkBill('expense', 1000 + d * 100, 2026, 9, d, 12));
+    const cum = M.computeCumulativeTrend(bills, 2026, 9);
+    const GUTTER = 34;
+    const svg = C.buildCumulativeSVG(cum.points, cum.max, '#333', BOX, { padLeft: GUTTER, tickCount: 3 });
+    const g = parseGeom(svg);
+    const geo = C.computeGeometry(BOX, GUTTER, 3);
+    if (g) {
+      const xs = g.coords.map((c) => c.x);
+      near(Math.min.apply(null, xs), geo.padL, 1.5, 'C5 首点贴绘图区左边界（不压刻度列）');
+      near(Math.max.apply(null, xs), geo.padL + geo.plotW, 1.5, 'C5 末点贴绘图区右边界');
+      assert(geo.plotW / geo.w >= 0.7, 'C5 绘图区至少占盒宽 70%（刻度列不喧宾夺主，实际 '
+        + ((geo.plotW / geo.w) * 100).toFixed(1) + '%）');
+      const lines = [...svg.matchAll(/x1="([0-9.]+)"/g)].map((m) => +m[1]);
+      eq(lines.length, 3, 'C5 3 条网格线');
+      lines.forEach((x) => near(x, geo.padL, 0.01, 'C5 网格线起点 = 绘图区左边界'));
+    }
+  }
 }
 
 partC();
