@@ -194,10 +194,44 @@ function commitImport(session, opts) {
       };
       combined.safetyPath = safety;
       combined.rollbackSafetyPath = rollbackSafety;
+      // 回滚失败：两套安全点都必须保留，不执行任何清理（显式标记，避免被误读成「清理失败」）。
+      combined.rollbackSafetyCleanup = {
+        ok: false,
+        code: 'ROLLBACK_SAFETY_CLEANUP_SKIPPED',
+        path: rollbackSafety,
+        existedBefore: fs.exists(rollbackSafety),
+        stillExists: fs.exists(rollbackSafety),
+        detail: '回滚未完成，原始安全点与临时安全点均保留',
+      };
       throw combined;
     }
-    // 回滚成功：清理本轮临时安全点；清理失败只保留文件，不影响回滚结论。
-    try { fs.remove(rollbackSafety); } catch (e2) {}
+    // 回滚成功：尝试清理本轮临时安全点。
+    // 清理失败 **不影响回滚结论**（账本已恢复，回滚成功就是成功），但必须留下可读诊断：
+    //   - removeAndVerify 永不抛错，删后复查 exists；
+    //   - 失败 / 删后仍存在 → 文件保留（留给人工确认），错误对象带
+    //     rollbackSafetyCleanup = { ok, code, path, detail }；
+    //   - 只删本轮 batchId 对应的那一个文件，绝不批量清理历史安全点，也不碰原始安全点。
+    const cleanup = fs.removeAndVerify(rollbackSafety);
+    e.safetyPath = safety;
+    e.rollbackSafetyPath = rollbackSafety;
+    e.rollbackSafetyCleanup = {
+      ok: cleanup.ok,
+      code: cleanup.ok ? 'ROLLBACK_SAFETY_CLEANED' : 'ROLLBACK_SAFETY_CLEANUP_FAILED',
+      path: cleanup.path,
+      existedBefore: cleanup.existedBefore,
+      stillExists: cleanup.stillExists,
+      deleteCode: cleanup.code,
+      detail: cleanup.detail,
+    };
+    if (!cleanup.ok) {
+      console.error(
+        '[import] 临时安全点清理失败，已保留（不影响回滚结论）：' +
+          e.rollbackSafetyCleanup.code +
+          ' ' +
+          cleanup.path +
+          (cleanup.detail ? ' (' + cleanup.detail + ')' : '')
+      );
+    }
     e.mutationStarted = true;
     e.rollbackAttempted = true;
     e.rollbackCompleted = true;

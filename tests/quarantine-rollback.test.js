@@ -221,6 +221,7 @@ const paths = require('../data/paths');
 const ledger = require('../data/ledger');
 const backup = require('../data/backup');
 const quarantine = require('../data/quarantine');
+const recurringStore = require('../data/recurring/store');
 
 /* 损坏文本：含多字节中文 + 账单内容，用于同时验证「字节一致」与「内容不外泄」 */
 const CORRUPT_11 =
@@ -896,6 +897,285 @@ warns.length = 0;
   eq(err && err.code, 'FILE_DELETE_FAILED', 'R24 ENOENT 但文件仍存在 → 抛 FILE_DELETE_FAILED');
   eq(fs.exists('/usr/r24-keep.json'), true, 'R24 文件仍保留');
 }
+
+/* =================== RC1–RC6 周期规则 createdAt 恢复兼容性 =================== */
+/*
+ * v1.4.2 修复回归：缺 createdAt 的合法周期规则不得导致整份恢复被拒。
+ *
+ * 旧行为（bug）：restoreBackup 写入时 replaceAllRules 内部 normalizeRule 取一次
+ * Date.now()，随后 verifyMetadata 又 normalizeRule 取一次 → 两个时间戳不同 →
+ * shapeError('recurring-mismatch') → 合法备份被判失败并回滚。
+ *
+ * 这里的断言只测不变量：
+ *   - 写入值与真实读盘值一致（幂等，重复读取不再生成新时间戳）；
+ *   - createdAt 为有限正数（不是 0、不是字符串、不是负数）；
+ *   - createdAt 落在「本次恢复时刻」的假时钟窗口内（不虚构历史时间）；
+ *   - 业务字段不被改写、规则条数不丢。
+ * 不断言 createdAt 等于某个具体毫秒值。
+ */
+const CLOCK_BASE = 1715000000000;
+const CLOCK_WINDOW = 100000;
+
+/**
+ * 安装单调递增的假时钟：真实实现里任何「同一次操作内取两次 Date.now()」都会
+ * 产生不同时间戳，从而让「两次规范化」的缺陷稳定复现（不依赖同毫秒巧合）。
+ */
+function withFakeClock(fn) {
+  const realNow = Date.now;
+  let t = CLOCK_BASE;
+  Date.now = function () {
+    t += 7;
+    return t;
+  };
+  try {
+    return fn();
+  } finally {
+    Date.now = realNow;
+  }
+}
+
+/** 从磁盘真实读取周期规则文件（不经 store 归一，用于验证落盘内容） */
+function readRulesFromDisk() {
+  if (!fs.exists(paths.FILE.recurring)) return []; // 恢复失败时可能压根没写 → 交给断言报 FAIL，不抛
+  const raw = fs.readJSONStrict(paths.FILE.recurring);
+  return raw && Array.isArray(raw.rules) ? raw.rules : [];
+}
+
+/** 一条除 createdAt 外完全合法的周期规则 */
+function legalRule(over) {
+  return Object.assign(
+    {
+      id: 'rc-rule-A',
+      enabled: true,
+      type: 'expense',
+      amountCents: 500,
+      categoryId: 'c-food',
+      note: '工作日午餐',
+      frequency: 'monthly',
+      interval: 1,
+      day: 5,
+      startDate: '2026-09-05',
+      time: '12:00',
+      createdAt: 1715000000000,
+    },
+    over || {}
+  );
+}
+
+/** 构造「账单 + 指定周期规则」的备份 */
+function backupWithRules(rules) {
+  const b = seedAndBuild();
+  b.data.recurringRules = rules;
+  return b;
+}
+
+console.log('RC1 已有合法 createdAt 的规则 → 恢复成功且时间戳不被改写');
+withFakeClock(() => {
+  fresh();
+  warns.length = 0;
+  const { res, err } = runRestore(backupWithRules([legalRule()]));
+  eq(err, null, 'RC1 恢复成功');
+  eq(res && res.restored, 1, 'RC1 账单恢复条数正确');
+  const disk = readRulesFromDisk();
+  eq(disk.length, 1, 'RC1 规则落盘 1 条');
+  eq(disk[0] && disk[0].createdAt, 1715000000000, 'RC1 已有 createdAt 原样保留（不改写）');
+  eq(disk[0] && disk[0].id, 'rc-rule-A', 'RC1 规则 ID 不变');
+});
+
+console.log('RC2 合法规则缺 createdAt → 恢复成功（旧实现必失败）');
+withFakeClock(() => {
+  fresh();
+  warns.length = 0;
+  const rule = legalRule();
+  delete rule.createdAt;
+  const { res, err } = runRestore(backupWithRules([rule]));
+  eq(err, null, 'RC2 恢复成功（不再被判 recurring-mismatch）');
+  eq(res && res.restored, 1, 'RC2 账单恢复条数正确');
+  const disk = readRulesFromDisk();
+  eq(disk.length, 1, 'RC2 规则未丢失');
+  const created = disk[0] && disk[0].createdAt;
+  assert(typeof created === 'number', 'RC2 createdAt 落盘为数字（实际 ' + typeof created + '）');
+  assert(Number.isFinite(created) && created > 0, 'RC2 createdAt 为有限正数（实际 ' + created + '）');
+  assert(
+    created >= CLOCK_BASE && created <= CLOCK_BASE + CLOCK_WINDOW,
+    'RC2 createdAt 取本次恢复时刻（假时钟窗口内，实际 ' + created + '）'
+  );
+  const reread = recurringStore.getRulesStrict();
+  eq(reread.length, 1, 'RC2 重新读取仍为 1 条');
+  eq((reread[0] || {}).createdAt, created, 'RC2 写入值 === 重新读取值（读取不再生成新时间戳）');
+  eq((disk[0] || {}).note, '工作日午餐', 'RC2 业务字段未被改写');
+  eq((disk[0] || {}).amountCents, 500, 'RC2 金额未被改写');
+});
+
+console.log('RC3 createdAt 非法 / 缺省值 → 按「缺失」处理，明确且可复现');
+[
+  { label: 'undefined（字段缺省）', value: undefined },
+  { label: 'null', value: null },
+  { label: '空字符串', value: '' },
+  { label: '数字字符串', value: '1715000000000' },
+  { label: 'NaN', value: NaN },
+  { label: '负数', value: -5 },
+  { label: '0', value: 0 },
+].forEach((variant) => {
+  withFakeClock(() => {
+    fresh();
+    warns.length = 0;
+    const rule = legalRule();
+    if (variant.value === undefined) delete rule.createdAt;
+    else rule.createdAt = variant.value;
+    const { err } = runRestore(backupWithRules([rule]));
+    eq(err, null, 'RC3 [' + variant.label + '] 恢复成功（不静默丢整条规则）');
+    const disk = readRulesFromDisk();
+    eq(disk.length, 1, 'RC3 [' + variant.label + '] 规则条数未丢');
+    const created = disk[0] && disk[0].createdAt;
+    assert(
+      typeof created === 'number' && Number.isFinite(created) && created > 0,
+      'RC3 [' + variant.label + '] createdAt 归为有限正数（实际 ' + created + '）'
+    );
+    assert(created !== 0, 'RC3 [' + variant.label + '] 不得写 0 占位');
+    const reread = recurringStore.getRulesStrict();
+    eq((reread[0] || {}).createdAt, created, 'RC3 [' + variant.label + '] 写入值 === 重新读取值');
+  });
+});
+
+console.log('RC4 恢复后真实读盘 → 字段与预期完全一致');
+withFakeClock(() => {
+  fresh();
+  warns.length = 0;
+  const noCreated = legalRule({ id: 'rc-rule-B', note: '月度房租', amountCents: 300000, day: 1 });
+  delete noCreated.createdAt;
+  const keep = legalRule({
+    id: 'rc-rule-C',
+    frequency: 'daily',
+    day: 1,
+    startDate: '2026-09-01',
+    time: '08:30',
+    interval: 2,
+    enabled: false,
+  });
+  keep.lastGeneratedDate = '2026-09-20';
+  keep.nextOccurrence = '2026-09-22';
+  keep.updatedAt = 1714000000000;
+  const { err } = runRestore(backupWithRules([noCreated, keep]));
+  eq(err, null, 'RC4 恢复成功');
+
+  const disk = readRulesFromDisk();
+  eq(disk.length, 2, 'RC4 落盘 2 条规则');
+  const byId = {};
+  disk.forEach((r) => {
+    byId[r.id] = r;
+  });
+  const b = byId['rc-rule-B'] || {};
+  assert(!!b, 'RC4 rc-rule-B 已落盘');
+  eq(b && b.note, '月度房租', 'RC4 rc-rule-B note 一致');
+  eq(b && b.amountCents, 300000, 'RC4 rc-rule-B amountCents 一致');
+  eq(b && b.frequency, 'monthly', 'RC4 rc-rule-B frequency 一致');
+  eq(b && b.day, 1, 'RC4 rc-rule-B day 一致');
+  eq(b && b.startDate, '2026-09-05', 'RC4 rc-rule-B startDate 一致');
+  eq(b && b.time, '12:00', 'RC4 rc-rule-B time 一致');
+  eq(b && b.categoryId, 'c-food', 'RC4 rc-rule-B categoryId 一致');
+  const c = byId['rc-rule-C'] || {};
+  assert(!!c, 'RC4 rc-rule-C 已落盘');
+  eq(c && c.createdAt, 1715000000000, 'RC4 rc-rule-C createdAt 保持原值');
+  eq(c && c.enabled, false, 'RC4 rc-rule-C enabled 保持 false');
+  eq(c && c.interval, 2, 'RC4 rc-rule-C interval 保持 2');
+  eq(c && c.time, '08:30', 'RC4 rc-rule-C time 保持 08:30');
+  eq(c && c.lastGeneratedDate, '2026-09-20', 'RC4 rc-rule-C lastGeneratedDate 保留');
+  eq(c && c.nextOccurrence, '2026-09-22', 'RC4 rc-rule-C nextOccurrence 保留');
+  eq(c && c.updatedAt, 1714000000000, 'RC4 rc-rule-C updatedAt 保留');
+
+  // store 严格读取（再次归一）必须与磁盘内容逐字段一致 → 归一幂等
+  const reread = recurringStore.getRulesStrict();
+  eq(reread.length, 2, 'RC4 store 重新读取 2 条');
+  const rrB = reread.find((r) => r.id === 'rc-rule-B');
+  eq(rrB && rrB.createdAt, b.createdAt, 'RC4 缺 createdAt 的规则重复读取不变');
+  assert(typeof (rrB && rrB.createdAt) === 'number', 'RC4 缺 createdAt 的规则重复读取仍为数字');
+  const rf = fs.readJSONStrict(paths.FILE.recurring);
+  eq(rf && rf.version, 1, 'RC4 周期文件 version 仍为 1');
+});
+
+console.log('RC5 规则落盘被改坏 → 核对仍能抓出真实不一致并回滚恢复原有规则');
+{
+  fresh();
+  warns.length = 0;
+  seedAndBuild(); // 1 笔原始账单
+  // 原有规则（恢复前账本里的规则）
+  const original = recurringStore.addRule({
+    type: 'expense',
+    amountCents: 1200,
+    categoryId: 'c-food',
+    note: '原有规则',
+    frequency: 'monthly',
+    day: 8,
+    startDate: '2026-09-08',
+    time: '09:00',
+  });
+  const target = backup.buildBackup();
+  eq(target.data.recurringRules.length, 1, 'RC5 安全点已含原有规则');
+  target.data.recurringRules = [legalRule({ id: 'rc-rule-new', note: '备份内新规则' })];
+  // 周期规则写入后内容被改坏（模拟落盘后被外部改写）→ 核对必须发现
+  // 精确匹配正式文件路径：writeJSONAtomic 会先把旧文件 rename 成 .bak，避免匹配到 .bak
+  global.wx.__faults.mutateJsonAfterRename = {
+    match: (p) => p === paths.FILE.recurring,
+    mutate: (obj) => {
+      obj.rules[0].note = '被篡改';
+      return obj;
+    },
+  };
+
+  const { res, err } = runRestore(target);
+  eq(res, null, 'RC5 恢复未成功（核对生效）');
+  eq(err && err.code, 'RESTORE_META_INTEGRITY_FAILED', 'RC5 抛出元数据核对失败');
+  eq(err && err.reason, 'recurring-mismatch', 'RC5 识别周期规则内容不一致');
+  eq(err && err.rollbackCompleted, true, 'RC5 回滚完成');
+  const disk = readRulesFromDisk();
+  eq(disk.length, 1, 'RC5 回滚后规则条数恢复为 1');
+  eq(disk[0] && disk[0].id, original.id, 'RC5 回滚恢复原有规则 ID');
+  eq(disk[0] && disk[0].note, '原有规则', 'RC5 回滚恢复原有规则内容');
+  eq(disk[0] && disk[0].createdAt, original.createdAt, 'RC5 回滚恢复原有 createdAt（不改写）');
+}
+
+console.log('RC6 回滚失败 → 原始安全点继续保留且内容完整');
+withFakeClock(() => {
+  fresh();
+  warns.length = 0;
+  seedAndBuild(); // 1 笔原始账单（2026-09）
+  const original = recurringStore.addRule({
+    type: 'expense',
+    amountCents: 900,
+    categoryId: 'c-food',
+    note: 'RC6原有规则',
+    frequency: 'monthly',
+    day: 9,
+    startDate: '2026-09-09',
+    time: '10:00',
+  });
+  const target = backup.buildBackup();
+  eq(target.data.recurringRules.length, 1, 'RC6 备份含原有规则');
+  target.data.recurringRules = [legalRule({ id: 'rc-rule-rc6' })];
+  target.data.bills = target.data.bills.concat([
+    Object.assign({}, target.data.bills[0], { id: 'rc6-10', occurredAt: at(2026, 10, 9) }),
+  ]);
+  // 恢复写 2026-10 失败 → 触发回滚；回滚写 2026-09（第 3 次）再失败
+  global.wx.__faults.writeCallFail = (p, n) =>
+    (p.indexOf('/bills/2026-10.json') >= 0 && n === 1) ||
+    (p.indexOf('/bills/2026-09.json') >= 0 && n === 3);
+
+  const { res, err } = runRestore(target);
+  eq(res, null, 'RC6 恢复未成功');
+  eq(err && err.rollbackAttempted, true, 'RC6 尝试回滚');
+  eq(err && err.rollbackCompleted, false, 'RC6 回滚未完成（不谎报）');
+  eq(fs.exists(paths.legacyRestoreSafety()), true, 'RC6 原始安全点继续保留');
+  const saved = fs.readJSONStrict(paths.legacyRestoreSafety());
+  const savedRules = saved && saved.data && saved.data.recurringRules;
+  eq(Array.isArray(savedRules) && savedRules.length, 1, 'RC6 安全点内规则条数为 1');
+  eq(savedRules && savedRules[0] && savedRules[0].id, original.id, 'RC6 安全点内保存原有规则');
+  eq(
+    savedRules && savedRules[0] && savedRules[0].createdAt,
+    original.createdAt,
+    'RC6 安全点内 createdAt 与原有规则一致'
+  );
+});
 
 /* =================== 汇总 =================== */
 console.warn = origWarn;

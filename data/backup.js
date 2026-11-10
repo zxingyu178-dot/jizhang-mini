@@ -133,11 +133,16 @@ function restoreBackup(input, options) {
     fs.writeJSONAtomic(paths.FILE.settings, Object.assign({}, settings.DEFAULT_SETTINGS, backup.data.settings || {}));
 
     // 4. 周期规则（V3 新增；V1/V2 备份无此字段 → 空）
-    const ruleList = Array.isArray(backup.data.recurringRules) ? backup.data.recurringRules : [];
-    recurringStore.replaceAllRules(ruleList);
+    //    v1.4.2 修复：恢复路径上**只规范化一次**。
+    //    原始合法性判断已在上面的 validateBackupRaw（落盘前、未规范化）完成；
+    //    这里得到 preparedRules 后，写入与第 5 步核对共用同一份对象 ——
+    //    旧实现写入时 normalizeRule 取一次 Date.now、核对时再 normalizeRule 又取一次，
+    //    缺 createdAt 的合法备份会因此被判成 recurring-mismatch 而整体恢复失败。
+    const preparedRules = recurringStore.normalizeRules(backup.data.recurringRules, Date.now());
+    recurringStore.replaceAllRulesPrepared(preparedRules);
 
-    // 5. 元数据核对（结构 / 条数）
-    verifyMetadata(backup.data, 'RESTORE_META_INTEGRITY_FAILED');
+    // 5. 元数据核对（结构 / 条数 / 内容；周期规则用同一份 preparedRules 比对）
+    verifyMetadata(backup.data, 'RESTORE_META_INTEGRITY_FAILED', preparedRules);
 
     // 6. 数据健康终检（G11）：以最终落盘数据为准。
     //    - error（结构损坏，如重复 Bill id、非法预算规则）→ 抛错回滚到安全点；
@@ -365,8 +370,17 @@ function readRecurringRulesStrict() {
   return raw.rules;
 }
 
-/** 元数据核对：分类 / 设置 / 周期规则按规范化后的内容精确比对 */
-function verifyMetadata(data, code) {
+/**
+ * 元数据核对：分类 / 设置 / 周期规则按规范化后的内容精确比对。
+ *
+ * @param {object} data 备份 / 安全点里的 data
+ * @param {string} code 失败错误码（RESTORE_META_INTEGRITY_FAILED / ROLLBACK_META_INTEGRITY_FAILED）
+ * @param {Array} [preparedRules] 已写入磁盘的那份规范化规则。
+ *   传入时**直接用它比对，不再重新规范化**（避免缺 createdAt 的规则再次取 Date.now()
+ *   导致「写入值 ≠ 核对值」的假不一致）。生产路径（恢复 / 回滚）一律传入。
+ *   未传时退化为「整批规范化一次」，仍保留完整核对能力，不会跳过任何字段。
+ */
+function verifyMetadata(data, code, preparedRules) {
   try {
     const expectedCats = Array.isArray(data.categories) ? data.categories : categories.DEFAULT_CATEGORIES;
     const cats = fs.readJSONStrict(paths.FILE.categories);
@@ -382,9 +396,10 @@ function verifyMetadata(data, code) {
       throw shapeError('settings-mismatch');
     }
 
-    const expectedRules = (Array.isArray(data.recurringRules) ? data.recurringRules : []).map((r) =>
-      recurringStore.normalizeRule(r)
-    );
+    // createdAt 与全部字段仍然逐字段比对，不跳过任何字段。
+    const expectedRules = Array.isArray(preparedRules)
+      ? preparedRules
+      : recurringStore.normalizeRules(data.recurringRules, Date.now());
     const actualRules = readRecurringRulesStrict();
     if (stableStringify(actualRules) !== stableStringify(expectedRules)) {
       throw shapeError('recurring-mismatch');
@@ -504,8 +519,10 @@ function rollback(safetyPath) {
     paths.FILE.settings,
     Object.assign({}, settings.DEFAULT_SETTINGS, saved.data.settings || {})
   );
-  recurringStore.replaceAllRules(Array.isArray(saved.data.recurringRules) ? saved.data.recurringRules : []);
-  verifyMetadata(saved.data, 'ROLLBACK_META_INTEGRITY_FAILED');
+  // 周期规则：同恢复路径，只规范化一次，写入与核对共用同一份对象。
+  const rollbackRules = recurringStore.normalizeRules(saved.data.recurringRules, Date.now());
+  recurringStore.replaceAllRulesPrepared(rollbackRules);
+  verifyMetadata(saved.data, 'ROLLBACK_META_INTEGRITY_FAILED', rollbackRules);
   // 回滚恢复了原 settings，Theme Manager 也回到回滚后的主题。
   theme.reloadFromStorage();
   return { attempted: true, completed: true, restored: result.total, months: result.months };

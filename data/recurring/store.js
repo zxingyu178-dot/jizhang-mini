@@ -51,8 +51,28 @@ function getRulesStrict() {
   return readStoreStrict().rules.map(normalizeRule);
 }
 
-/** 规范化单条规则（补全字段 + 周期字段钳制；金额整数分） */
-function normalizeRule(raw) {
+/**
+ * createdAt 是否「已有合法值」：必须是有限正数（毫秒时间戳）。
+ *
+ * v1.4.2 修复：旧实现是 `raw.createdAt || Date.now()`，只靠 truthy 判断 ——
+ * 字符串 / 负数会被原样保留（非法值入库），而缺失 / 0 / NaN 每次调用都取一次
+ * `Date.now()`，同一份数据被规范化两次就会得到两个不同时间戳。
+ */
+function isValidCreatedAt(v) {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0;
+}
+
+/**
+ * 规范化单条规则（补全字段 + 周期字段钳制；金额整数分）。
+ *
+ * createdAt 归一规则（单一事实源，明确且可复现）：
+ *   - 合法（有限正数）→ **原样保留**，绝不改写已有值，不做取整；
+ *   - 缺失 / 非法（undefined / null / '' / 字符串 / NaN / 0 / 负数）→ 视为缺失，
+ *     取 `now`（默认本次规范化时刻）。
+ * @param {object} raw 原始规则
+ * @param {number} [now] 本次规范化的统一时间戳（批量规范化时由调用方只取一次）
+ */
+function normalizeRule(raw, now) {
   raw = raw || {};
   const frequency = core.FREQUENCIES.indexOf(raw.frequency) >= 0 ? raw.frequency : 'daily';
   const safe = core.sanitizeRecurringRule(Object.assign({}, raw, { frequency }));
@@ -74,7 +94,11 @@ function normalizeRule(raw) {
     // 避免损坏规则被悄悄改写成「今天开始」而生成意外账单）。
     startDate: typeof raw.startDate === 'string' ? raw.startDate : '',
     time: safe.time,
-    createdAt: raw.createdAt || Date.now(),
+    createdAt: isValidCreatedAt(raw.createdAt)
+      ? raw.createdAt
+      : isValidCreatedAt(now)
+        ? now
+        : Date.now(),
   };
   if (safe.month != null) out.month = safe.month;
   if (raw.scheduleEffectiveAt != null) {
@@ -137,17 +161,48 @@ function countRulesByCategory(categoryId) {
   return getRules().filter((r) => r.categoryId === categoryId).length;
 }
 
-/** 直接用规范化后的规则数组覆盖保存（迁移用） */
+/**
+ * 批量规范化（恢复 / 回滚 / 迁移入口用）。
+ *
+ * **一次只取一个时间戳**：整批规则共用同一个 `now`，缺 createdAt 的规则全部取
+ * 「本次操作时刻」，不虚构历史时间，也不会同一批里出现两个时间戳。
+ * @param {Array} rules 原始规则数组
+ * @param {number} [now] 统一时间戳（缺省取一次 Date.now()）
+ * @returns {Array} 规范化后的新数组（不修改入参）
+ */
+function normalizeRules(rules, now) {
+  const stamp = isValidCreatedAt(now) ? now : Date.now();
+  return (Array.isArray(rules) ? rules : []).map((r) => normalizeRule(r, stamp));
+}
+
+/**
+ * 直接用规范化后的规则数组覆盖保存（迁移用）。
+ * ⚠️ 内部会再 normalize 一次；恢复 / 回滚请用 replaceAllRulesPrepared，
+ *    否则缺 createdAt 的规则会被重新取一次 Date.now()，与已写入的内容对不上。
+ */
 function replaceAllRules(rules) {
   const normalized = rules.map(normalizeRule);
   writeStore(normalized);
   return normalized;
 }
 
+/**
+ * 覆盖保存「已规范化」的规则（恢复 / 回滚专用）：不再二次 normalize。
+ * 调用方必须传入 normalizeRules() 的返回值，并把**同一份数组**用于随后的
+ * 元数据完整性核对，保证「写入的」与「核对的」是同一份结果。
+ */
+function replaceAllRulesPrepared(rules) {
+  const list = Array.isArray(rules) ? rules : [];
+  writeStore(list);
+  return list;
+}
+
 module.exports = {
   STORE_VERSION,
   EMPTY,
   normalizeRule,
+  normalizeRules,
+  isValidCreatedAt,
   readStore,
   readStoreStrict,
   writeStore,
@@ -159,4 +214,5 @@ module.exports = {
   removeRule,
   countRulesByCategory,
   replaceAllRules,
+  replaceAllRulesPrepared,
 };

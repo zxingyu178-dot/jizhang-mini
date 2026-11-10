@@ -217,6 +217,52 @@ function removeStrict(path) {
   throw fileError('FILE_DELETE_FAILED', path, msg || 'unlink 失败');
 }
 
+/**
+ * 删除并复查（临时安全点清理专用）：**永不抛错**，失败时保留文件并返回明确状态。
+ *
+ * 与 removeStrict 的区别：removeStrict 供「不删就不能继续」的破坏性流程 fail-closed；
+ * 本函数供「删不掉也不影响主结论」的收尾清理，必须把结果交给调用方形成可读诊断，
+ * 不允许静默吞异常。
+ *
+ * @param {string} path
+ * @returns {{ok:boolean, path:string, existedBefore:boolean, stillExists:boolean,
+ *            alreadyAbsent:boolean, code:string, detail:string}}
+ *   - ok=true  文件已确认不存在（本来就存在但删掉 / 本来就不存在）；
+ *   - ok=false 删除抛错或删后仍存在 → code=FILE_DELETE_FAILED，文件保留。
+ */
+function removeAndVerify(path) {
+  const existedBefore = exists(path);
+  let thrown = null;
+  try {
+    removeStrict(path);
+  } catch (e) {
+    thrown = e;
+  }
+  const stillExists = exists(path);
+  if (thrown || stillExists) {
+    return {
+      ok: false,
+      path: path,
+      existedBefore: existedBefore,
+      stillExists: stillExists,
+      alreadyAbsent: false,
+      code: (thrown && thrown.code) || 'FILE_DELETE_FAILED',
+      detail:
+        (thrown && (thrown.detail || thrown.message)) ||
+        (stillExists ? '删除后文件仍存在' : '删除失败'),
+    };
+  }
+  return {
+    ok: true,
+    path: path,
+    existedBefore: existedBefore,
+    stillExists: false,
+    alreadyAbsent: !existedBefore,
+    code: 'FILE_DELETED',
+    detail: '',
+  };
+}
+
 /** 列出目录下条目；失败返回空数组 */
 function listDir(path) {
   try {
@@ -251,6 +297,7 @@ module.exports = {
   writeBuffer,
   remove,
   removeStrict,
+  removeAndVerify,
   listDir,
   copy,
 };

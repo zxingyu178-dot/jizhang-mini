@@ -555,6 +555,65 @@ console.log('L. countDueForRule 补记预估');
   );
 }
 
+/* ============ v1.4.2 修复回归：createdAt 归一规则（addRule / updateRule 不变） ============ */
+{
+  const s = freshStore();
+  const rstore = require(path.join(ROOT, 'data', 'recurring', 'store'));
+
+  // addRule：仍记录「当前时刻」，行为不变
+  const created = s.recurring.createRule({
+    type: 'expense',
+    amountCents: 300,
+    categoryId: 'c-food',
+    frequency: 'monthly',
+    day: 6,
+    startDate: '2026-09-06',
+    time: '09:00',
+  });
+  assert(
+    created && typeof created.createdAt === 'number' && Number.isFinite(created.createdAt),
+    'addRule createdAt 仍为数字时间戳'
+  );
+  assert(
+    Math.abs(Date.now() - created.createdAt) < 5000,
+    'addRule createdAt 仍取当前时刻（不做 0 占位、不虚构历史）'
+  );
+
+  // updateRule：合法 createdAt 原样保留，不被改写
+  const updated = rstore.updateRule(created.id, { note: '改备注' });
+  eq(updated.ok, true, 'updateRule 成功');
+  eq(updated.rule.createdAt, created.createdAt, 'updateRule 不改写已有合法 createdAt');
+  assert(typeof updated.rule.updatedAt === 'number', 'updateRule 仍写 updatedAt');
+
+  // normalizeRule：合法值恒等（不取整、不改写）
+  eq(rstore.normalizeRule({ id: 'x', amountCents: 1, createdAt: 1715000000000 }).createdAt, 1715000000000, 'normalizeRule 合法 createdAt 恒等');
+  const bad = [undefined, null, '', '1715000000000', NaN, -5, 0];
+  bad.forEach((v) => {
+    const r = rstore.normalizeRule({ id: 'x', amountCents: 1, createdAt: v });
+    assert(
+      typeof r.createdAt === 'number' && Number.isFinite(r.createdAt) && r.createdAt > 0,
+      'normalizeRule 非法 createdAt（' + String(v) + '）→ 有限正数'
+    );
+  });
+
+  // normalizeRules：整批只取一个时间戳（缺 createdAt 的规则时间一致）
+  const batch = rstore.normalizeRules([
+    { id: 'a', amountCents: 1, createdAt: undefined },
+    { id: 'b', amountCents: 1, createdAt: 0 },
+    { id: 'c', amountCents: 1, createdAt: 1715000000000 },
+  ]);
+  eq(batch.length, 3, 'normalizeRules 不丢规则');
+  eq(batch[0].createdAt, batch[1].createdAt, 'normalizeRules 同批缺失 createdAt 取同一时间戳');
+  eq(batch[2].createdAt, 1715000000000, 'normalizeRules 保留已有合法值');
+
+  // replaceAllRulesPrepared：直接写入，不再二次归一（写入值 === 读回值）
+  const prepared = rstore.normalizeRules([{ id: 'p1', amountCents: 1, createdAt: undefined }]);
+  rstore.replaceAllRulesPrepared(prepared);
+  const reread = rstore.getRulesStrict();
+  eq(reread.length, 1, 'replaceAllRulesPrepared 写入 1 条');
+  eq(reread[0].createdAt, prepared[0].createdAt, 'replaceAllRulesPrepared 写入值 === 重新读取值');
+}
+
 /* ================= 汇总 ================= */
 const asyncChecks = global.__v061AsyncChecks || [];
 Promise.all(asyncChecks).then(() => {

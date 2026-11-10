@@ -188,6 +188,72 @@ let reExpense = 0;
 yearBills.forEach((b) => { if (b.type !== 'income') reExpense += b.amountCents; });
 eq(yearOv.expense, reExpense, '年度统计与按恢复后账单现算完全一致');
 
+/* ---------- 7. 周期规则缺 createdAt 的备份恢复兼容性（v1.4.2 修复回归） ----------
+ * 旧行为：写入时 normalizeRule 取一次 Date.now()、核对时再取一次 →
+ * 缺 createdAt 的合法备份被误判 recurring-mismatch，整份恢复失败并回滚。
+ * 修复后：恢复路径只规范化一次，恢复成功，且落盘 createdAt 为有限正数、
+ * 重复读取不再生成新时间戳，统计口径仍与恢复后账本一致。 */
+const ruleNoCreated = {
+  id: 'r-no-created',
+  enabled: true,
+  type: 'expense',
+  amountCents: 1500,
+  categoryId: 'c-food',
+  note: '缺 createdAt 的规则',
+  frequency: 'monthly',
+  interval: 1,
+  day: 3,
+  startDate: '2026-09-03',
+  time: '09:00',
+};
+const backupNoCreated = store.buildBackup();
+backupNoCreated.data.recurringRules = [ruleNoCreated];
+
+// 单调递增假时钟：让「同一次恢复里取两次 Date.now()」稳定产生不同时间戳，
+// 不依赖两次调用恰好落在同一毫秒（否则缺陷只是偶发、断言可能假通过）。
+const CLOCK_BASE = 1715000000000;
+const realDateNow = Date.now;
+let fakeClock = CLOCK_BASE;
+Date.now = function () {
+  fakeClock += 7;
+  return fakeClock;
+};
+let restoreErr = null;
+try {
+  store.restoreBackup(backupNoCreated);
+} catch (e) {
+  restoreErr = e;
+} finally {
+  Date.now = realDateNow;
+}
+eq(restoreErr, null, '缺 createdAt 的合法规则不再导致恢复失败（旧实现必失败）');
+
+const rulesAfter = store.recurring.getRules();
+eq(rulesAfter.length, 1, '恢复后周期规则 1 条（未丢失）');
+const createdAfter = rulesAfter[0] && rulesAfter[0].createdAt;
+assert(
+  typeof createdAfter === 'number' && Number.isFinite(createdAfter) && createdAfter > 0,
+  '恢复后 createdAt 为有限正数（实际 ' + createdAfter + '）'
+);
+assert(
+  createdAfter >= CLOCK_BASE && createdAfter <= CLOCK_BASE + 100000,
+  '恢复后 createdAt 取本次恢复时刻（假时钟窗口内，实际 ' + createdAfter + '）'
+);
+eq(rulesAfter[0].id, 'r-no-created', '规则 ID 未变');
+eq(rulesAfter[0].note, '缺 createdAt 的规则', '规则业务字段未变');
+const rulesAgain = store.recurring.getRules();
+eq(rulesAgain[0].createdAt, createdAfter, '重复读取不会生成新 createdAt（归一幂等）');
+
+// 统计口径仍与恢复后账本一致
+const monthAfter = M.computeMonthOverview(store.rangeBills('2026-10', '2026-10'));
+eq(monthAfter.expense, 30000, '规则恢复后 10 月支出仍为 30000');
+const yearAfter = Y.computeYearOverview(store.rangeBills('2026-01', '2026-12'), 2026);
+let reExpense2 = 0;
+store.rangeBills('2026-01', '2026-12').forEach((b) => {
+  if (b.type !== 'income') reExpense2 += b.amountCents;
+});
+eq(yearAfter.expense, reExpense2, '规则恢复后年度支出与现算一致');
+
 /* ---------- 汇总 ---------- */
 console.log('\nbackup-restore-statistics tests: ' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
