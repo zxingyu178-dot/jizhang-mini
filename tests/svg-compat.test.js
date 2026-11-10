@@ -174,8 +174,13 @@ console.log('C. cumulative-trend');
   checkSvg(svgLight, 'cumulative light');
   assert(svgLight.indexOf('stroke="rgba(25,28,40,0.10)"') >= 0, '浅色网格使用既有深色 rgba');
 
+  // v1.4.3：断言改为测「规则」而不是记死写法——
+  // 图表必须在布局完成后铺满容器整宽（组件量容器真实宽度生成同比例 viewBox），
+  // 因此 image 用 100% 填满容器 + scaleToFill，而不是固定像素 width/aspectFit。
   const wxml = read('components/cumulative-trend/cumulative-trend.wxml');
-  assert(wxml.indexOf('style="width:{{width}}px;height:{{height}}px;"') >= 0, '根容器 / image 显式宽高');
+  assert(wxml.indexOf('height:{{height}}px') >= 0, '根容器有显式高度（保证量得到稳定盒高）');
+  assert(wxml.indexOf('width:100%') >= 0, '容器/图片宽度跟随父级（铺满整宽）');
+  assert(wxml.indexOf('mode="scaleToFill"') >= 0, '图片按盒尺寸拉伸（比例已在 SVG 内对齐，不得 aspectFit 留白）');
 }
 
 /* ==================== D. category-donut ==================== */
