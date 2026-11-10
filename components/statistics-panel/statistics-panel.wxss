@@ -228,8 +228,11 @@
 }
 .share-row__percent {
   flex-shrink: 0;
-  width: 80rpx;
+  /* v1.4.3：原固定 80rpx 装不下「100.0%」，大额账单时会被折成「100.0」+「%」两行 */
+  min-width: 80rpx;
+  margin-left: 12rpx;
   text-align: right;
+  white-space: nowrap;
   font-size: 24rpx;
   color: var(--text-secondary);
 }
