@@ -1,0 +1,84 @@
+{
+  "purpose": "v1.5.0 车削双层环（设计方向 A）真渲染取证：深/浅主题 × 6/12 段，走生产代码路径（data/statistics/donut.js buildDonutSVG）",
+  "env": {
+    "devtools": "微信开发者工具 模拟器（cli auto --auto-port 9420）",
+    "screen": { "windowWidth": 390, "windowHeight": 844, "pixelRatio": 3 },
+    "donutBoxCss": { "width": 150, "height": 150 },
+    "screenshotSize": "455x983 PNG"
+  },
+  "howCaptured": "tests/e2e/donut-depth-shots.js：一阶段一个会话（Skyline 下 automator 截图面会返回旧帧，同一会话连续多拍会糊），每张图同时读一次组件 diagSnapshot 校验 theme / segCount 后才落图",
+  "images": [
+    {
+      "file": "donut_depth_real5_dark.png",
+      "zoom": "zoom3x_donut_depth_real5_dark.png",
+      "source": "真实数据路径（__e2eSeedDonut 注入 5 类支出 → 面板 computeCategoryShare）",
+      "theme": "dark",
+      "segCount": 5,
+      "svgLen": 4599,
+      "uriLen": 6158,
+      "circleCount": 26,
+      "visual": "五层径向台阶可见（外缘提亮、内缘压暗）；5 段之间为平头细缝；中心 ¥859.68 / 总支出 居中；无放射状扇骨、无锯齿、无整段缺失"
+    },
+    {
+      "file": "donut_depth_seg6_dark.png",
+      "zoom": "zoom3x_donut_depth_seg6_dark.png",
+      "source": "组件 segments 注入 6 段（0.38/0.22/0.16/0.12/0.08/0.04，末段为聚合中性色）",
+      "theme": "dark",
+      "segCount": 6,
+      "svgLen": 5467,
+      "uriLen": 7318,
+      "circleCount": 31,
+      "visual": "6 段（含灰色聚合段）首尾闭合无缝、缝宽一致；多层明暗台阶连续；无扇骨"
+    },
+    {
+      "file": "donut_depth_seg6_dark_selected.png",
+      "zoom": "zoom3x_donut_depth_seg6_dark_selected.png",
+      "source": "6 段 + applySelection(1)",
+      "theme": "dark",
+      "segCount": 6,
+      "selectedIndex": 1,
+      "svgLen": 5841,
+      "uriLen": 7814,
+      "circleCount": 31,
+      "visual": "选中段五层整体外移 1.5（未加粗、未穿出其他层），其余段压暗 0.28；中心切到「分类2 / 22.0%」，说明 hitSegment 口径未受影响"
+    },
+    {
+      "file": "donut_depth_seg12_dark.png",
+      "zoom": "zoom3x_donut_depth_seg12_dark.png",
+      "source": "组件 segments 注入 12 段（组件上限）",
+      "theme": "dark",
+      "segCount": 12,
+      "svgLen": 10690,
+      "uriLen": 14282,
+      "circleCount": 61,
+      "visual": "12 段全部可见，最小段仍有弧长；缝宽一致且径向笔直；五层明暗台阶连续；无扇骨、无锯齿、无整段消失"
+    },
+    {
+      "file": "donut_depth_seg6_light.png",
+      "zoom": "zoom3x_donut_depth_seg6_light.png",
+      "source": "6 段 + 浅色主题（外观页真实切换）",
+      "theme": "light",
+      "segCount": 6,
+      "svgLen": 5466,
+      "uriLen": 7314,
+      "circleCount": 31,
+      "visual": "浅色下明暗台阶幅度更小（设计预期：读作倒角而非反光）；缝可见；无扇骨"
+    },
+    {
+      "file": "donut_depth_seg12_light.png",
+      "zoom": "zoom3x_donut_depth_seg12_light.png",
+      "source": "12 段 + 浅色主题",
+      "theme": "light",
+      "segCount": 12,
+      "svgLen": 10689,
+      "uriLen": 14278,
+      "circleCount": 61,
+      "visual": "12 段在浅色卡片上全部可分辨；外缘高光偏弱但层级仍可读；缝笔直、无扇骨"
+    }
+  ],
+  "notes": [
+    "uriLen 含 data-URI 前缀 26 字节；纯 base64 长度 = svgLen 按 4 字节对齐后 ×4/3（12 段：14256）",
+    "svgLen / uriLen / circleCount 与组件 diagSnapshot 实测值逐项一致，并已用 node 复算核对",
+    "截图仅覆盖模拟器；真机未测"
+  ]
+}

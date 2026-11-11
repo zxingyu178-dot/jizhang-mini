@@ -445,14 +445,15 @@
      15-80% 柱身（本色）/ 80-93% 背光 / 93-100% 接触暗。
      最外一档必须是本色：高光顶到轮廓线上时（浅色混白 40% 只有 2.01:1）柱子轮廓会消失，
      读高度就变成猜。参数唯一事实源：docs/design/chart-light-spec.md §2.2/§2.3。 */
+  /* 渐变只走 background 简写（图片层），本色仍用 background-color 单独声明。
+     ⚠️ 实测（devtools Skyline，v1.5.1）：
+       1) `background-color` + `background-image` 长写并存时，background-image 整条被丢掉
+          （计算样式为 null，柱体只剩纯色）；
+       2) `background: <颜色> <渐变>` 这种「颜色 + 图片同层简写」会让整条声明失效，
+          柱体连底色都没有。
+     所以这里：简写只放渐变，颜色用长写跟在后（后写的颜色会覆盖简写重置的 transparent）。 */
+  background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 3%, rgba(255,255,255,0.40) 3%, rgba(255,255,255,0.40) 8%, rgba(255,255,255,0.18) 8%, rgba(255,255,255,0.18) 15%, rgba(255,255,255,0) 15%, rgba(255,255,255,0) 80%, rgba(0,0,0,0.30) 80%, rgba(0,0,0,0.30) 93%, rgba(0,0,0,0.44) 93%, rgba(0,0,0,0.44) 100%);
   background-color: var(--primary);
-  background-image: linear-gradient(180deg,
-    var(--bar-none) 0%, var(--bar-none) 3%,
-    var(--bar-cap) 3%, var(--bar-cap) 8%,
-    var(--bar-lit) 8%, var(--bar-lit) 15%,
-    var(--bar-none) 15%, var(--bar-none) 80%,
-    var(--bar-shade) 80%, var(--bar-shade) 93%,
-    var(--bar-foot) 93%, var(--bar-foot) 100%);
   /* v1.4.4 终检：去掉柱体发光。原来 0 0 12rpx 的光晕在 31 根柱、柱距 4.5px 的图上
      会把整片糊成紫雾（柱外 1px 与底色差 Δ=18），肉眼数不清几根柱 */
   box-shadow: none;
