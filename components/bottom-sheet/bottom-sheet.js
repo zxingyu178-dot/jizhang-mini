@@ -53,6 +53,20 @@ Component({
     },
   },
   methods: {
+    /**
+     * 内容高度变化后重新预算并落位。
+     *
+     * 为什么必须有：面板高度只在打开那一刻按内容量一次。slot 里的表单若在打开后
+     * 自己变高（例如记账表单展开「更多分类」：5 个 → 12 个，实测内容高 543 → 596），
+     * scroll-view 还停在旧高度，多出来的内容被挤到面板外 —— 实测底部保存按钮的
+     * 底边被推到视口外 5px，用户看不到也点不到。
+     *
+     * 幂等、可重复调用；面板未展示时直接返回（不要偷偷打开）。
+     */
+    refit() {
+      if (!this.data.show) return Promise.resolve(false);
+      return this._fit().then(() => true);
+    },
     open() {
       // 使任何进行中的 close 失效（快速开关时不被旧回调关闭）
       this._closeSeq = (this._closeSeq || 0) + 1;

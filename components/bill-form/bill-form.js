@@ -118,13 +118,27 @@ Component({
       // 沿用全项目统一提示方式：wx.showToast + icon:'none'（与保存失败等提示一致）
       wx.showToast({ title: '请先填写金额', icon: 'none' });
     },
+    /**
+     * 上次保存用过的分类（仅本次会话内有效，不落盘）。
+     * 连续记同类账时沿用，减少重复选择；分类被归档 / 删除则返回 null 走默认逻辑。
+     * 只对支出生效：收入频率低，且默认分类（工资）更符合预期。
+     */
+    rememberedCategoryId(type) {
+      const id = this._lastCategoryId;
+      if (!id) return null;
+      const active = store.getActiveCategories();
+      const hit = active.find((c) => c.id === id);
+      return hit ? hit.id : null;
+    },
     /** 新增模式：重置为默认（今天/支出） */
     reset() {
       // 重新进入表单 = 上一笔的提交流程已结束，解锁（见 utils/submit-guard.js）
       this._guard().end();
       this._amountHintAt = 0; // 新一轮表单可以重新提示一次
       const dateStr = util.formatDate(new Date());
-      const defaultId = defaultCategoryId('expense');
+      // 连续记同类账（早餐→午餐→晚餐）不必每次重选分类：
+      // 沿用上次保存用过的支出分类，只要它仍在启用列表中；否则退回默认。
+      const defaultId = this.rememberedCategoryId('expense') || defaultCategoryId('expense');
       this.setData({
         editingId: null,
         editingHours: null,
@@ -200,7 +214,27 @@ Component({
     },
     /** 展开完整分类区 */
     onShowAllCats() {
-      this.setData({ showAllCats: true });
+      // 收起 / 展开会改变表单高度（5 个分类 → 12 个），必须让弹层重新预算滚动区高度，
+      // 否则多出来的两行会把底部保存按钮挤出面板（见 bottom-sheet.refit）。
+      this.setData({ showAllCats: true }, () => this.triggerEvent('resize'));
+    },
+    /** 收起完整分类区，回到「最近使用 5 个 + 更多」（展开后保存按钮会被推到屏外） */
+    onHideAllCats() {
+      this.setData({ showAllCats: false }, () => this.triggerEvent('resize'));
+    },
+    /**
+     * 日期快捷：一键切到「今天 / 昨天 / 前天」。
+     * 补记昨天的账是高频动作，走原生 picker 要「开弹层→滚轮→确定」三步，这里一步到位。
+     * data-days = 回退天数（0=今天，1=昨天，2=前天）。
+     */
+    onQuickDate(e) {
+      const days = Number(e.currentTarget.dataset.days);
+      if (!(days >= 0)) return;
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      const value = util.formatDate(d);
+      // 不可能越过今天（days 恒非负），但仍夹一次，防止系统时间被改动时出现未来日期
+      this.setData({ dateStr: value > this.data.todayStr ? this.data.todayStr : value });
     },
     /** 金额规范化：限制两位小数并同步 canSubmit（输入 / 失焦共用） */
     applyAmount(v) {
@@ -303,10 +337,19 @@ Component({
       } else if (isEditing) {
         payload.dailyValue = null;
       }
+      // 保存成功后回传给父页面：账单 ID、所属月份、金额、日期。
+      // 父页面据此做两件事：① toast 回显金额（「记上了」的正向确认）；
+      // ② 若记的是别的月份，切到那个月（否则当前列表看不到这笔，用户会以为没记上）。
+      const savedDetail = {
+        ym: dateStr.slice(0, 7),
+        amountCents: cents,
+        dateStr,
+      };
       if (this.data.editingId) {
         try {
           store.updateBill(this.data.editingId, payload);
-          this.triggerEvent('saved', { id: this.data.editingId });
+          this._rememberCategory(payload);
+          this.triggerEvent('saved', Object.assign({ id: this.data.editingId }, savedDetail));
         } catch (err) {
           // 失败必须解锁，否则本次会话再也保存不了（P2-02 同源问题）
           guard.end();
@@ -323,9 +366,14 @@ Component({
           wx.showToast({ title: '保存失败，请重试', icon: 'none' });
           return;
         }
+        this._rememberCategory(payload);
         // 成功路径保持占用：父页关 Sheet 的这段时间里按钮仍可被点（见 utils/submit-guard.js）
-        this.triggerEvent('saved', { id: bill.id });
+        this.triggerEvent('saved', Object.assign({ id: bill.id }, savedDetail));
       }
+    },
+    /** 记住本次使用的支出分类，供下一次新增时沿用（只存内存，不落盘、不进数据合同） */
+    _rememberCategory(payload) {
+      if (payload && payload.type === 'expense') this._lastCategoryId = payload.categoryId;
     },
   },
 });

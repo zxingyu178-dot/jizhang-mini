@@ -86,16 +86,29 @@
 }
 
 /* 分类：最近使用 + 更多（换行网格，不横向滚动） */
+.bf-cats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12rpx 0 10rpx;
+}
 .bf-cats-label {
   font-size: 26rpx;
   color: var(--text-secondary);
-  margin: 12rpx 0 10rpx;
+}
+/* 展开态才有「收起」：展开后分类从 5 个变 12 个、保存按钮被推出首屏，必须留回退入口 */
+.bf-cats-collapse {
+  font-size: 24rpx;
+  color: var(--primary-text);
+  padding: 4rpx 12rpx;
 }
 .bf-cats-grid {
   display: flex;
   flex-wrap: wrap;
-  margin-bottom: 12rpx;
+  margin-bottom: 8rpx;
 }
+/* 分类格：padding / 图标间距 / 字号都按「展开 12 个时仍尽量留住保存按钮」定，
+   每格从 58.7px 压到约 53px（实测值），3 行省出约 18px 纵向空间。 */
 .bf-cat {
   width: 25%;
   min-width: 0;
@@ -103,7 +116,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 14rpx 0;
+  padding: 8rpx 0;
   border-radius: 16rpx;
   overflow: hidden;
   transition: all 0.18s ease;
@@ -112,16 +125,16 @@
   background: var(--primary-tint);
 }
 .bf-cat__icon {
-  margin-bottom: 6rpx;
+  margin-bottom: 4rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .bf-cat__more-icon {
-  margin-bottom: 6rpx;
+  margin-bottom: 4rpx;
 }
 .bf-cat__name {
-  font-size: 22rpx;
+  font-size: 21rpx;
   color: var(--text-secondary);
   max-width: 100%;
   padding: 0 6rpx;
@@ -134,11 +147,12 @@
   color: var(--text-primary);
 }
 
-/* 表单行 */
+/* 表单行：上下内边距 22rpx（原 24rpx）。行高仍 40px 以上、触控达标，
+   挤出的是「展开 12 个分类时保存按钮仍完整可见」的纵向预算。 */
 .bf-row {
   display: flex;
   align-items: center;
-  padding: 24rpx 8rpx;
+  padding: 22rpx 8rpx;
   border-bottom: 1rpx solid var(--divider);
 }
 .bf-row__label {
@@ -146,6 +160,37 @@
   flex-shrink: 0;
   font-size: 28rpx;
   color: var(--text-secondary);
+}
+/* 日期行：label + 快捷钮 + 日期 picker 同一行，不额外占高度 */
+.bf-row--date {
+  gap: 10rpx;
+}
+/* 「昨天 / 前天」快捷钮：仅日期为今天时出现（补记昨天的账一步到位）。
+   胶囊高度控制在 40rpx 以内，不能把 24rpx 行内边距撑大。 */
+.bf-quick {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.bf-chip {
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  line-height: 28rpx;
+  color: var(--text-secondary);
+  background: var(--glass-input);
+  border: 1rpx solid var(--glass-input-border);
+}
+.bf-chip + .bf-chip {
+  margin-left: 8rpx;
+}
+.bf-chip--hover {
+  background: var(--selected-bg);
+  color: var(--text-primary);
+}
+.bf-date {
+  flex: 1;
+  min-width: 0;
 }
 .bf-row__value {
   flex: 1;
@@ -155,6 +200,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* picker 内部那层 view：撑满 picker 并右对齐，保持「日期 ›」贴右边 */
+.bf-row__value--date {
+  flex: none;
+  width: 100%;
+  text-align: right;
 }
 /* 普通输入（商户 / 备注）：统一高度与行高，垂直居中，不随系统原生 baseline 漂移。 */
 .bf-row__input {
@@ -171,30 +222,33 @@
   color: var(--text-faint);
 }
 
-/* 计算日价开关 */
+/* 计算日价：低频附加项压成单行（原两行卡片 66px → 单行约 42px），
+   把纵向预算留给分类与保存按钮 —— 实测表单内容已顶到弹层可视高度临界值。 */
 .bf-daily {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 24rpx;
-  padding: 20rpx 20rpx;
+  margin-top: 16rpx;
+  padding: 0 20rpx;
+  height: 72rpx;
+  box-sizing: border-box;
   border-radius: 18rpx;
   background: var(--surface-soft);
 }
-.bf-daily__text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 .bf-daily__label {
+  flex-shrink: 0;
   font-size: 28rpx;
   font-weight: 600;
   color: var(--text-primary);
 }
 .bf-daily__sub {
-  margin-top: 4rpx;
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx;
   font-size: 22rpx;
   color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bf-switch {
   position: relative;
@@ -236,7 +290,7 @@
 
 /* 确认按钮（减重：半透明紫、轻高光、固定高度） */
 .bf-submit {
-  margin-top: 24rpx;
+  margin-top: 20rpx;
   height: 92rpx;
   display: flex;
   align-items: center;

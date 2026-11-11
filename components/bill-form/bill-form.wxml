@@ -28,27 +28,39 @@
     >完成</view>
   </view>
 
-  <!-- 日期：不允许选择未来日期（end 上限今天，提交层另有校验） -->
-  <picker mode="date" value="{{dateStr}}" end="{{todayStr}}" bindchange="onDate">
-    <view class="bf-row">
-      <text class="bf-row__label">日期</text>
-      <text class="bf-row__value">{{dateStr}} ›</text>
+  <!-- 日期：不允许选择未来日期（end 上限今天，提交层另有校验）。
+       日期为今天时，行内出现「昨天 / 前天」快捷钮：补记昨天的账一步到位，
+       不必「开 picker → 滚轮 → 确定」三步。切到过去日期后快捷钮自动隐藏。 -->
+  <view class="bf-row bf-row--date">
+    <text class="bf-row__label">日期</text>
+    <view class="bf-quick">
+      <!-- 今天：给出「昨天 / 前天」补记入口；已改成过去日期时收成一个「今天」退回入口 -->
+      <view class="bf-chip" wx:if="{{dateStr !== todayStr}}" data-days="0" hover-class="bf-chip--hover" hover-stay-time="60" bindtap="onQuickDate">今天</view>
+      <block wx:else>
+        <view class="bf-chip" data-days="1" hover-class="bf-chip--hover" hover-stay-time="60" bindtap="onQuickDate">昨天</view>
+        <view class="bf-chip" data-days="2" hover-class="bf-chip--hover" hover-stay-time="60" bindtap="onQuickDate">前天</view>
+      </block>
     </view>
-  </picker>
+    <picker class="bf-date" mode="date" value="{{dateStr}}" end="{{todayStr}}" bindchange="onDate">
+      <view class="bf-row__value bf-row__value--date">{{dateStr}} ›</view>
+    </picker>
+  </view>
 
-  <!-- 计算日价（仅支出账单；开启后正常进账本，同时进入日价） -->
+  <!-- 计算日价（仅支出账单；开启后正常进账本，同时进入日价）。
+       低频附加项 → 压成单行，不占主流程的纵向预算（原两行卡片会把分类与保存按钮顶出首屏）。 -->
   <view class="bf-daily" wx:if="{{type === 'expense'}}" bindtap="onToggleDaily">
-    <view class="bf-daily__text">
-      <text class="bf-daily__label">计算日价</text>
-      <text class="bf-daily__sub">这笔消费每天值多少钱</text>
-    </view>
+    <text class="bf-daily__label">计算日价</text>
+    <text class="bf-daily__sub">这笔消费每天值多少</text>
     <view class="bf-switch {{dailyValueEnabled ? 'bf-switch--on' : ''}}">
       <view class="bf-switch__knob"></view>
     </view>
   </view>
 
-  <!-- 分类：最近使用 + 更多 -->
-  <view class="bf-cats-label">分类</view>
+  <!-- 分类：最近使用 + 更多（换行网格，不横向滚动） -->
+  <view class="bf-cats-head">
+    <text class="bf-cats-label">分类</text>
+    <text class="bf-cats-collapse" wx:if="{{showAllCats}}" bindtap="onHideAllCats">收起</text>
+  </view>
   <view class="bf-cats-grid">
     <view
       wx:for="{{showAllCats ? allList : recentList}}"

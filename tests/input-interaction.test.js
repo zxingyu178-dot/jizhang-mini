@@ -121,6 +121,54 @@ allWxml.forEach((f) => {
   assert(fs.readFileSync(f, 'utf8').indexOf('<textarea') < 0, '不存在 textarea：' + path.relative(ROOT, f));
 });
 
+/* ==================== A2. 记账效率接线（v1.4.7） ====================
+ * 实测发现的三件事，逐条钉住接线，避免后续重构悄悄退回：
+ *   ① 保存后没有任何回执，用户无法确认「记上了」；
+ *   ② 改日期到上个月保存后，当前月列表一行不变、也没提示，看着像没记上；
+ *   ③ 展开「更多分类」后弹层高度不重算，保存按钮被裁到屏外。
+ */
+console.log('记账效率接线');
+
+// ① 保存回执：金额与月份必须随 saved 事件回传，主页面才能回显
+includes(billJs, 'amountCents: cents', 'saved 事件带金额（分）');
+includes(billJs, 'ym: dateStr.slice(0, 7)', 'saved 事件带所属月份');
+includes(billJs, "triggerEvent('saved', Object.assign({ id: bill.id }, savedDetail))", '新增保存回传完整 detail');
+includes(billJs, "triggerEvent('saved', Object.assign({ id: this.data.editingId }, savedDetail))", '编辑保存回传完整 detail');
+
+const mainJs = read('pages/main/main.js');
+includes(mainJs, "money.formatCents(d.amountCents)", '当月保存回显金额');
+includes(mainJs, '已记入 ', '跨月保存回显「已记入 X 月」');
+assert(/crossMonth[\s\S]{0,120}refreshPanels\(\{ accYm: d\.ym \}\)/.test(mainJs), '跨月保存切到账单所在月份');
+includes(mainJs, 'ymLabel(ym)', '月份文案有统一格式化');
+
+// ② 弹层高度重算：内容变高必须重新预算，否则按钮被挤出面板
+const sheetJs = read('components/bottom-sheet/bottom-sheet.js');
+includes(sheetJs, 'refit()', '弹层提供 refit 重算入口');
+assert(/refit\(\)[\s\S]{0,200}this\._fit\(\)/.test(sheetJs), 'refit 复用同一套高度预算');
+assert(/refit\(\)\s*\{[\s\S]{0,120}if \(!this\.data\.show\)/.test(sheetJs), 'refit 在未展示时不动作（不偷开弹层）');
+includes(billJs, "triggerEvent('resize')", '分类展开/收起通知弹层重算');
+const mainWxml = read('pages/main/main.wxml');
+includes(mainWxml, 'id="billSheet"', '记账弹层有 id 供 refit');
+includes(mainWxml, 'bind:resize="onBillFormResize"', '表单 resize 事件已接线');
+includes(mainJs, "selectComponent('#billSheet')", '主页面能取到记账弹层');
+
+// ③ 日期快捷：昨天 / 前天 / 今天 三个入口，且不新增行高
+includes(billWxml, 'bf-row--date', '日期行独立类名（picker 内联，不占整行）');
+includes(billWxml, 'bindtap="onQuickDate"', '日期快捷已接线');
+includes(billWxml, 'data-days="1"', '有「昨天」快捷');
+includes(billWxml, 'data-days="2"', '有「前天」快捷');
+includes(billWxml, 'data-days="0"', '有「今天」退回入口');
+assert(/dateStr !== todayStr[\s\S]{0,200}data-days="0"/.test(billWxml), '日期已改成过去时显示「今天」退回');
+const billWxss = read('components/bill-form/bill-form.wxss');
+includes(billWxss, '.bf-chip', '快捷钮有样式');
+includes(billWxss, '.bf-cats-collapse', '收起入口有样式');
+assert(/\.bf-daily\s*\{[\s\S]{0,200}height:/.test(billWxss), '「计算日价」压成定高单行（不再两行卡片）');
+
+// ④ 分类可用性：能收起 + 上次分类可沿用
+includes(billWxml, 'bindtap="onHideAllCats"', '展开态有「收起」入口');
+includes(billJs, 'onHideAllCats()', '收起方法存在');
+includes(billJs, 'rememberedCategoryId(type)', '分类沿用有独立判定（归档即失效）');
+
 /* ==================== 动态行为 ==================== */
 console.log('动态行为');
 
@@ -301,6 +349,69 @@ function resetRecorders() {
   eq(searchPage._filterTimer, null, 'confirm 清掉未执行的防抖定时器');
   eq(applied, 1, 'confirm 立即执行一次筛选');
   eq(kbCalls.length, 1, '搜索 confirm 收键盘');
+
+  /* ---- bill-form v1.4.7：日期快捷 / 分类收起 / 保存回执 / 分类沿用 ---- */
+  console.log('记账效率：日期快捷、分类收起、保存回执');
+  const DAY = 24 * 60 * 60 * 1000;
+  const fmtDay = (d) => d.getFullYear()
+    + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1)
+    + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate();
+  const nowMs = Date.now();
+  const todayStr = fmtDay(new Date(nowMs));
+  const yStr = fmtDay(new Date(nowMs - DAY));
+  const bStr = fmtDay(new Date(nowMs - 2 * DAY));
+
+  const bill2 = makeInstance(billDef, true);
+
+  // 日期快捷：不需要打开原生 picker
+  bill2.setData({ dateStr: '2026-03-05', todayStr: todayStr });
+  bill2.onQuickDate({ currentTarget: { dataset: { days: '1' } } });
+  eq(bill2.data.dateStr, yStr, '「昨天」= 今天减一天');
+  bill2.onQuickDate({ currentTarget: { dataset: { days: '2' } } });
+  eq(bill2.data.dateStr, bStr, '「前天」= 今天减两天');
+  bill2.onQuickDate({ currentTarget: { dataset: { days: '0' } } });
+  eq(bill2.data.dateStr, todayStr, '「今天」回到今天');
+  bill2.onQuickDate({ currentTarget: { dataset: { days: 'x' } } });
+  eq(bill2.data.dateStr, todayStr, '非法天数不改日期');
+
+  // 分类展开 / 收起：两者都必须通知弹层重算高度
+  resetRecorders();
+  bill2.onShowAllCats();
+  eq(bill2.data.showAllCats, true, '展开全部分类');
+  eq(events.filter((e) => e.name === 'resize').length, 1, '展开后通知弹层重算高度');
+  resetRecorders();
+  bill2.onHideAllCats();
+  eq(bill2.data.showAllCats, false, '收起全部分类');
+  eq(events.filter((e) => e.name === 'resize').length, 1, '收起后通知弹层重算高度');
+
+  // 保存回执：saved 事件必须带月份与金额，父页面才能回显 / 判断跨月
+  fakeStore.addBill = (p) => ({ id: 'new-1', amountCents: p.amountCents });
+  fakeStore.updateBill = () => {};
+  bill2.applyAmount('12.34'); // 走真实输入链路：同步 amountText + canSubmit
+  bill2.setData({
+    editingId: null,
+    type: 'expense',
+    categoryId: 'c-food',
+    dateStr: '2026-03-05',
+    todayStr: '2026-03-09',
+    merchant: '瑞幸',
+    note: '早餐',
+  });
+  resetRecorders();
+  bill2.onSubmit();
+  const savedEv = events.find((e) => e.name === 'saved');
+  assert(!!savedEv, '保存成功后触发 saved 事件');
+  eq(savedEv.detail.ym, '2026-03', 'saved 带所属月份（供跨月跳转）');
+  eq(savedEv.detail.amountCents, 1234, 'saved 带金额分（供回执回显）');
+  eq(savedEv.detail.dateStr, '2026-03-05', 'saved 带实际记账日期');
+
+  // 连续记账：沿用上次支出分类；分类失效则回退默认
+  bill2._lastCategoryId = 'c-food';
+  bill2.reset();
+  eq(bill2.data.categoryId, 'c-food', '重开表单沿用上次支出分类');
+  bill2._lastCategoryId = 'c-archived-gone';
+  bill2.reset();
+  eq(bill2.data.categoryId, 'c-food', '记住的分类已归档 / 删除则回退默认');
 
   /* ---------- 汇总 ---------- */
   console.log('\ninput-interaction tests: ' + pass + ' passed, ' + fail + ' failed');

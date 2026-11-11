@@ -3,6 +3,7 @@
 const device = require('../../utils/device.js');
 const theme = require('../../utils/theme.js');
 const viewport = require('../../utils/viewport.js');
+const money = require('../../data/money');
 
 // 顶部 Tabs 导航高度（px）
 const TABS_HEIGHT = 44;
@@ -293,10 +294,44 @@ Page({
   onSheetClose() {
     this.setData({ sheetShow: false });
   },
-  /** 表单保存成功：关闭弹层并刷新当前面板 */
-  onBillSaved() {
+  /**
+   * 表单内容高度变化（展开 / 收起分类）：让弹层重新预算滚动区高度。
+   * 不重算的后果实测过：展开 12 个分类后保存按钮底边被推到视口外 5px。
+   */
+  onBillFormResize() {
+    const sheet = this.selectComponent('#billSheet');
+    if (sheet && typeof sheet.refit === 'function') sheet.refit();
+  },
+  /**
+   * 表单保存成功：关闭弹层、刷新面板、给出确认。
+   *
+   * 两条实测出来的规则（v1.4.7）：
+   *  1. 必须回显「记了多少」——原来保存后只是弹层消失，用户拿不到任何「记上了」的确认；
+   *  2. 记的是别的月份时必须切到那个月——原来把日期改成上月保存后，当前月列表
+   *     一行都不会变、也没有提示，用户会以为这笔没记上（实测：Hero 仍停在 11 月，
+   *     列表里查不到那笔 10 月的账）。
+   */
+  onBillSaved(e) {
+    const d = e.detail || {};
     this.setData({ sheetShow: false });
-    this.refreshPanels();
+    const acc = this.selectComponent('#accountingPanel');
+    const beforeYm = acc ? acc.data.ym : '';
+    // 记账面板正看着的月份 ≠ 账单所属月份 → 这次保存是「补记别的月份」
+    const crossMonth = !!(d.ym && beforeYm && d.ym !== beforeYm);
+    this.refreshPanels({ accYm: d.ym });
+    if (crossMonth) {
+      wx.showToast({ title: '已记入 ' + this.ymLabel(d.ym), icon: 'none' });
+    } else if (d.amountCents) {
+      wx.showToast({ title: '已记 ¥' + money.formatCents(d.amountCents), icon: 'none' });
+    }
+  },
+  /** 'YYYY-MM' → '10 月'（跨年时补上年份，避免「1 月」歧义） */
+  ymLabel(ym) {
+    const parts = String(ym || '').split('-');
+    if (parts.length < 2) return ym;
+    const month = Number(parts[1]) + ' 月';
+    const thisYear = new Date().getFullYear();
+    return Number(parts[0]) === thisYear ? month : parts[0] + ' 年 ' + month;
   },
   /** 日价表单遮罩关闭 */
   onDvSheetClose() {
@@ -373,11 +408,18 @@ Page({
    * 刷新三个 Panel（数据变化后调用）。
    * opts.preserveStatistics=true 时跳过统计面板完整 refresh：主题切换场景下
    * 其颜色已由主题订阅 recolor、展开 / 选中态需保留，不能被 loadMonth/loadYear 重置。
+   * opts.accYm 指定记账面板要停在哪个月（补记别的月份时直接落位，不先刷当前月再跳，
+   * 避免两次重载与中间帧闪动）。
    */
   refreshPanels(opts) {
+    const o = opts || {};
     const acc = this.selectComponent('#accountingPanel');
-    if (acc) acc.refresh();
-    if (!(opts && opts.preserveStatistics)) {
+    if (acc) {
+      const target = o.accYm;
+      if (target && target !== acc.data.ym) acc.loadData(target);
+      else acc.refresh();
+    }
+    if (!o.preserveStatistics) {
       const sta = this.selectComponent('#statisticsPanel');
       if (sta) sta.refresh();
     }

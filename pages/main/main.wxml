@@ -77,8 +77,8 @@
   </block>
 
   <!-- 记账表单 Bottom Sheet（新增 / 编辑） -->
-  <bottom-sheet show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
-    <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillDeleted" />
+  <bottom-sheet id="billSheet" show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
+    <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillDeleted" bind:resize="onBillFormResize" />
   </bottom-sheet>
 
   <!-- 日价新增表单 Bottom Sheet（日价 Tab 的 FAB） -->
