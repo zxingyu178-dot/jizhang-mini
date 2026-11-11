@@ -21,3 +21,7 @@ logs/
 
 # 上传/审计产物（CLI --info-output 生成，不进版本库）
 reports/
+
+# 环形图立体感取证截图（tests/e2e/donut-depth-shots.js 每轮覆盖写，属过程产物；
+# 结论已记入 docs/HANDOFF_v1.5.0.md，截图不入库）
+docs/screenshots/donut-depth/

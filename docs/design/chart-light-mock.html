@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>柱状 / 折线 · 车削光影参数核对样张</title>
+<style>
+:root{
+  /* 深色主题令牌（与 app.wxss 深色块一致） */
+  --d-page:#05060a; --d-card-bg:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255,255,255,.03));
+  --d-card-border:rgba(255,255,255,.10); --d-ink:#e9ecf5; --d-ink2:#9aa2b8; --d-ink3:#6c7488;
+  --d-primary:#7c86ff; --d-chart-grid:rgba(255,255,255,.12); --d-text-axis:rgba(255,255,255,.62);
+  /* 浅色主题令牌 */
+  --l-page:#f3f4fa; --l-card-bg:linear-gradient(135deg,rgba(255,255,255,.88),rgba(255,255,255,.62));
+  --l-card-border:rgba(80,90,130,.12); --l-ink:#202334; --l-ink2:#5b6072; --l-ink3:#767c90;
+  --l-primary:#6e78f5; --l-chart-grid:rgba(80,90,130,.20); --l-text-axis:rgba(32,35,52,.70);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:#0d0f15;color:#e9ecf5;font:14px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:26px 18px 60px;}
+.wrap{max-width:1000px;margin:0 auto;}
+h1{font-size:19px;margin:0 0 4px;font-weight:700;}
+.sub{color:#9aa2b8;font-size:12.5px;margin:0 0 3px;}
+.warnbox{background:#1b1e27;border:1px solid #2b3040;border-radius:10px;padding:12px 15px;margin:14px 0 0;font-size:12.5px;color:#9aa2b8;}
+.warnbox b{color:#f0c36d;}
+.ctrls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 4px;align-items:center;}
+.ctrls span{font-size:12px;color:#6c7488;}
+.btn{appearance:none;border:1px solid #2b3040;background:#1b1e27;color:#9aa2b8;font:inherit;font-size:12.5px;padding:5px 12px;border-radius:8px;cursor:pointer;}
+.btn.on{background:#7c86ff;border-color:#7c86ff;color:#0b0d16;font-weight:600;}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0 0;}
+@media(max-width:760px){.pair{grid-template-columns:1fr;}}
+.shot{border-radius:15px;padding:17px 15px 11px;}
+.shot.dark{background:var(--d-page);}
+.shot.light{background:var(--l-page);}
+.card{border-radius:13px;padding:14px 13px 10px;}
+.shot.dark .card{background:var(--d-card-bg);border:1px solid var(--d-card-border);}
+.shot.light .card{background:var(--l-card-bg);border:1px solid var(--l-card-border);}
+.cardtitle{font-size:12px;margin:0 0 10px;}
+.shot.dark .cardtitle{color:rgba(255,255,255,.72);}
+.shot.light .cardtitle{color:#3a3f52;}
+.cap{font-size:11px;letter-spacing:.3px;margin:8px 0 1px;text-align:center;}
+.shot.dark .cap{color:rgba(255,255,255,.42);}
+.shot.light .cap{color:#767c90;}
+
+/* ===== 柱图结构：与 statistics-panel.wxml/wxss 一一对应 ===== */
+.ca{display:block;}
+.ca__row{display:flex;flex-direction:row;align-items:flex-start;}
+.ca__ycol{position:relative;flex-shrink:0;}
+.ca__tick{position:absolute;right:6px;line-height:1;white-space:nowrap;text-align:right;transform:translateY(50%);pointer-events:none;}
+.ca__plot{position:relative;flex:1;min-width:0;}
+.ca__grid{position:absolute;left:0;right:0;height:1px;transform:translateY(1px);}
+.ca__plate{position:absolute;left:0;right:0;bottom:0;height:3px;border-top:0.5px solid var(--bar-lip);}  /* 6rpx→3px */
+.ca__bars{display:flex;flex-direction:row;align-items:flex-end;height:100%;}
+.ca__xrow{display:flex;flex-direction:row;align-items:flex-start;height:17px;}  /* 34rpx→17px */
+.bar-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;}
+.bar{width:60%;border-radius:4px 4px 0 0;}  /* 8rpx→4px */
+.bar-label{width:100%;flex-shrink:0;white-space:nowrap;height:17px;line-height:17px;text-align:center;}
+
+/* rpx：本样张 1rpx 固定 0.5px（=375px 视口），与线上换算法一致 */
+.dark{--primary:var(--d-primary);--chart-grid:var(--d-chart-grid);--text-axis:var(--d-text-axis);
+  --bar-none:rgba(255,255,255,0);
+  --bar-cap:rgba(255,255,255,.38); --bar-lit:rgba(255,255,255,.16);
+  --bar-shade:rgba(0,0,0,.26); --bar-foot:rgba(0,0,0,.48);
+  --bar-plate:rgba(0,0,0,.42); --bar-lip:rgba(255,255,255,.10);}
+.light{--primary:var(--l-primary);--chart-grid:var(--l-chart-grid);--text-axis:var(--l-text-axis);
+  --bar-none:rgba(255,255,255,0);
+  --bar-cap:rgba(255,255,255,.40); --bar-lit:rgba(255,255,255,.18);
+  --bar-shade:rgba(0,0,0,.30); --bar-foot:rgba(0,0,0,.44);
+  --bar-plate:rgba(25,28,40,.06); --bar-lip:rgba(255,255,255,.60);}
+
+/* ★ 待落地的那条规则 —— 与 spec §2.3 完全一致 */
+.bar--exp{
+  background-color:var(--primary);
+  background-image:linear-gradient(180deg,
+    var(--bar-none) 0%,   var(--bar-none) 3%,
+    var(--bar-cap)  3%,   var(--bar-cap)  8%,
+    var(--bar-lit)  8%,   var(--bar-lit)  15%,
+    var(--bar-none) 15%,  var(--bar-none) 80%,
+    var(--bar-shade) 80%, var(--bar-shade) 93%,
+    var(--bar-foot) 93%,  var(--bar-foot) 100%);
+  box-shadow:none;
+}
+.bar--exp-a{
+  background-color:var(--primary);
+  background-image:linear-gradient(180deg,
+    var(--bar-none) 0%,   var(--bar-none) 4%,
+    var(--bar-cap)  4%,   var(--bar-cap)  10%,
+    var(--bar-lit)  10%,  var(--bar-lit)  20%,
+    var(--bar-none) 20%,  var(--bar-none) 76%,
+    var(--bar-shade) 76%, var(--bar-shade) 92%,
+    var(--bar-foot) 92%,  var(--bar-foot) 100%);
+  box-shadow:none;
+}
+.ca__plate{background:var(--bar-plate);pointer-events:none;}
+.ca__grid{background:var(--chart-grid);}
+.ca__tick{color:var(--text-axis);}
+.bar-label{color:var(--text-axis);}
+/* 现状对照：改动前的柱子 */
+.bar--old{background:linear-gradient(180deg,var(--primary) 0%,var(--primary-deep,#5b67f0) 100%);}
+.light .bar--old{background:linear-gradient(180deg,var(--primary) 0%,#5660e0 100%);}
+
+/* ===== 折线（SVG data-uri → img），与 cumulative.js 同路径 ===== */
+.ct{position:relative;margin:0 auto;}
+.ct img{display:block;}
+.tech{background:#1b1e27;border:1px solid #2b3040;border-radius:10px;padding:8px 20px 14px;margin:18px 0 0;}
+.tech ol{margin:10px 0 0;padding-left:20px;}
+.tech li{font-size:12.6px;color:#9aa2b8;line-height:1.75;margin:0 0 8px;}
+.tech li b{color:#e9ecf5;}
+.tech code{font-family:ui-monospace,Consolas,monospace;font-size:11.4px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;color:#cfd5e6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>柱状 / 折线 · 车削光影参数核对样张</h1>
+  <p class="sub">配套规格 <code>docs/design/chart-light-spec.md</code>。左 = 现状（改动前），右 = 落地后，同一份数据、同一尺寸。末行为被否掉的宽顶光方案。</p>
+  <p class="sub">柱图按 375px 视口实算：内容区 319px、Y 轴留白 30px、plotW 289px。折线按 319×180 实算，走真 SVG → <code>data:image/svg+xml</code> → <code>&lt;img&gt;</code>。</p>
+
+  <div class="warnbox">
+    <b>本页只核对「数值」，不核对「Skyline 行为」。</b>浏览器对多色标硬停渐变、<code>var()</code> 做渐变色标的支持是标准行为，但 Skyline 是自绘管线 —— 这两点仍需真机各跑一次（spec §8 第 1、3 条）。若真机把硬停渲染成软过渡，退化为平滑渐变，柱子仍可用。
+  </div>
+
+  <div class="ctrls">
+    <span>柱数</span>
+    <button class="btn on" data-n="31">31 根（日支出当月）</button>
+    <button class="btn" data-n="12">12 根（年度）</button>
+    <button class="btn" data-n="31w">31 根 · 极端分布</button>
+  </div>
+
+  <div id="barOut"></div>
+  <div id="lineOut"></div>
+
+  <div class="tech">
+    <div style="font-size:15px;font-weight:700;margin:8px 0 0;">从渲染结果里看到的三件事（写进规格的风险栏）</div>
+    <ol>
+      <li><b>5.6px 宽的柱子上，6 档台阶读得出来，但只读得出「顶亮底暗」的总体走向。</b>顶光带在 31 根柱时约 0.2~4.5px（随柱高走），最矮的几根退化成单色 —— 这是刻意降级，不是 bug。要更锐利只能给每根柱加子层，31 根就是 62 个元素，超预算。</li>
+      <li><b>浅色下顶光几乎看不见，柱子轮廓仍清楚。</b>这正是把顶光起点从 0% 挪到 3% 换来的：轮廓线保持本色，倒角光在内侧。若不挪，浅色柱顶会白到和卡片糊在一起，<b>读高度就变成猜</b>。</li>
+      <li><b>折线的三道描边在 2.16px 本体上刚好：暗缘只露 0.75px，高光只有 0.99px。</b>再粗一档（+2.0 而不是 +1.5）线会像「管子」而不是「线」，在 12 个小刻度的图里会显得笨。</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* ============ 与线上同口径：rpx → px，375px 视口 ============ */
+var RPX = 0.5;
+
+function mixHex(hex, target, t){
+  var a = hex.charAt(0) === '#' ? hex.substr(1) : hex, b = target.substr(1), out = '#';
+  for (var i = 0; i < 3; i++){
+    var p = parseInt(a.substr(i*2,2),16), q = parseInt(b.substr(i*2,2),16);
+    var v = Math.round(p + (q - p) * t);
+    out += (v < 16 ? '0' : '') + v.toString(16).toUpperCase();
+  }
+  return out;
+}
+function r2(n){ return Math.round(n * 100) / 100; }
+function uri(svg){ return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); }
+
+/* ---- 数据 ---- */
+var DATA = {
+  '31': (function(){
+    var a = [], pat = [0,0,320,0,0,880,0,0,1450,0,240,0,0,0,760,0,0,1900,0,0,430,0,0,0,260,0,1100,0,0,0,0];
+    for (var i = 0; i < 31; i++) a.push({ label: (i+1) + '日', v: pat[i % pat.length] });
+    return a;
+  })(),
+  '12': (function(){
+    var v = [3860,4220,3180,2980,5120,4460,3990,6020,4310,3880,5240,4680], a = [];
+    for (var i = 0; i < 12; i++) a.push({ label: (i+1) + '月', v: v[i] });
+    return a;
+  })(),
+  '31w': (function(){
+    var a = [], pat = [0,0,0,0,0,9000,0,60,0,0,8800,0,0,120,0,0,0,7200,0,45,0,0,0,30,0,0,6400,0,0,0,15];
+    for (var i = 0; i < 31; i++) a.push({ label: (i+1) + '日', v: pat[i % pat.length] });
+    return a;
+  })()
+};
+
+/* ---- nice 顶档（与 data/statistics/axis.js 的 NICE_STEPS 同口径） ---- */
+function niceMax(v){
+  if (!(v > 0)) return 0;
+  var STEPS = [1,1.5,2,2.5,3,4,5,6,8,10], mag = Math.pow(10, Math.floor(Math.log10(v)));
+  for (var i = 0; i < STEPS.length; i++){
+    var c = STEPS[i] * mag;
+    if (c >= v) return c;
+  }
+  return 10 * mag;
+}
+
+/* ---- 柱图 ---- */
+var ZONE_RPX = 180;      // 日支出；年度为 200
+function buildBars(points, zoneRpx, theme, variant){
+  var max = 0;
+  points.forEach(function(p){ if (p.v > max) max = p.v; });
+  var top = niceMax(max);
+  var ticks = [0, 0.5, 1].map(function(r){
+    return { r: r, label: r === 0 ? '' : (r === 1 ? '¥' + Math.round(top/100) : '¥' + Math.round(top/200)) };
+  });
+  var gutter = 30, contentPx = 319, plotW = contentPx - gutter;
+  var cls = variant === 'old' ? 'bar bar--old' : (variant === 'rejected' ? 'bar bar--exp-a' : 'bar bar--exp');
+  var grid = ticks.map(function(t){
+    return t.r === 0 ? '' : '<view class="ca__grid" style="bottom:' + (t.r * zoneRpx * RPX) + 'px;"></view>';
+  }).join('');
+  var tickHtml = ticks.map(function(t){
+    if (!t.label) return '';
+    return '<text class="ca__tick" style="bottom:' + (t.r * zoneRpx * RPX) + 'px;font-size:11px;">' + t.label + '</text>';
+  }).join('');
+  var bars = points.map(function(p){
+    var h = top > 0 ? Math.round(p.v / top * zoneRpx) : 0;
+    return '<view class="bar-col"><view class="' + cls + '" style="height:' + (h * RPX) + 'px;"></view></view>';
+  }).join('');
+  return '' +
+    '<view class="ca">' +
+      '<view class="ca__row">' +
+        '<view class="ca__ycol" style="width:' + gutter + 'px;height:' + (zoneRpx*RPX) + 'px;">' + tickHtml + '</view>' +
+        '<view class="ca__plot" style="height:' + (zoneRpx*RPX) + 'px;">' +
+          (variant === 'old' ? '' : '<view class="ca__plate"></view>') +   /* ★ DOM 第一个子节点 */
+          grid +
+          '<view class="ca__bars">' + bars + '</view>' +
+        '</view>' +
+      '</view>' +
+      '<view class="ca__xrow" style="margin-left:' + gutter + 'px;">' +
+        points.map(function(p,i){
+          /* 抽稀：31 根最多 7 个标签，12 根全留 */
+          var show = points.length === 12 ? true : (i % Math.ceil(points.length/7) === 0 || i === points.length - 1);
+          return '<view class="bar-col"><text class="bar-label" style="font-size:11px;' + (show ? '' : 'opacity:0;') + '">' + p.label.replace(/[日月]/,'') + '</text></view>';
+        }).join('') +
+      '</view>' +
+    '</view>';
+}
+
+function card(theme, title, inner, cap){
+  return '<div class="shot ' + theme + '"><div class="card"><p class="cardtitle">' + title + '</p>' +
+    inner.replace(/<view/g,'<div').replace(/<\/view>/g,'</div>')
+         .replace(/<text /g,'<span ').replace(/<\/text>/g,'</span>') +
+    '</div><p class="cap">' + cap + '</p></div>';
+}
+
+/* 把伪 wxml 直接当 HTML 用（view/text 未定义标签在 HTML 里是 inline，需显式 block） */
+var shadowStyle = document.createElement('style');
+shadowStyle.textContent = 'view{display:block;} text{display:block;}';
+document.head.appendChild(shadowStyle);
+
+/* ---- 折线：复刻 buildCumulativeSVG 的三描边 ---- */
+function buildLineSVG(theme, nPoint){
+  var W = 319, H = 180;
+  var padL = 30, padR = 0, padT = r2(H * 0.10), padB = r2(H * 0.12);
+  var plotW = r2(W - padL - padR), plotH = r2(H - padT - padB), baseY = r2(H - padB);
+  var strokeW = r2(Math.min(W,H) * 0.012);
+  var isLight = theme === 'light';
+  var lineColor = isLight ? '#6E78F5' : '#7C86FF';
+  var gridColor = isLight ? 'rgba(80,90,130,0.20)' : 'rgba(255,255,255,0.12)';
+
+  var rimW = r2(strokeW + 1.5), specW = r2(Math.max(0.8, strokeW * 0.46));
+  var RIM = mixHex(lineColor, '#000000', isLight ? 0.28 : 0.34);
+  var SPEC = mixHex(lineColor, '#FFFFFF', isLight ? 0.52 : 0.42);
+  var specDy = isLight ? -0.55 : -0.62;
+  var areaOp = isLight ? 0.13 : 0.15;
+
+  /* 累计曲线：阶梯上升 + 平台 */
+  var pts = [];
+  var step = Math.max(1, Math.floor(nPoint / 6));
+  var acc = 0;
+  for (var i = 0; i < nPoint; i++){
+    acc += (i % step === 0) ? (0.05 + (i % 3) * 0.03) : 0;
+    pts.push({ x: r2(padL + (i / (nPoint - 1)) * plotW), y: r2(padT + (1 - Math.min(0.96, acc)) * plotH) });
+  }
+  var line = 'M' + pts[0].x + ' ' + pts[0].y;
+  pts.slice(1).forEach(function(c){ line += ' L' + c.x + ' ' + c.y; });
+  var last = pts[pts.length - 1];
+  var area = line + ' L' + last.x + ' ' + baseY + ' L' + pts[0].x + ' ' + baseY + ' Z';
+  var color = lineColor;
+
+  var grids = '';
+  [0, 0.5, 1].forEach(function(r){
+    var gy = r2(padT + (1 - r) * plotH);
+    grids += '<line x1="' + padL + '" y1="' + gy + '" x2="' + r2(W - padR) + '" y2="' + gy + '" stroke="' + gridColor + '" stroke-width="' + r2(strokeW*0.42) + '"/>';
+  });
+  var dotR = r2(Math.max(1.6, Math.min(3, strokeW * 1.6)));
+
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '">' +
+    grids +
+    '<path d="' + area + '" fill="' + color + '" fill-opacity="' + areaOp + '" stroke="none"/>' +
+    '<path d="' + line + '" fill="none" stroke="' + RIM + '" stroke-width="' + rimW + '" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<path d="' + line + '" fill="none" stroke="' + SPEC + '" stroke-width="' + specW + '" stroke-linejoin="round" stroke-linecap="round" transform="translate(0 ' + specDy + ')"/>' +
+    '<circle cx="' + last.x + '" cy="' + last.y + '" r="' + dotR + '" fill="' + color + '"/>' +
+  '</svg>';
+}
+
+var state = { n: '31' };
+function render(){
+  var pts = DATA[state.n], zone = state.n === '12' ? 200 : 180;
+  var out = '';
+
+  out += '<div class="pair">' +
+    card('dark', '现状 · 深色', buildBars(pts, zone, 'dark', 'old'), '单层 2 色标软渐变 · 无地面槽') +
+    card('dark', '落地后 · 深色', buildBars(pts, zone, 'dark', 'new'), '6 档硬台阶（spec §2.3）+ 地面槽') +
+  '</div>';
+  out += '<div class="pair">' +
+    card('light', '现状 · 浅色', buildBars(pts, zone, 'light', 'old'), '单层 2 色标软渐变 · 无地面槽') +
+    card('light', '落地后 · 浅色', buildBars(pts, zone, 'light', 'new'), '6 档硬台阶 + 地面槽') +
+  '</div>';
+  out += '<div class="pair">' +
+    card('dark', '未采用 · 宽顶光 6 档（4/10/20/76/92）', buildBars(pts, zone, 'dark', 'rejected'), '顶光带占柱高 16%，矮柱上过重') +
+    card('light', '未采用 · 宽顶光 6 档', buildBars(pts, zone, 'light', 'rejected'), '同上') +
+  '</div>';
+
+  var nPoint = 11;
+  out += '<div class="pair">' +
+    card('dark', '累计折线 · 深色（新增 2 条 path）',
+      '<div class="ct" style="width:319px;height:180px;"><img src="' + uri(buildLineSVG('dark', nPoint)) + '" width="319" height="180"></div>',
+      '暗缘 +0.75px/侧 · 高光 0.99px 上移 0.62px · 面积 0.15') +
+    card('light', '累计折线 · 浅色',
+      '<div class="ct" style="width:319px;height:180px;"><img src="' + uri(buildLineSVG('light', nPoint)) + '" width="319" height="180"></div>',
+      '暗缘 +0.75px/侧 · 高光 0.99px 上移 0.55px · 面积 0.13') +
+  '</div>';
+
+  document.getElementById('barOut').innerHTML = out;
+}
+document.querySelectorAll('.btn').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.btn').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    state.n = b.dataset.n;
+    render();
+  });
+});
+render();
+</script>
+</body>
+</html>

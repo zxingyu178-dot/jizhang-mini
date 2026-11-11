@@ -13,13 +13,11 @@ const {
   buildDonutSVG,
   hitSegment,
   localToViewBox,
+  TRACK_SPEC,
 } = require('../../data/statistics/donut');
 
-// 背景轨道颜色（主题感知；分段颜色为确定性 HSL，在两主题下均可读）
-const TRACK_COLORS = {
-  dark: 'rgba(255,255,255,0.10)',
-  light: 'rgba(25,28,40,0.08)',
-};
+// 底槽（凹槽）颜色由 donut.js 的 TRACK_SPEC 单点维护（v1.5.0 车削双层环规格的一部分：
+// 深色必须比卡片更暗，0.9 单位的段间缝才透得出来）。组件只负责按主题档位取用。
 
 // —— 手势识别参数 ——
 const MOVE_TOLERANCE_PX = 10; // 点击位移阈值：超过即判定为滑动
@@ -82,7 +80,7 @@ Component({
     },
     resolveTrackColor() {
       const t = this.effectiveThemeKey();
-      return TRACK_COLORS[t] || TRACK_COLORS.dark;
+      return TRACK_SPEC[t] || TRACK_SPEC.dark;
     },
     refresh() {
       const themeKey = this.effectiveThemeKey();
@@ -139,6 +137,8 @@ Component({
         sumRatio: Math.round(segs.reduce((a, s) => a + (Number(s.ratio) || 0), 0) * 1e6) / 1e6,
         svgLen: svg.length,
         uriLen: (this.data.uri || '').length,
+        // v1.5.0 车削双层环：元素数 = 底槽 1 + 分段数 × 5 层（体积核算基线）
+        circleCount: (svg.match(/<circle/g) || []).length,
         svgWidth: w ? w[1] : '(缺失)',
         svgHeight: h ? h[1] : '(缺失)',
         preserveAspectRatio: par ? par[1] : '(缺失)',

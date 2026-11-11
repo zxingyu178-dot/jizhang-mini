@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>分类占比环形图 · 立体感方案样张</title>
+<style>
+  :root{
+    --page:#14161d; --panel:#1b1e27; --line:#2b3040;
+    --ink:#e9ecf5; --ink2:#9aa2b8; --ink3:#6c7488;
+    --accent:#7c86ff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--page); color:var(--ink);
+    font:14px/1.7 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    padding:32px 20px 72px;
+  }
+  .wrap{max-width:1040px;margin:0 auto;}
+  h1{font-size:20px;line-height:1.4;margin:0 0 6px;font-weight:700;letter-spacing:.2px;}
+  .sub{color:var(--ink2);font-size:13px;margin:0 0 4px;}
+  .sub b{color:var(--ink);font-weight:600;}
+  .rule{height:1px;background:var(--line);margin:22px 0;}
+  .note{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;margin:16px 0 0;font-size:12.5px;color:var(--ink2);
+  }
+  .note b{color:var(--ink);font-weight:600;}
+  .note code{
+    font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+    background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;color:#cfd5e6;
+  }
+  .bar{display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin:26px 0 8px;}
+  .grp{display:flex;align-items:center;gap:8px;}
+  .grp>span{font-size:12px;color:var(--ink3);letter-spacing:.4px;}
+  .btn{
+    appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink2);
+    font:inherit;font-size:12.5px;padding:6px 13px;border-radius:8px;cursor:pointer;
+    transition:.14s;
+  }
+  .btn:hover{border-color:#3d4560;color:var(--ink);}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#0b0d16;font-weight:600;}
+
+  .dir{margin:38px 0 0;}
+  .dhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .dkey{
+    font-size:11px;letter-spacing:1px;color:var(--ink3);
+    border:1px solid var(--line);border-radius:4px;padding:1px 6px;
+  }
+  .dname{font-size:16.5px;font-weight:700;letter-spacing:.2px;}
+  .tag{
+    font-size:11px;padding:2px 8px;border-radius:20px;letter-spacing:.3px;
+  }
+  .tag.rec{background:rgba(124,134,255,.16);color:#a9b0ff;border:1px solid rgba(124,134,255,.35);}
+  .tag.base{background:rgba(255,255,255,.06);color:var(--ink3);border:1px solid var(--line);}
+  .mood{margin:3px 0 0;color:var(--ink2);font-size:13px;}
+
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0 0;}
+  @media(max-width:720px){.pair{grid-template-columns:1fr;}}
+
+  .shot{border-radius:16px;padding:20px 16px 12px;position:relative;overflow:hidden;}
+  .shot.dark{background:#05060a;}
+  .shot.light{background:#f3f4fa;}
+  .card{
+    border-radius:14px;padding:16px 14px 12px;display:flex;flex-direction:column;align-items:center;
+  }
+  .shot.dark .card{
+    background:linear-gradient(135deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.03) 100%);
+    border:1px solid rgba(255,255,255,.10);
+  }
+  .shot.light .card{
+    background:linear-gradient(135deg,rgba(255,255,255,.88) 0%,rgba(255,255,255,.62) 100%);
+    border:1px solid rgba(0,0,0,.06);
+  }
+  .cardtitle{font-size:12px;margin:0 0 12px;letter-spacing:.3px;}
+  .shot.dark .cardtitle{color:rgba(255,255,255,.72);}
+  .shot.light .cardtitle{color:#3a3f52;}
+
+  /* —— 与 category-donut.wxml / wxss 保持一致的渲染盒 —— */
+  .cd{position:relative;margin:0 auto;}
+  .cd img{display:block;}
+  .cd .ctr{
+    position:absolute;top:50%;left:50%;width:68%;height:68%;
+    transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:50%;text-align:center;
+  }
+  /* rpx → px 按 750rpx=375px（1rpx=0.5px），与线上字号一一对应 */
+  .cd .amt{font-size:14px;font-weight:700;line-height:1.2;}
+  .cd .lb{font-size:10px;line-height:1.2;margin-top:1px;}
+
+  .shot .cap{
+    text-align:center;font-size:11.5px;letter-spacing:.4px;margin:10px 0 2px;
+  }
+  .shot.dark .cap{color:rgba(255,255,255,.42);}
+  .shot.light .cap{color:#767c90;}
+
+  .spec{
+    display:grid;grid-template-columns:96px 1fr;gap:7px 14px;
+    margin:16px 0 0;font-size:12.8px;line-height:1.65;
+  }
+  .spec dt{color:var(--ink3);letter-spacing:.3px;}
+  .spec dd{margin:0;color:var(--ink2);}
+  .spec dd b{color:var(--ink);font-weight:600;}
+  .spec dd .no{color:#8fe3b4;}
+  .spec dd .warn{color:#f0c36d;}
+
+  .tech{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:6px 20px 14px;margin:16px 0 0;
+  }
+  .tech ol{margin:12px 0 0;padding-left:20px;}
+  .tech li{margin:0 0 9px;font-size:12.8px;color:var(--ink2);line-height:1.7;}
+  .tech li b{color:var(--ink);font-weight:600;}
+  .tech li code{
+    font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+    background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;color:#cfd5e6;
+  }
+  footer{margin:40px 0 0;color:var(--ink3);font-size:12px;line-height:1.9;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>分类占比环形图 · 立体感方案样张</h1>
+  <p class="sub">项目 <b>jizhang-mini</b> · 组件 <code>components/category-donut</code> · 渲染 <code>data/statistics/donut.js</code>（完整 SVG 字符串 → data-uri → <code>&lt;image&gt;</code>）</p>
+  <p class="sub">约束：Skyline 下 SVG 只收 <b>#RRGGBB + stroke-opacity</b>；立体感全部由 <b>多层同心实色描边</b> 堆出来；不使用 filter / 沿弧渐变 / 第三方图表库。</p>
+
+  <div class="note">
+    <b>样张的诚实说明（读之前请先看这四行）</b><br>
+    1. 环形直径按线上实际 <code>size="150"</code> 绘制（statistics-panel.wxml:83），可用下方按钮切到 180 预览大屏。<br>
+    2. 分类色<b>不是</b>手挑的好看颜色：色相由 <code>categoryId</code> 走黄金角 137.508° 决定，明度固定 60%（深色）/ 34%（浅色），饱和固定 62%——样张就是照这套参数算出来的，所以它既可能偏靛蓝也可能偏橙黄，这是真实情况。<br>
+    3. 「其他」是聚合段，固定中性色 <code>#8D94A8</code>，不参与色相分配。<br>
+    4. 每个方案都只用 <code>&lt;circle&gt;</code> + <code>stroke</code> + <code>stroke-dasharray</code>，没有任何一项依赖未验证的 SVG 特性；页面里的图形是真的走 <code>data:image/svg+xml</code> 画进 <code>&lt;img&gt;</code> 的，和线上同一条路径。<br>
+    5. 四个方向都按 150px / 180px、6 段 / 12 段、深浅双主题实际渲染核对过（含 3 倍像素密度），下面标注的风险是从渲染结果里看出来的，不是推测。
+  </div>
+
+  <div class="bar">
+    <div class="grp"><span>分段数</span>
+      <button class="btn on" data-n="6">6 段</button>
+      <button class="btn" data-n="12">12 段（上限）</button>
+    </div>
+    <div class="grp"><span>色相</span>
+      <button class="btn on" data-hue="golden">黄金角（线上真实）</button>
+      <button class="btn" data-hue="indigo">收窄到靛蓝紫（反例）</button>
+    </div>
+    <div class="grp"><span>直径</span>
+      <button class="btn on" data-size="150">150px（线上）</button>
+      <button class="btn" data-size="180">180px</button>
+    </div>
+  </div>
+
+  <main id="out"></main>
+
+  <div class="rule"></div>
+
+  <div class="tech">
+    <div class="dhead"><span class="dname">技术要点（给开发，落地时逐条对）</span></div>
+    <ol>
+      <li><b>颜色只能靠混黑白造光影。</b>五级色 = <code>mixHex(分类色, #FFFFFF 或 #000000, t)</code>，输出一律 <code>#RRGGBB</code>，透明度只写 <code>stroke-opacity</code>。SVG 里出现 <code>hsl()</code> 会整条 <code>&lt;circle&gt;</code> 被丢弃（项目已实测），<code>rgba()</code> 官方也不支持。色相一位不改，颜色合同不动。</li>
+      <li><b>多层不能共用同一份 dasharray，这是本轮踩到的最大的坑。</b><code>stroke-dasharray</code> 量的是「这条圆自己的周长」。R=40 与 R=45.35 的周长差 13%，同一份 <code>dash</code> 在两层上扫过的角度就不一样，五层端点会各自错开，画出来是放射状的扇骨/锯齿（本轮样张第一版就是这么错的，肉眼一眼能看出刺）。正确写法是先在<b>角度域</b>算、再乘该层半径：<code>dash = (ratio × 2π − 缝宽弧度) × r</code>，<code>offset = −(累计比例 × 2π + 缝宽弧度 / 2) × r</code>，<code>rest = 2πr − dash</code>（其中 <code>缝宽弧度 = 缝宽 / 251.327 × 2π</code>）。</li>
+      <li><b>dash 必须兜底。</b><code>dash</code> 取 <code>Math.max(0.2, …)</code>：负数或 NaN 会让整条弧不画，而现场根本分不清是数据脏了还是渲染板不支持，排查成本极高（这个项目已经为类似问题付过一次代价）。</li>
+      <li><b>多层结构不要用圆头端点。</b>每层 <code>stroke-width</code> 不同，<code>stroke-linecap="round"</code> 会让每层的端点各自外扩不同的 <code>w/2</code>，端点立刻错位。要圆头就得单层，并从 dash 里各减一个 <code>stroke-width</code> 补偿两端。</li>
+      <li><b>不要在环上做「沿弧渐变」，SVG 没有这种东西。</b><code>stroke="url(#g)"</code> 的渐变是铺在整个圆的包围盒上的，结果是一条从左到右的光、所有分段变成同一张色纸（有源码依据，见调研第 5 条）。真要用渐变，唯一正确写法是 <code>gradientUnits="userSpaceOnUse"</code> 的 radialGradient（圆心 50,50，r 34→46），让明暗只沿半径变化——但这要先在真机验证 <code>url(#)</code> 在 <code>&lt;image&gt;</code> 内 SVG 里是否生效，不生效会整条变黑，属于高危，本轮不放进主线。</li>
+      <li><b>轨道色必须比卡片更暗，缝才看得见。</b>现在深色轨道是 <code>rgba(255,255,255,0.10)</code>，压在近黑卡片上几乎没有对比，0.9 单位的缝会彻底消失。建议改成深色 <code>rgba(0,0,0,0.42)</code>、浅色 <code>rgba(25,28,40,0.10)</code>，<code>stroke-width</code> 12.8。轨道是中性色，不属于分类色相合同范围。</li>
+      <li><b>选中态的外扩要改成整层平移。</b>现实现是选中段 <code>STROKE + 3</code>；多层结构下只加粗一条弧会穿出其它层。改成「选中段 5 层半径统一 +1.5」，其余段沿用现有 <code>opacity 0.28</code> 压暗。<code>hitSegment()</code> 一行都不用改。</li>
+      <li><b>体积要对一下。</b>方向 A 到 12 段时是 61 个 <code>&lt;circle&gt;</code>、SVG 实测 10690 字节、base64 后 14256 字节（现状是 13 个 / 3048 字节）。组件里已有 <code>svgLen</code> / <code>uriLen</code> 诊断字段，落地后打一次 <code>diagLog</code> 核对。</li>
+    </ol>
+  </div>
+
+  <footer>
+    本页为单文件离线样张，无外部依赖，双击即可打开。<br>
+    生成方式：内联脚本复刻 <code>donut.js</code> 的 <code>hslToHex / getCategoryColor / buildDonutSVG</code> 口径，几何常量取自源码 <code>RADIUS=40 · STROKE=12 · CENTER=50 · CIRCUMFERENCE=251.327</code>。
+  </footer>
+</div>
+
+<script>
+/* ============================== PURE ============================== */
+/* 以下函数与 data/statistics/donut.js 口径一致，可在 Node 里单独跑 */
+var RADIUS = 40, STROKE = 12, CENTER = 50;
+var CIRC = 2 * Math.PI * RADIUS;
+var GOLDEN_ANGLE = 137.50776405003785;
+var SAT = 62;
+var LIGHT_BY_THEME = { dark: 60, light: 34 };
+var AGGREGATE_COLOR = '#8D94A8';
+
+function hex2(v) {
+  var n = Number.isFinite(v) ? Math.max(0, Math.min(255, Math.round(v))) : 0;
+  return (n < 16 ? '0' : '') + n.toString(16).toUpperCase();
+}
+function hslToHex(h, s, l) {
+  var sat = s / 100, lig = l / 100;
+  var c = (1 - Math.abs(2 * lig - 1)) * sat;
+  var hp = ((((h % 360) + 360) % 360)) / 60;
+  var x = c * (1 - Math.abs((hp % 2) - 1));
+  var r1 = 0, g1 = 0, b1 = 0;
+  if (hp >= 0 && hp < 1) { r1 = c; g1 = x; }
+  else if (hp < 2) { r1 = x; g1 = c; }
+  else if (hp < 3) { g1 = c; b1 = x; }
+  else if (hp < 4) { g1 = x; b1 = c; }
+  else if (hp < 5) { r1 = x; b1 = c; }
+  else { r1 = c; b1 = x; }
+  var m = lig - c / 2;
+  return '#' + hex2((r1 + m) * 255) + hex2((g1 + m) * 255) + hex2((b1 + m) * 255);
+}
+/** 朝 #FFFFFF / #000000 混合 t（0..1）。色相不变，只改明暗 → 不动颜色合同 */
+function mixHex(hex, target, t) {
+  var a = '#' === hex.charAt(0) ? hex.substr(1) : hex;
+  var b = target.substr(1);
+  var out = '#';
+  for (var i = 0; i < 3; i++) {
+    var p = parseInt(a.substr(i * 2, 2), 16);
+    var q = parseInt(b.substr(i * 2, 2), 16);
+    out += hex2(p + (q - p) * t);
+  }
+  return out;
+}
+
+/* 演示数据：6 段 / 12 段（12 为组件上限），比例为真实占比 */
+var DEMO = {
+  6: [
+    { n: '餐饮', r: 0.38 }, { n: '交通', r: 0.22 }, { n: '购物', r: 0.16 },
+    { n: '娱乐', r: 0.12 }, { n: '居家', r: 0.08 }, { n: '其他', r: 0.04, agg: true }
+  ],
+  12: [
+    { n: '餐饮', r: 0.26 }, { n: '交通', r: 0.17 }, { n: '购物', r: 0.13 },
+    { n: '娱乐', r: 0.10 }, { n: '居家', r: 0.08 }, { n: '服饰', r: 0.07 },
+    { n: '医疗', r: 0.05 }, { n: '教育', r: 0.04 }, { n: '通讯', r: 0.035 },
+    { n: '宠物', r: 0.03 }, { n: '礼物', r: 0.02 }, { n: '其他', r: 0.015, agg: true }
+  ]
+};
+/* 反例对照：把色相硬收窄到靛蓝紫 210~300，看会发生什么 */
+var INDIGO_HUES = [252, 258, 262, 268, 272, 278, 282, 288, 240, 246, 300, 256];
+
+function demoHue(i, mode) {
+  if (mode === 'indigo') return INDIGO_HUES[i % INDIGO_HUES.length];
+  return (i * GOLDEN_ANGLE + 258) % 360; // +258 仅让最大段落在靛蓝区，分布特征与线上一致
+}
+
+/* —— 三个方向 + 现状对照 ——
+   layer: r 圆心半径 / w 描边宽 / tone base|light|dark / amt 混白混黑比例（分主题）
+   所有层的径向区间严格首尾相接，不重叠、不留缝，凑起来就是原来 34→46 那 12 个单位 */
+var DIRS = [
+  {
+    key: 'NOW',
+    name: '现状（线上 v1.4.x 实现 · 对照用）',
+    tag: 'base', tagText: '对照',
+    mood: '气质：一条均匀的彩色带子贴在卡片上，读起来是「图形」，不是「物件」。',
+    gap: 0,
+    track: {
+      dark: { c: '#FFFFFF', w: 12, op: 0.10 },
+      light: { c: '#19202C', w: 12, op: 0.08 }
+    },
+    layers: [{ r: 40, w: 12, tone: 'base' }],
+    extra: [],
+    spec: [
+      ['立体原理', '没有。环带 12 个单位宽一次性铺满，内部零明暗过渡；环带与卡片之间只有一层 0.10 白的底轨，既没有边界线也没有厚度暗示。'],
+      ['元素数', '<b>1N + 1</b>：6 段 7 个，12 段 13 个。'],
+      ['问题定位', '立体感缺失的根因是<b>环带内部没有明暗方向</b>。纯色描边在任何一块屏幕上都只能给出「面积」，给不出「厚度」。']
+    ]
+  },
+  {
+    key: 'A',
+    name: '车削双层环',
+    tag: 'rec', tagText: '推荐',
+    mood: '气质：像 CNC 车出来的金属环——锐利、精确、有重量。',
+    gap: 0.9,
+    track: {
+      dark: { c: '#000000', w: 12.8, op: 0.45 },
+      light: { c: '#191C28', w: 12.8, op: 0.10 }
+    },
+    layers: [
+      { r: 40.20, w: 4.2, tone: 'base' },
+      { r: 45.35, w: 1.3, tone: 'light', amt: { dark: 0.38, light: 0.55 } },
+      { r: 43.50, w: 2.4, tone: 'light', amt: { dark: 0.14, light: 0.22 } },
+      { r: 36.60, w: 3.0, tone: 'dark', amt: { dark: 0.26, light: 0.30 } },
+      { r: 34.15, w: 1.9, tone: 'dark', amt: { dark: 0.48, light: 0.52 } }
+    ],
+    extra: [],
+    spec: [
+      ['立体原理', '把 12 单位宽的环带在<b>径向上切成 5 条同心弧</b>，颜色全部取自同一个分类色、只朝白/黑混合。深色主题混白 +38%/+14%、本色 0、混黑 −26%/−48%；浅色主题 +55%/+22%、0、−30%/−52%。得到的明度台阶是 <b>75/66/60/44/31</b>（深色）与 <b>70/49/34/24/16</b>（浅色）——五级台阶方向一致，读起来就是一个朝外凸起的圆脊。段间留 <b>0.9 单位平头细缝</b>，露出下面 12.8 单位宽的深色凹槽，缝就是「这不是一整片贴纸，是几块拼上去的」的证据。'],
+      ['元素数', '<b>5N + 1</b>：6 段 31 个，12 段 61 个。'],
+      ['几何改动', '<span class="warn">RADIUS / STROKE / CENTER / CIRCUMFERENCE 全部不动</span>，只换 <code>buildDonutSVG</code> 内部的拼装循环。'],
+      ['颜色合同', '<span class="no">不动</span>。混白/混黑在 RGB 上等比插值，色相不变，只是同一色相的高低明度；图例、面板、对比度审计一行都不用改。'],
+      ['风险', '深色下 0.9 单位缝 = 1.35px（@150），12 段时最小段（1.5%）只剩 2.9 单位弧长，会细到接近一条线。浅色下最外层 +55% 白的高光在白卡片上仍偏弱，读作「倒角」而不是「反光」——这是刻意的，浅色本来就不该有强高光。']
+    ]
+  },
+  {
+    key: 'B',
+    name: '内发光玻璃管',
+    tag: '', tagText: '',
+    mood: '气质：磨砂玻璃 / 亚克力导管——轻、透、柔。',
+    gap: 0.55,
+    track: {
+      dark: { c: '#000000', w: 12.4, op: 0.30 },
+      light: { c: '#191C28', w: 12.4, op: 0.08 }
+    },
+    layers: [
+      { r: 39.55, w: 5.5, tone: 'base' },
+      { r: 44.15, w: 3.7, tone: 'dark', amt: { dark: 0.22, light: 0.24 } },
+      { r: 35.45, w: 2.7, tone: 'light', amt: { dark: 0.34, light: 0.46 } }
+    ],
+    extra: [
+      { r: 33.2, w: 1.3, tone: 'neutral', dark: { c: '#FFFFFF', op: 0.08 }, light: null }
+    ],
+    spec: [
+      ['立体原理', '光源换到<b>圆心孔</b>里。外缘先压暗（−22% 深 / −24% 浅），中间保留本色 5.5 单位，内缘提亮（+34% 深 / +46% 浅），三段明度台阶 <b>41/60/80</b>（深色）与 <b>25/34/56</b>（浅色）；孔沿再压一条 1.3 单位、白色 8% 的细环当「漏光」。缝只有 0.55 单位，整体几乎连续。'],
+      ['元素数', '<b>3N + 2</b>（深色，孔沿漏光环只在深色下画）／<b>3N + 1</b>（浅色）：6 段 20 / 19 个，12 段 38 / 37 个。'],
+      ['几何改动', '与 A 相同，只换内部拼装。'],
+      ['颜色合同', '<span class="no">不动</span>，同 A 的混色口径。'],
+      ['风险', '<span class="warn">浅色主题是这套方案的短板</span>：内亮弧（+46% 白）贴在白卡片上会把「透光」读成「发灰」。深色下内亮弧若太亮会盖掉段与段的分界，12 段时建议把 +34% 降到 +22%，否则相邻两段会糊在一起。']
+    ]
+  },
+  {
+    key: 'C',
+    name: '嵌片盘',
+    tag: '', tagText: '',
+    mood: '气质：机械嵌件 / 航空仪表面板——硬朗、有刻度感。',
+    gap: 1.6,
+    track: {
+      dark: { c: '#000000', w: 13.6, op: 0.55 },
+      light: { c: '#191C28', w: 13.6, op: 0.12 }
+    },
+    layers: [
+      { r: 40.0, w: 10.4, tone: 'base' },
+      { r: 44.0, w: 1.4, tone: 'light', amt: { dark: 0.30, light: 0.42 } },
+      { r: 36.2, w: 1.4, tone: 'dark', amt: { dark: 0.30, light: 0.34 } }
+    ],
+    extra: [
+      { r: 33.6, w: 1.2, tone: 'neutral', dark: { c: '#000000', op: 0.40 }, light: { c: '#000000', op: 0.10 } },
+      { r: 48.6, w: 0.8, tone: 'ticks', dark: { c: '#FFFFFF', op: 0.28 }, light: { c: '#19202C', op: 0.30 } }
+    ],
+    spec: [
+      ['立体原理', '不靠渐变，靠<b>凹槽包裹</b>。轨道加宽到 13.6 并压到近黑（深色 45% / 浅色 55% 黑），每段只占 10.4 单位宽，于是每块<b>左右各露出 1.6 单位槽壁</b>——「块被嵌进凹槽」的深度由这两条槽壁直接给出。块内再叠 1.4 单位顶光（+30%/+42%）与 1.4 单位底暗（−30%/−34%），块间缝 1.6 单位。外面加一圈 <b>48 格刻度环</b>（7.5° 一格）和孔沿 1.2 单位内阴影，给纵深一个外部参照物。'],
+      ['元素数', '<b>3N + 3</b>：6 段 21 个，12 段 39 个（刻度环用一条 dasharray 循环出 48 格，不新增循环）。'],
+      ['几何改动', '<span class="warn">段宽要从 12 收到 10.4、轨道从 12 放到 13.6</span>，即 STROKE 这条常量会被拆分成本方案自己的两个局部量；命中检测用的 INNER_R/OUTER_R=34/46 不用动，点击手感不变。'],
+      ['颜色合同', '<span class="no">不动</span>。刻度环和槽壁都是中性色，不参与色相分配。'],
+      ['风险', '<span class="warn">外圈刻度这条已经被本轮预览否掉</span>：按 150px、12 段、3 倍像素密度预演过，48 格刻度每格只有约 1.2px，读出来是一圈「尘点」而不是刻度，浅色主题下更像脏点。要保留刻度感得把格数砍到 12 格（约 3.1px/格）、w 加到 1.2，那基本是另一个方案了。另外 12 段时 1.6 单位缝（2.4px）会把占比 1.5% 的段直接吃掉；为了避开「多层 + 圆头端点会错位」的问题，这套是平头，所以拿不到圆润气质。']
+    ]
+  }
+];
+
+/** 生成一整张 SVG（与 buildDonutSVG 同构：返回字符串，交给 data-uri） */
+function buildMockSvg(dir, theme, n, hueMode) {
+  var data = DEMO[n];
+  var track = dir.track[theme];
+  var out = '';
+  var count = 0;
+
+  // 1. 凹槽轨道
+  out += '<circle cx="50" cy="50" r="40" fill="none" stroke="' + track.c +
+    '" stroke-width="' + track.w + '" stroke-opacity="' + track.op + '"/>';
+  count++;
+
+  // 2. 分段（先铺底色层，再压光/暗层）
+  var acc = 0;
+  var plans = data.map(function (d, i) {
+    var base = d.agg ? AGGREGATE_COLOR : hslToHex(demoHue(i, hueMode), SAT, LIGHT_BY_THEME[theme]);
+    var p = { base: base, ratio: d.r, acc: acc };
+    acc += d.r;
+    return p;
+  });
+
+  var TAU = Math.PI * 2;
+  var gapRad = dir.gap / CIRC * TAU;   // 缝宽换算成「角度」
+
+  dir.layers.forEach(function (L) {
+    plans.forEach(function (p) {
+      if (p.ratio <= 0) return;
+      var color = L.tone === 'base' ? p.base
+        : mixHex(p.base, L.tone === 'light' ? '#FFFFFF' : '#000000', L.amt[theme]);
+      // 关键：dasharray 量的是「这条圆自己的周长」，每一层的 r 不同，
+      // 所以必须按角度算完再乘该层的 r，否则各层扫过的角度不一致、端点会错开成扇骨状。
+      var dash = Math.max(0.2, (p.ratio * TAU - gapRad) * L.r);
+      var off = -(p.acc * TAU + gapRad / 2) * L.r;
+      var rest = Math.max(0, TAU * L.r - dash);
+      out += '<circle cx="50" cy="50" r="' + L.r + '" fill="none" stroke="' + color +
+        '" stroke-width="' + L.w + '" stroke-dasharray="' + dash.toFixed(3) + ' ' + rest.toFixed(3) +
+        '" stroke-dashoffset="' + off.toFixed(3) + '" transform="rotate(-90 50 50)"/>';
+      count++;
+    });
+  });
+
+  // 3. 附加环（孔沿漏光 / 内阴影 / 刻度环）
+  dir.extra.forEach(function (E) {
+    var spec = E[theme];
+    if (!spec) return;
+    if (E.tone === 'ticks') {
+      var rC = 2 * Math.PI * E.r;
+      var N = 48;                       // 48 等分 → 7.5° 一格，首尾严丝合缝
+      var period = rC / N;
+      var dashLen = E.w * 1.06;
+      out += '<circle cx="50" cy="50" r="' + E.r + '" fill="none" stroke="' + spec.c +
+        '" stroke-width="' + E.w + '" stroke-dasharray="' + dashLen.toFixed(3) + ' ' +
+        (period - dashLen).toFixed(3) + '" stroke-opacity="' + spec.op +
+        '" transform="rotate(-90 50 50)"/>';
+    } else {
+      out += '<circle cx="50" cy="50" r="' + E.r + '" fill="none" stroke="' + spec.c +
+        '" stroke-width="' + E.w + '" stroke-opacity="' + spec.op + '"/>';
+    }
+    count++;
+  });
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" ' +
+    'preserveAspectRatio="xMidYMid meet">' + out + '</svg>';
+  return { svg: svg, count: count };
+}
+
+/* 供 Node 侧核对用（浏览器里 module 未定义，不影响） */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { buildMockSvg: buildMockSvg, DIRS: DIRS, CIRC: CIRC, mixHex: mixHex, hslToHex: hslToHex };
+}
+/* ============================== DOM ============================== */
+if (typeof window !== 'undefined') {
+(function () {
+  var state = { n: 6, hue: 'golden', size: 150 };
+  var out = document.getElementById('out');
+
+  function uri(svg) {
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  function cardBlock(dir, theme) {
+    var built = buildMockSvg(dir, theme, state.n, state.hue);
+    var s = state.size;
+    var amtColor = theme === 'dark' ? '#eef1f8' : '#202334';
+    var lbColor = theme === 'dark' ? 'rgba(255,255,255,.62)' : '#5b6072';
+    return '' +
+      '<div class="shot ' + theme + '">' +
+        '<div class="card">' +
+          '<p class="cardtitle">分类占比</p>' +
+          '<div class="cd" style="width:' + s + 'px;height:' + s + 'px;">' +
+            '<img src="' + uri(built.svg) + '" width="' + s + '" height="' + s + '" alt="' + dir.name + '">' +
+            '<div class="ctr">' +
+              '<span class="amt" style="color:' + amtColor + '">¥4,286</span>' +
+              '<span class="lb" style="color:' + lbColor + '">总支出</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<p class="cap">' + (theme === 'dark' ? '深色主题' : '浅色主题') +
+          ' · ' + built.count + ' 个 SVG 元素</p>' +
+      '</div>';
+  }
+
+  function dirBlock(dir) {
+    var tagHtml = dir.tag ? '<span class="tag ' + dir.tag + '">' + dir.tagText + '</span>' : '';
+    var rows = dir.spec.map(function (r) {
+      return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>';
+    }).join('');
+    return '' +
+      '<section class="dir">' +
+        '<div class="dhead">' +
+          '<span class="dkey">' + dir.key + '</span>' +
+          '<span class="dname">' + dir.name + '</span>' + tagHtml +
+        '</div>' +
+        '<p class="mood">' + dir.mood + '</p>' +
+        '<div class="pair">' + cardBlock(dir, 'dark') + cardBlock(dir, 'light') + '</div>' +
+        '<dl class="spec">' + rows + '</dl>' +
+      '</section>';
+  }
+
+  function render() {
+    out.innerHTML = DIRS.map(dirBlock).join('');
+  }
+
+  document.querySelectorAll('.bar .btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var kind = b.dataset.n ? 'n' : b.dataset.hue ? 'hue' : 'size';
+      var v = b.dataset.n || b.dataset.hue || b.dataset.size;
+      state[kind] = kind === 'n' || kind === 'size' ? Number(v) : v;
+      b.parentNode.querySelectorAll('.btn').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      render();
+    });
+  });
+
+  render();
+})();
+}
+</script>
+</body>
+</html>

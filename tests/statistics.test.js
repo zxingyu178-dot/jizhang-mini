@@ -424,11 +424,11 @@ console.log('环形图圆弧 buildDonutArcs / buildDonutSVG');
   eq(aggArcs[7].aggregate, true, '末段为聚合项');
   eq(aggArcs[7].categoryId, M.AGGREGATE_OTHER_ID, '聚合段 categoryId');
 
-  // buildDonutSVG 结构
+  // buildDonutSVG 结构（v1.5.0 车削双层环：底槽 1 + 每段 5 层同心弧）
   const svg = D.buildDonutSVG(share.segments, 'rgba(0,0,0,0.1)');
   eq(svg.indexOf('<svg'), 0, 'SVG 以 <svg 开头');
   eq(svg.indexOf('</svg>'), svg.length - 6, 'SVG 以 </svg> 结尾');
-  eq((svg.match(/<circle/g) || []).length, 4, 'SVG 含 1 轨道 + 3 分段 circle');
+  eq((svg.match(/<circle/g) || []).length, 1 + 3 * 5, 'SVG 含底槽 1 + 3 段 × 5 层 circle');
   assert(svg.indexOf('#000000') >= 0, 'SVG 含轨道颜色（rgba 已转 hex）');
   assert(svg.indexOf('stroke-opacity="0.1"') >= 0, '轨道透明度走 stroke-opacity 属性');
   assert(svg.indexOf('rgba(') < 0, 'SVG 不得出现 rgba（Skyline 不支持）');
