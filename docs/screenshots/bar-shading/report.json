@@ -1,0 +1,346 @@
+{
+  "createdAt": "2026-11-11T11:44:24.410Z",
+  "phases": [
+    {
+      "name": "year_dark",
+      "theme": "dark",
+      "mode": "year",
+      "check": {
+        "componentTheme": "dark",
+        "mode": "year",
+        "pointCount": 12,
+        "zoneRpx": 200,
+        "uriLen": 2574,
+        "svgLen": 1910,
+        "rectCount": 20,
+        "pathCount": 4,
+        "fills": [
+          "#7c86ff",
+          "#aeb4ff",
+          "#9199ff",
+          "#5c63bd",
+          "#404685"
+        ]
+      },
+      "shot": "455x983",
+      "window": "390x844",
+      "analyze": {
+        "bbox": {
+          "x0": 94,
+          "y0": 746,
+          "x1": 387,
+          "y1": 866
+        },
+        "sampleX": 97,
+        "barH": 121,
+        "colCount": 40,
+        "distinctCount": 5,
+        "bands": [
+          {
+            "hex": "#7c86ff",
+            "y": "0-3",
+            "h": 4,
+            "luma": 72.8
+          },
+          {
+            "hex": "#aeb4ff",
+            "y": "5-11",
+            "h": 7,
+            "luma": 124.6
+          },
+          {
+            "hex": "#9199ff",
+            "y": "12-20",
+            "h": 9,
+            "luma": 91.9
+          },
+          {
+            "hex": "#7c86ff",
+            "y": "21-94",
+            "h": 74,
+            "luma": 72.8
+          },
+          {
+            "hex": "#5c63bd",
+            "y": "96-111",
+            "h": 16,
+            "luma": 37.9
+          },
+          {
+            "hex": "#404685",
+            "y": "112-120",
+            "h": 9,
+            "luma": 18.3
+          }
+        ],
+        "jumps": {
+          "bandCount": 6,
+          "min": 19,
+          "max": 51.8
+        }
+      },
+      "cropPx": "302x129"
+    },
+    {
+      "name": "year_light",
+      "theme": "light",
+      "mode": "year",
+      "check": {
+        "componentTheme": "light",
+        "mode": "year",
+        "pointCount": 12,
+        "zoneRpx": 200,
+        "uriLen": 2574,
+        "svgLen": 1910,
+        "rectCount": 20,
+        "pathCount": 4,
+        "fills": [
+          "#6e78f5",
+          "#a8aef9",
+          "#8890f7",
+          "#4d54ac",
+          "#3e4389"
+        ]
+      },
+      "shot": "455x983",
+      "window": "390x844",
+      "analyze": {
+        "bbox": {
+          "x0": 94,
+          "y0": 746,
+          "x1": 387,
+          "y1": 866
+        },
+        "sampleX": 96,
+        "barH": 121,
+        "colCount": 62,
+        "distinctCount": 5,
+        "bands": [
+          {
+            "hex": "#6e78f5",
+            "y": "0-3",
+            "h": 4,
+            "luma": 59.5
+          },
+          {
+            "hex": "#a8aef9",
+            "y": "5-11",
+            "h": 7,
+            "luma": 115.9
+          },
+          {
+            "hex": "#8890f7",
+            "y": "12-20",
+            "h": 9,
+            "luma": 81.3
+          },
+          {
+            "hex": "#6e78f5",
+            "y": "21-94",
+            "h": 74,
+            "luma": 59.5
+          },
+          {
+            "hex": "#4d54ac",
+            "y": "96-111",
+            "h": 16,
+            "luma": 27.8
+          },
+          {
+            "hex": "#3e4389",
+            "y": "112-120",
+            "h": 9,
+            "luma": 17.5
+          }
+        ],
+        "jumps": {
+          "bandCount": 6,
+          "min": 10.3,
+          "max": 56.3
+        }
+      },
+      "cropPx": "302x129"
+    },
+    {
+      "name": "daily_dark",
+      "theme": "dark",
+      "mode": "month",
+      "check": {
+        "componentTheme": "dark",
+        "mode": "month",
+        "pointCount": 30,
+        "zoneRpx": 180,
+        "uriLen": 3162,
+        "svgLen": 2350,
+        "rectCount": 25,
+        "pathCount": 5,
+        "fills": [
+          "#7c86ff",
+          "#aeb4ff",
+          "#9199ff",
+          "#5c63bd",
+          "#404685"
+        ]
+      },
+      "shot": "455x983",
+      "window": "390x844",
+      "analyze": {
+        "bbox": {
+          "x0": 90,
+          "y0": 754,
+          "x1": 117,
+          "y1": 855
+        },
+        "sampleX": 94,
+        "barH": 102,
+        "colCount": 17,
+        "distinctCount": 5,
+        "bands": [
+          {
+            "hex": "#7c86ff",
+            "y": "1-2",
+            "h": 2,
+            "luma": 72.8
+          },
+          {
+            "hex": "#aeb4ff",
+            "y": "4-8",
+            "h": 5,
+            "luma": 124.6
+          },
+          {
+            "hex": "#9199ff",
+            "y": "10-16",
+            "h": 7,
+            "luma": 91.9
+          },
+          {
+            "hex": "#7c86ff",
+            "y": "18-79",
+            "h": 62,
+            "luma": 72.8
+          },
+          {
+            "hex": "#5c63bd",
+            "y": "81-93",
+            "h": 13,
+            "luma": 37.9
+          },
+          {
+            "hex": "#404685",
+            "y": "95-101",
+            "h": 7,
+            "luma": 18.3
+          }
+        ],
+        "jumps": {
+          "bandCount": 6,
+          "min": 19,
+          "max": 51.8
+        }
+      },
+      "cropPx": "36x110"
+    },
+    {
+      "name": "daily_light",
+      "theme": "light",
+      "mode": "month",
+      "check": {
+        "componentTheme": "light",
+        "mode": "month",
+        "pointCount": 30,
+        "zoneRpx": 180,
+        "uriLen": 3162,
+        "svgLen": 2350,
+        "rectCount": 25,
+        "pathCount": 5,
+        "fills": [
+          "#6e78f5",
+          "#a8aef9",
+          "#8890f7",
+          "#4d54ac",
+          "#3e4389"
+        ]
+      },
+      "shot": "455x983",
+      "window": "390x844",
+      "analyze": {
+        "bbox": {
+          "x0": 90,
+          "y0": 754,
+          "x1": 140,
+          "y1": 855
+        },
+        "sampleX": 91,
+        "barH": 102,
+        "colCount": 30,
+        "distinctCount": 5,
+        "bands": [
+          {
+            "hex": "#6e78f5",
+            "y": "1-2",
+            "h": 2,
+            "luma": 59.5
+          },
+          {
+            "hex": "#a8aef9",
+            "y": "3-8",
+            "h": 6,
+            "luma": 115.9
+          },
+          {
+            "hex": "#8890f7",
+            "y": "10-17",
+            "h": 8,
+            "luma": 81.3
+          },
+          {
+            "hex": "#6e78f5",
+            "y": "18-79",
+            "h": 62,
+            "luma": 59.5
+          },
+          {
+            "hex": "#4d54ac",
+            "y": "81-94",
+            "h": 14,
+            "luma": 27.8
+          },
+          {
+            "hex": "#3e4389",
+            "y": "95-101",
+            "h": 7,
+            "luma": 17.5
+          }
+        ],
+        "jumps": {
+          "bandCount": 6,
+          "min": 10.3,
+          "max": 56.3
+        }
+      },
+      "cropPx": "59x110"
+    }
+  ],
+  "failures": [],
+  "seed": {
+    "created": 5,
+    "ym": "2026-11"
+  },
+  "cleaned": true,
+  "ok": true,
+  "archived": [
+    "crop_daily_dark.png",
+    "crop_daily_light.png",
+    "crop_year_dark.png",
+    "crop_year_light.png",
+    "full_daily_dark.png",
+    "full_daily_light.png",
+    "full_year_dark.png",
+    "full_year_light.png",
+    "zoom3x_daily_dark.png",
+    "zoom3x_daily_light.png",
+    "zoom3x_year_dark.png",
+    "zoom3x_year_light.png"
+  ]
+}

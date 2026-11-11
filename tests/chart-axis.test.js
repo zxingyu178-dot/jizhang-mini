@@ -931,19 +931,27 @@ console.log('9. 车削光影规则');
     '不传 theme 时按 dark（旧调用方行为不变）'
   );
 
-  // --- 9.3 柱状图：地面槽 + 主题选择器隔离 + 渐变现状（v1.5.1 实测限制）---
+  // --- 9.3 柱体改 SVG 图（v1.5.3）：view 清零、6 档台阶在 JS 里、地面槽顺序不变 ---
   const panelWxss = read('components/statistics-panel/statistics-panel.wxss');
-  const barRule = (panelWxss.match(/\.bar--exp\s*\{[\s\S]*?\n\}/) || [''])[0];
-  assert(barRule.length > 0, '找到 .bar--exp 规则');
-  // ⚠️ 已知限制（v1.5.1 devtools Skyline 实测）：多色标硬停渐变在 WXSS 里会被整条丢掉
-  //    （background-image / background 简写两种写法读计算样式均为 null；同样的渐变用行内样式注入则正常）。
-  //    因此柱体暂时保留 v1.4.4 的两色标过渡，本测试只锁「不许出现多色标硬停写法」（写了也不生效=假实现）。
-  const stopCount = (barRule.match(/var\(--[a-z-]+\)\s*[0-9.]+%/g) || []).length;
-  assert(stopCount <= 2, '柱体渐变不使用多色标硬停（Skyline WXSS 会整条丢弃，实际色标数 ' + stopCount + '）');
+  const panelWxml = read('components/statistics-panel/statistics-panel.wxml');
+  // v1.5.1 的「柱体渐变不许写多色标硬停」断言随实现下线：柱子不再是 view + WXSS 背景。
+  // 现在锁的是「不许回退成 WXSS 渐变写法」（.bar / .bar--exp 规则必须已删除，否则半截迁移）。
+  assert(!/\.bar--exp\s*\{/.test(panelWxss), '柱子不用 WXSS 渐变（.bar--exp 规则已随柱子改图删除）');
+  assert(!/class="bar bar--exp"/.test(panelWxml), 'WXML 不再渲染柱子 view（柱体 0 个 .bar）');
+  const barImgs = panelWxml.match(/<image[\s\S]*?\/>/g) || [];
+  eq(barImgs.length, 2, '两张柱状图各 1 张图（日支出 + 年度 12 月）');
+  assert(barImgs.some((c) => /src="\{\{dailyBarUri\}\}"/.test(c)), '每日图用 dailyBarUri');
+  assert(barImgs.some((c) => /src="\{\{monthlyBarUri\}\}"/.test(c)), '月度图用 monthlyBarUri');
+  barImgs.forEach((c, i) => assert(/mode="scaleToFill"/.test(c), '第 ' + (i + 1) + ' 张图按显示盒铺满（viewBox 同比例，不裁不糊）'));
+  // 点击不能丢：12 月柱体的点击从 .bar-col 转到图上按坐标反查
+  assert(/src="\{\{monthlyBarUri\}\}"[\s\S]{0,260}bindtouchstart="onMonthlyBarTouchStart"[\s\S]{0,120}bindtouchend="onTapMonthlyBar"/.test(panelWxml),
+    '12 月柱体保留点击（touchend → 按坐标反查月份；tap 在 Skyline 下触摸字段不保证带坐标）');
+  assert(/id="monthlyPlot"/.test(panelWxml), '柱区带 id（点击时量矩形反查列号，不缓存坐标）');
+  eq((panelWxml.match(/class="bar bar--exp"/g) || []).length, 0, '柱子 view 数量归零（31 个 → 0 个）');
+  eq((panelWxml.match(/<canvas/g) || []).length, 0, '柱体不再用 canvas（Canvas 2D 版实测在统计页画不出像素）');
   // 样式隔离：组件 wxss 里不许出现主题类选择器（写了也不生效）
   assert(!/\.theme-(light|dark)\b/.test(panelWxss), '组件 wxss 无主题类选择器（isolated 隔离，写了不生效）');
   // 地面槽必须在 .ca__plot 里且是第一个子节点前于网格线（DOM 顺序 = 绘制顺序）
-  const panelWxml = read('components/statistics-panel/statistics-panel.wxml');
   const plateCount = (panelWxml.match(/class="ca__plate"/g) || []).length;
   eq(plateCount, 2, '两张柱状图各 1 个地面槽（日支出 + 年度 12 月）');
   const plotBlocks = panelWxml.split('class="ca__plot"').slice(1);
@@ -952,9 +960,112 @@ console.log('9. 车削光影规则');
     const plateAt = blk.indexOf('ca__plate');
     const gridAt = blk.indexOf('ca__grid');
     assert(plateAt >= 0 && plateAt < gridAt, '第 ' + (i + 1) + ' 个柱区：地面槽在网格线之前（不盖 0 档网格线）');
+    const imgAt = blk.indexOf('ca__bars-img');
+    assert(imgAt > gridAt, '第 ' + (i + 1) + ' 个柱区：柱图在网格线之后（柱子压在网格线上，槽与线仍可见）');
   });
   assert(/\.ca__plate\s*\{[\s\S]*?position:\s*absolute/.test(panelWxss), '.ca__plate 绝对定位（不占 flex 位、不改柱高）');
   assert(/\.ca__plate\s*\{[\s\S]*?height:\s*6rpx/.test(panelWxss), '地面槽高 6rpx（不改变柱区高度）');
+  assert(/\.ca__bars-img\s*\{[\s\S]*?position:\s*absolute/.test(panelWxss),
+    '.ca__bars-img 绝对定位（不占 flex 位，柱区高度仍由 .ca__plot 决定）');
+
+  // --- 9.3b 柱体 6 档台阶（utils/bar-shading，纯函数）---
+  const BS = require(path.join(ROOT, 'utils', 'bar-shading'));
+  eq(BS.BANDS.length, 6, '柱体 6 档明暗台阶');
+  eq(BS.BANDS[0].from, 0, '第 1 档从柱顶 0% 起');
+  eq(BS.BANDS[BS.BANDS.length - 1].to, 1, '最后 1 档到柱底 100%');
+  BS.BANDS.forEach((b, i) => {
+    if (i > 0) eq(b.from, BS.BANDS[i - 1].to, '第 ' + (i + 1) + ' 档与上一档无缝衔接（不留缝、不重叠）');
+    assert(b.to > b.from, '第 ' + (i + 1) + ' 档有正高度');
+  });
+  eq(BS.BANDS[0].role, 'body', '顶倒角必须本色（混白高光顶到轮廓线上，柱子轮廓就没了）');
+  ['dark', 'light'].forEach((tk) => {
+    const pal = BS.paletteFor('#7C86FF', tk);
+    Object.keys(pal).forEach((k) => assert(/^#[0-9a-f]{6}$/.test(pal[k]), tk + '：' + k + ' 是实色 #rrggbb（不用 alpha 叠）'));
+    eq(pal.body, '#7c86ff', tk + '：柱身 = 本色（颜色合同不变）');
+    const lum = (hex) => {
+      const n = parseInt(hex.slice(1), 16);
+      return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114;
+    };
+    const L = { body: lum(pal.body), cap: lum(pal.cap), lit: lum(pal.lit), shade: lum(pal.shade), foot: lum(pal.foot) };
+    assert(L.cap > L.lit && L.lit > L.body, tk + '：顶光比受光亮、受光比本色亮（自上而下递减）');
+    assert(L.body > L.shade && L.shade > L.foot, tk + '：背光比本色暗、接触暗比背光更暗');
+    // 相邻档跳变 ≥ 4 个色阶（8bit）：小于这个数屏幕上就是「一根纯色柱子」
+    const seq = ['body', 'cap', 'lit', 'body', 'shade', 'foot'];
+    for (let i = 1; i < seq.length; i++) {
+      const d = Math.abs(L[seq[i]] - L[seq[i - 1]]);
+      assert(d >= 4, tk + '：第 ' + (i + 1) + ' 档与上一档明度差 ≥4 色阶（实际 ' + d.toFixed(1) + '）');
+    }
+  });
+  // 深浅两套比例必须不同（设计要求），且与 app.wxss 的 --bar-* 变量同值（防两处各改一处）
+  assert(JSON.stringify(BS.MIX.dark) !== JSON.stringify(BS.MIX.light), '深浅两套混色比例不同（两套都验）');
+  const appWxssText = read('app.wxss');
+  const blockAt = (sel) => {
+    const i = appWxssText.indexOf(sel);
+    return i < 0 ? '' : appWxssText.slice(i, appWxssText.indexOf('\n}', i));
+  };
+  const darkVars = blockAt('page, .theme-dark {');
+  const lightIdx2 = appWxssText.indexOf('.theme-light {');
+  const lightVars = lightIdx2 < 0 ? '' : appWxssText.slice(lightIdx2, appWxssText.indexOf('\n}', lightIdx2));
+  [['dark', darkVars], ['light', lightVars]].forEach(([tk, block]) => {
+    [['cap', '255, 255, 255'], ['lit', '255, 255, 255'], ['shade', '0, 0, 0'], ['foot', '0, 0, 0']].forEach(([key, rgb]) => {
+      const m = block.match(new RegExp('--bar-' + key + ':\\s*rgba\\(\\s*' + rgb + ',\\s*([0-9.]+)\\s*\\)'));
+      assert(!!m, tk + '：app.wxss 定义 --bar-' + key);
+      if (m) eq(Number(m[1]), BS.MIX[tk][key], tk + '：bar-shading MIX.' + key + ' 与 --bar-' + key + ' 同值（防漂移）');
+    });
+  });
+  // 极矮柱退化：< 8px 不再切档，本色 + 顶部 1px 提亮
+  eq(BS.MIN_BANDS_PX, 8, '退化阈值 8px');
+  // 台阶高度：合计 = 柱高（整像素），且 6 档都 ≥1px（否则小柱会丢档）
+  [[8, 6], [12, 6], [24, 6], [72, 6], [90, 6], [180, 6]].forEach(([h, n]) => {
+    const hs = BS.bandHeights(h);
+    eq(hs.length, n, 'bandHeights(' + h + ') 返回 6 段');
+    eq(hs.reduce((a, b) => a + b, 0), Math.round(h), 'bandHeights(' + h + ') 合计 = 柱高（不多画、不留空）');
+    hs.forEach((v, i) => assert(Number.isInteger(v) && v >= 1, 'bandHeights(' + h + ') 第 ' + (i + 1) + ' 档 ≥1px（实际 ' + v + '）'));
+  });
+  // --- 9.3b2 buildBarsSVG：6 档 6 个色块、只用实色、顶部圆角只在顶档、极矮柱退化 ---
+  const svgOfBars = (pts, h) => BS.buildBarsSVG(pts, {
+    width: 288, height: h, zoneRpx: h, colors: BS.paletteFor('#7C86FF', 'dark'), radius: 4,
+  });
+  {
+    const tall = svgOfBars([{ barHeightRpx: 100 }], 100);
+    const fills = [...tall.matchAll(/fill="(#[0-9a-f]{6})"/g)].map((m) => m[1]);
+    eq(fills.length, 6, '满高柱 = 6 个色块（6 档各一块，硬边台阶）');
+    const pal = BS.paletteFor('#7C86FF', 'dark');
+    eq(fills.join(','), [pal.body, pal.cap, pal.lit, pal.body, pal.shade, pal.foot].join(','),
+      '色块顺序 = 本色→顶光→受光→本色→背光→接触暗');
+    eq([...tall.matchAll(/<path /g)].length, 1, '只有顶档用 path（画顶部圆角），其余档是矩形');
+    assert(/viewBox="0 0 288 100"/.test(tall), 'viewBox = 显示盒（像素 1:1）');
+    ['rgba(', 'hsl(', 'url(', 'clipPath', 'NaN', 'undefined'].forEach((bad) => {
+      eq(tall.indexOf(bad), -1, 'SVG 不含 ' + bad + '（Skyline 内联 SVG 兼容约束）');
+    });
+  }
+  {
+    const tiny = svgOfBars([{ barHeightRpx: 5 }], 100);
+    eq([...tiny.matchAll(/<rect /g)].length, 2, '矮柱退化成 2 个矩形（本色柱 + 顶部 1px 提亮）');
+    eq([...tiny.matchAll(/<path /g)].length, 0, '矮柱不切 6 档（挤没了等于白切）');
+  }
+  {
+    const zero = svgOfBars([{ barHeightRpx: 0 }], 100);
+    eq([...zero.matchAll(/<rect |<path /g)].length, 0, '0 值不画柱（与旧 0 高度 view 一致），但列位保留');
+  }
+  {
+    // 柱宽仍为列宽的 60%，水平居中：2 列时每列 144，柱宽 86.4 → 左边界 28.8 / 172.8
+    const two = svgOfBars([{ barHeightRpx: 100 }, { barHeightRpx: 50 }], 100);
+    const rectXs = [...two.matchAll(/<rect x="([0-9.]+)"/g)].map((m) => Number(m[1]));
+    assert(rectXs.length >= 2, '两根柱都有矩形档');
+    if (rectXs.length) assert(Math.abs(rectXs[0] - 28.8) < 0.05, '第一根柱左边界 = 28.8（列宽 60% 居中）');
+    if (rectXs.length > 5) assert(Math.abs(rectXs[5] - 172.8) < 0.05, '第二根柱左边界 = 144 + 28.8（列宽 60% 居中）');
+  }
+
+  // --- 9.3c 组件侧：图源接线齐备（换月 / 换年 / 主题 / 宽度四处都要重算）---
+  const panelJs = read('components/statistics-panel/statistics-panel.js');
+  assert(panelJs.indexOf('utils/bar-shading') >= 0, '柱体明暗走 utils/bar-shading（单一实现）');
+  assert(panelJs.indexOf('b64encodeAscii') >= 0, 'SVG 走 base64（与累计折线 / 圆环同一条渲染路径）');
+  assert(panelJs.indexOf('block-size') < 0 && panelJs.indexOf("getContext('2d')") < 0, '统计面板不再用 Canvas 画柱');
+  assert((panelJs.match(/this\.barUri\(/g) || []).length >= 4,
+    '图源重算点齐备（换月 / 换年 / 主题 / 宽度变化，实际 ' + (panelJs.match(/this\.barUri\(/g) || []).length + ' 处）');
+  assert(panelJs.indexOf('barHeightRpx') >= 0 && panelJs.indexOf('zoneRpx') >= 0,
+    '柱高仍按 barHeightRpx / zoneRpx 换算（数据几何不变）');
 
   // --- 9.4 深浅两套 --bar-* 变量齐备，浅色 6 个全量覆盖 ---
   const appWxss = read('app.wxss');

@@ -15,6 +15,8 @@ const insight = require('../../data/statistics/insight');
 const theme = require('../../utils/theme');
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
+const barShading = require('../../utils/bar-shading');
+const { b64encodeAscii } = require('../../utils/b64');
 const { pickCategoryVisual } = require('../../data/category-icons');
 
 /** 模块 ID → 中文展示名（管理 Bottom Sheet 用） */
@@ -61,6 +63,38 @@ function withBarHeight(points, zoneRpx) {
   return points.map((p) => Object.assign({}, p, {
     barHeightRpx: Math.round((p.percent / 100) * zoneRpx),
   }));
+}
+
+/* ---------- 柱体明暗台阶（v1.5.3） ----------
+   柱子从 31 个 view 改成「每张图 1 个 <image>」，图源是 bar-shading 生成的 SVG。
+   为什么不是 Canvas：Canvas 2D 版实测在本页画不出任何像素（节点尺寸正常、柱区全空），
+   而累计折线 / 分类圆环用的 SVG data-URI 在同一张卡片里渲染正常，所以走同一条路。
+   好处：明暗台阶是 SVG 矩形（硬边），且随 setData 自动更新，不需要重绘调度。 */
+
+/** 矮柱的点击兜底高度（px）：1px 高的柱子在旧 DOM 下也点不到，这里给 8px 不让它变成死区 */
+const BAR_TAP_MIN_PX = 8;
+
+/** 当前主题下柱体的 6 档实色（SVG 读不到 CSS 变量，必须由 JS 按主题取主色再混色） */
+function barPalette(themeKey) {
+  let primary = themeKey === 'light' ? '#6e78f5' : '#7c86ff';
+  try {
+    primary = theme.getAccentPalette().primary || primary;
+  } catch (e) {
+    /* 主题未初始化：用默认靛蓝，不抛 */
+  }
+  return barShading.paletteFor(primary, themeKey);
+}
+
+/** 顶部圆角 px（8rpx）：按窗口宽度换算，与 WXSS 的 rpx 同口径 */
+function barRadiusPx() {
+  let winW = 375;
+  try {
+    const info = device.measure();
+    winW = info && info.windowWidth ? info.windowWidth : 375;
+  } catch (e) {
+    winW = 375;
+  }
+  return (8 * winW) / 750;
 }
 
 /* ---------- 坐标轴（v1.4.4）：Y 轴 3 档金额刻度 + X 标签按宽度抽稀 ---------- */
@@ -306,6 +340,7 @@ Component({
     categoryInsightSegs: [], // 同上按空格切段（wxml 逐段 nowrap 渲染，段间才允许换行）
     daily: [],
     dailyAxis: null, // 每日花费趋势的 Y 轴刻度（buildBarAxis 产出）
+    dailyBarUri: '', // 柱体图源（6 档明暗台阶 SVG 的 data-URI，每张图 1 个 <image>）
     dailyEmpty: false, // 整月无支出（显示空态文案，不画空图）
     dailyInsight: '', // 每日花费趋势结论行
     dailyInsightSegs: [],
@@ -335,6 +370,7 @@ Component({
     lowest: '',
     monthly: [],
     monthlyAxis: null, // 12 个月趋势的 Y 轴刻度
+    monthlyBarUri: '', // 柱体图源（同上）
     monthlyInsight: '', // 12 个月趋势结论行
     monthlyInsightSegs: [],
     yearRank: [],
@@ -447,6 +483,8 @@ Component({
           Object.assign({}, opt, { gutterPx: sharedGutter }));
         patch.daily = bc.points;
         patch.dailyAxis = bc.axis;
+        // 宽度变了 → 柱区 px 尺寸变了 → 图源必须按新显示盒重算（柱高比例不变）
+        patch.dailyBarUri = this.barUri(bc.points, bc.axis, opt);
       }
       patch.cumGutter = sharedGutter;
       if (this.data.monthly && this.data.monthly.length) {
@@ -454,8 +492,48 @@ Component({
           Object.assign({}, opt, { requireAll: true }));
         patch.monthly = bc.points;
         patch.monthlyAxis = bc.axis;
+        patch.monthlyBarUri = this.barUri(bc.points, bc.axis, opt);
       }
       if (Object.keys(patch).length) this.setData(patch);
+    },
+
+    /* ---------- 柱体明暗台阶（v1.5.3） ---------- */
+    /**
+     * 柱区显示盒（CSS px）：宽 = 图表内容宽 − Y 轴留白（与 .ca__plot 的 flex 计算结果同口径），
+     * 高 = 柱区 rpx 换算 px（rpx × 窗口宽 / 750，与 WXSS 一致）。
+     * 取不到窗口信息时按 375 兜底；数值只影响 SVG 内部坐标，柱高比例不受影响。
+     */
+    barBoxPx(axis, opt) {
+      let winW = 375;
+      try {
+        const info = device.measure();
+        winW = info && info.windowWidth ? info.windowWidth : 375;
+      } catch (e) {
+        winW = 375;
+      }
+      const contentPx = opt && Number(opt.contentPx) > 0 ? Number(opt.contentPx) : chartContentPx(winW);
+      const gutterPx = Number(axis && axis.gutterPx) || 0;
+      const zoneRpx = Number(axis && axis.zoneRpx) || 0;
+      return {
+        width: Math.max(40, contentPx - gutterPx),
+        height: Math.max(1, (zoneRpx * winW) / 750),
+        zoneRpx: zoneRpx || 1,
+      };
+    },
+    /**
+     * 柱体图源（data-URI）：6 档明暗台阶在 utils/bar-shading 里生成 SVG，base64 后交给 <image>。
+     * 与累计折线 / 分类圆环同一条渲染路径，不需要重绘调度 —— setData 换了 uri 就自动更新。
+     */
+    barUri(points, axis, opt, themeKey) {
+      const box = this.barBoxPx(axis, opt);
+      const svg = barShading.buildBarsSVG(points, {
+        width: box.width,
+        height: box.height,
+        zoneRpx: box.zoneRpx,
+        colors: barPalette(themeKey || this.shareThemeKey()),
+        radius: barRadiusPx(),
+      });
+      return 'data:image/svg+xml;base64,' + b64encodeAscii(svg);
     },
 
     /**
@@ -480,6 +558,15 @@ Component({
         patch.yearShareSegments = yearColored;
         patch.yearShareList = yearColored.map(toCentsRow);
         patch.yearFullShareList = this.buildExpandedShareRows(this._yearShare);
+      }
+      // 主题切换后柱体 6 档实色全变（主色与混白/混黑比例都随主题）：
+      // 用当前已渲染的柱子数据只重算图源，不重读账本、不动选中态
+      const axisOpt = this.axisOpt();
+      if (this.data.dailyAxis && (this.data.daily || []).length) {
+        patch.dailyBarUri = this.barUri(this.data.daily, this.data.dailyAxis, axisOpt, themeKey);
+      }
+      if (this.data.monthlyAxis && (this.data.monthly || []).length) {
+        patch.monthlyBarUri = this.barUri(this.data.monthly, this.data.monthlyAxis, axisOpt, themeKey);
       }
       if (Object.keys(patch).length) this.setData(patch);
     },
@@ -666,6 +753,7 @@ Component({
           Object.assign({}, optM, { gutterPx: sharedGutter }));
         patch.daily = bc.points;
         patch.dailyAxis = bc.axis;
+        patch.dailyBarUri = this.barUri(bc.points, bc.axis, optM);
         // 整月无支出 → 空态文案（不再画一根 0 高度的空图 + 顶部挂个 0）
         patch.dailyEmpty = !(bc.axis.maxCents > 0);
         // 结论行：日均分母与 Hero「日均支出」同口径（当月=截至今天，历史月=整月天数）
@@ -673,6 +761,7 @@ Component({
       } else {
         patch.daily = [];
         patch.dailyAxis = null;
+        patch.dailyBarUri = '';
         patch.dailyEmpty = false;
         patch.dailyInsight = '';
       }
@@ -825,15 +914,18 @@ Component({
         const trendPts = Y.computeMonthlyTrend(bills, year).points;
         const pts = withBarHeight(trendPts, BAR_ZONE_MONTH_RPX);
         // 12 个月标签必须全在（用户靠它找「哪个月没数据」）：宽度不够先缩格式再缩字号，绝不抽稀
+        const optY = this.axisOpt();
         const bc = buildBarChart(pts, (p) => p.expense, BAR_ZONE_MONTH_RPX, 12,
-          Object.assign({}, this.axisOpt(), { requireAll: true }));
+          Object.assign({}, optY, { requireAll: true }));
         patch.monthly = bc.points;
         patch.monthlyAxis = bc.axis;
+        patch.monthlyBarUri = this.barUri(bc.points, bc.axis, optY);
         // 结论行：月均口径与 Hero「yAvg」（computeYearOverview.monthlyAvg）完全一致
         patch.monthlyInsight = insight.buildMonthlyInsight(trendPts);
       } else {
         patch.monthly = [];
         patch.monthlyAxis = null;
+        patch.monthlyBarUri = '';
         patch.monthlyInsight = '';
       }
 
@@ -1024,11 +1116,78 @@ Component({
     onToggleYearShareExpand() {
       this.setData({ yearShareExpanded: !this.data.yearShareExpanded });
     },
-    /** 年度 12 月趋势：点某个月柱 → Bill Explorer 该月全部账单 */
+    /** 年度 12 月趋势：点某个月的标签 → Bill Explorer 该月全部账单 */
     onTapMonthBar(e) {
       const m = Number(e.currentTarget.dataset.month);
       if (!m) return;
-      const ym = this.data.year + '-' + String(m).padStart(2, '0');
+      this.drillMonth(m);
+    },
+    /** 柱体按下：记起点，供 touchend 区分「点击」与「滑动切页」（滚动时不误跳） */
+    onMonthlyBarTouchStart(e) {
+      const p = this.tapClientPoint(e);
+      this._barTouch = p ? { x: p.x, y: p.y, t: Date.now() } : null;
+    },
+    /**
+     * 年度 12 月趋势：点柱体 → 反查列号 → 同一目标页。
+     * 柱子从 view 换成「1 张图」后没有 DOM 可挂 data-month，只能按坐标反查；
+     * 命中范围与旧 .bar-col 等价：列宽内 + 柱高范围内（矮柱给 BAR_TAP_MIN_PX 兜底，
+     * 否则 1px 高的月份永远点不到，等于把点击弄丢）。
+     * 点击时才量 #monthlyPlot 的矩形：不缓存位置，滚动 / 切模式后都不会算错列。
+     */
+    onTapMonthlyBar(e) {
+      const start = this._barTouch || null;
+      this._barTouch = null;
+      // touchend 与 tap 都挂了同一个处理器：真机上两者都会来，这里去重，避免跳两次
+      const nowTs = Date.now();
+      if (this._barTapAt && nowTs - this._barTapAt < 500) return;
+      const pt = this.tapClientPoint(e);
+      if (!pt) return;
+      this._barTapAt = nowTs;
+      // 滚动误触保护：按下→抬起位移 > 10px 或超过 600ms 视为滑动，不跳转。
+      // 用 touchend 而不是 tap：tap 在 Skyline 下的触摸字段不保证带坐标，touchend 一定带。
+      if (start) {
+        if (Math.abs(pt.x - start.x) > 10 || Math.abs(pt.y - start.y) > 10) return;
+        if (Date.now() - start.t > 600) return;
+      }
+      if (typeof wx === 'undefined' || !wx.createSelectorQuery) return;
+      wx.createSelectorQuery().in(this).select('#monthlyPlot').boundingClientRect((rect) => {
+        if (!rect || !(rect.width > 0) || !(rect.height > 0)) return;
+        const lx = pt.x - rect.left;
+        const ly = pt.y == null ? null : pt.y - rect.top;
+        if (lx < 0 || lx >= rect.width) return;
+        const pts = this.data.monthly || [];
+        if (!pts.length) return;
+        const colW = rect.width / pts.length;
+        const i = Math.max(0, Math.min(pts.length - 1, Math.floor(lx / colW)));
+        const p = pts[i];
+        if (!p || !p.month) return;
+        if (ly != null) {
+          const zoneRpx = Number((this.data.monthlyAxis || {}).zoneRpx) || 1;
+          const barH = ((Number(p.barHeightRpx) || 0) / zoneRpx) * rect.height;
+          const barTop = rect.height - barH;
+          if (ly < Math.min(barTop, rect.height - BAR_TAP_MIN_PX)) return; // 点在柱子上方的空白：不跳转
+        }
+        this.drillMonth(p.month);
+      }).exec();
+    },
+    /**
+     * 触摸点 → 视口坐标（CSS px）。
+     * 优先 changedTouches[0].clientX/Y（与 daily-value-curve 同口径）；
+     * 没有 clientX 时退回 touch.x/y（已是元素内局部坐标，交给调用方当视口值会偏，
+     * 所以这里只在拿不到 client 系列时才用，并容忍偏差）；只剩 detail 时只认 x。
+     */
+    tapClientPoint(e) {
+      const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]) || null;
+      if (t && t.clientX != null && t.clientY != null) return { x: t.clientX, y: t.clientY };
+      if (t && t.pageX != null && t.pageY != null) return { x: t.pageX, y: t.pageY };
+      if (e.detail && e.detail.x != null && e.detail.y != null) return { x: e.detail.x, y: e.detail.y };
+      return null;
+    },
+    /** 月份钻取公共出口（标签点击 / 柱体点击共用，避免两处拼 URL 走偏） */
+    drillMonth(m) {
+      const month = Number(m);
+      if (!month) return;
+      const ym = this.data.year + '-' + String(month).padStart(2, '0');
       wx.navigateTo({ url: '/pages/search/search?month=' + ym });
     },
     /** 月度最大单笔：直接打开该账单编辑（main 已绑定 openbill 复用 bill-form） */

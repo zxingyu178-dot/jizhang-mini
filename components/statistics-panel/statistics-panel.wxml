@@ -133,11 +133,15 @@
               <block wx:for="{{dailyAxis.ticks}}" wx:key="key">
                 <view class="ca__grid" wx:if="{{item.showGrid}}" style="bottom:{{item.bottomRpx}}rpx;"></view>
               </block>
-              <view class="ca__bars">
-                <view class="bar-col" wx:for="{{daily}}" wx:key="day">
-                  <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
-                </view>
-              </view>
+              <!-- 柱体（v1.5.3）：6 档明暗台阶改成「每张图 1 张 SVG 图」—— 31 根柱不再是 31 个 view。
+                   柱高比例、柱宽 60%、顶部 8rpx 圆角都由 JS 用同一份 daily + dailyAxis 算，几何零变更。
+                   必须是 .ca__plot 的最后一个子节点：图背景透明，压在网格线 / 柱脚槽之上（与旧 .bar 的绘制顺序一致）。 -->
+              <image
+                class="ca__bars-img"
+                src="{{dailyBarUri}}"
+                mode="scaleToFill"
+                style="height:{{dailyAxis.zoneRpx}}rpx;"
+              />
             </view>
           </view>
           <!-- X 轴日标签（按可用宽度抽稀，互不重叠） -->
@@ -367,17 +371,23 @@
                 <text wx:if="{{item.label}}" class="ca__tick" style="bottom:{{item.bottomRpx}}rpx;font-size:{{monthlyAxis.fontPx}}px;">{{item.label}}</text>
               </block>
             </view>
-            <view class="ca__plot" style="height:{{monthlyAxis.zoneRpx}}rpx;">
+            <view class="ca__plot" id="monthlyPlot" style="height:{{monthlyAxis.zoneRpx}}rpx;">
               <!-- 柱脚槽（v1.5.1）：与日支出柱共用同一个 class，一套参数服务两张图 -->
               <view class="ca__plate"></view>
               <block wx:for="{{monthlyAxis.ticks}}" wx:key="key">
                 <view class="ca__grid" wx:if="{{item.showGrid}}" style="bottom:{{item.bottomRpx}}rpx;"></view>
               </block>
-              <view class="ca__bars">
-                <view class="bar-col bar-col--tap" wx:for="{{monthly}}" wx:key="month" data-month="{{item.month}}" bindtap="onTapMonthBar">
-                  <view class="bar bar--exp" style="height:{{item.barHeightRpx}}rpx;"></view>
-                </view>
-              </view>
+              <!-- 柱体（v1.5.3）：6 档明暗台阶，12 个月柱 = 1 张 SVG 图。
+                   月份标签仍是 WXML（位置 / 字号 / 抽稀规则不变），柱子的点击改为在图/柱区上按坐标反查月份。 -->
+              <image
+                class="ca__bars-img"
+                src="{{monthlyBarUri}}"
+                mode="scaleToFill"
+                style="height:{{monthlyAxis.zoneRpx}}rpx;"
+                bindtouchstart="onMonthlyBarTouchStart"
+                bindtouchend="onTapMonthlyBar"
+                bindtap="onTapMonthlyBar"
+              />
             </view>
           </view>
           <!-- X 轴月份标签：12 个全保留（宽度不够先缩格式 / 缩字号，绝不抽稀） -->

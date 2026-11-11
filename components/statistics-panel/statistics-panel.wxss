@@ -401,11 +401,19 @@
   /* 1px 线在 rpx 取整后系统性偏高约 0.5~1.4px，下移 1px 与刻度文字对齐 */
   transform: translateY(1px);
 }
-.ca__bars {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  height: 100%;
+/* ---- 柱体（v1.5.3）：SVG 图 ----
+   柱子不再是 view，改为 1 张 SVG 图覆盖整个柱区（6 档明暗台阶在 utils/bar-shading 里生成）。
+   这里只负责「铺满柱区、且不参与 flex 布局」：
+   绝对定位 → 不占 flex 位，柱区高度仍由 .ca__plot 的内联 height 决定（数据几何零变更）；
+   高度另由 WXML 内联 rpx 兜一层，不依赖百分比高度解析。 */
+.ca__bars-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  display: block;
+  /* 图背景透明：柱脚槽 / 0 档网格线仍从柱间空隙露出来 */
+  background: transparent;
 }
 .ca__xrow {
   display: flex;
@@ -427,25 +435,14 @@
 .bar-col--tap:active {
   opacity: 0.55;
 }
-.bar {
-  width: 60%;
-  border-radius: 8rpx 8rpx 0 0;
-  /* 用 background-color 而不是 background 简写：简写会把 background-image 重置成 none。
-     虽然 .bar--exp 排在后面能盖回来，但「颜色只写颜色属性、不碰图片属性」更不容易被后人改坏。 */
-  background-color: var(--surface);
-}
-.bar--exp {
-  /* v1.5.1 实测结论（devtools Skyline，本轮复现 3 次）：多色标硬停渐变在组件 WXSS 里会被整条丢掉。
-     证据：读 .bar--exp 的计算样式 background-image 恒为 null（background-color 正常生效），
-     柱体像素自上而下无任何台阶；同样的渐变用行内样式注入同一元素则正常渲染。
-     已试三种写法：background-color+background-image 长写、background: <色> <渐变> 同层简写、
-     background: <渐变> 简写 + background-color 长写 —— 三种都不渲染（第三种连底色都被简写重置）。
-     所以柱体暂保留 v1.4.4 的两色标软过渡（至少是可见的明暗），6 档台阶另找路子（Canvas / 每柱子层），
-     需主理人拍板，不在此处硬套。--bar-cap/-lit/-shade/-foot 四个变量已备好、当前未被使用。 */
-  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
-  /* v1.4.4 终检：去掉柱体发光 */
-  box-shadow: none;
-}
+/* ---- 柱体样式已下线（v1.5.3）----
+   .bar / .bar--exp 两条规则随「柱子改图」一起删除，留着只会误导后人以为柱子还是 view。
+   历史结论（v1.5.1 实测，保留下来防止有人再试一遍）：
+     多色标硬停渐变在组件 WXSS 里会被整条丢掉 —— 读计算样式 background-image 恒为 null
+     （background-color 正常生效），柱体像素自上而下无任何台阶；同样的渐变用行内样式注入
+     同一元素则正常渲染。三种写法（长写 / background 同层简写 / 简写 + background-color）均不生效。
+   现在的 6 档台阶在 utils/bar-shading.js（生成 SVG 逐档矩形），与本文件的 CSS 变量无关；
+   app.wxss 的 --bar-cap/-lit/-shade/-foot 仍保留为「明暗比例的唯一文字出处」，值由测试锁住不许漂。 */
 
 /* ---- 柱后地面槽（v1.5.1）----
    让柱子「站在一条浅槽里」，不是贴在卡片上。中性黑/白，不参与主题色色相合同。
