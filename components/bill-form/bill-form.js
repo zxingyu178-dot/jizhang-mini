@@ -243,6 +243,18 @@ Component({
       if (dot >= 0 && val.length - dot > 3) val = val.slice(0, dot + 3);
       this.setData({ amountText: val, canSubmit: money.parseAmountToCents(val) !== 0 });
     },
+    /**
+     * 打开弹层后自动聚焦金额（父页面在滑入动画开始时调用，见 bottom-sheet 的 opened 事件）。
+     *
+     * 记一笔是最高频动作，「打开→点金额框→弹键盘」这一步每天重复很多次，省掉它。
+     * 编辑态不抢焦点：点开一笔已有账单多半是看或改商户 / 备注 / 分类，不一定是改金额；
+     * 而且编辑态聚焦会把键盘盖在删除与保存按钮上。
+     */
+    focusAmount() {
+      if (this.data.editingId) return;
+      if (this.data.amountFocused) return;
+      this.setData({ amountFocused: true });
+    },
     onAmount(e) {
       this.applyAmount(e.detail.value);
     },

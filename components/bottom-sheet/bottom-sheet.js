@@ -76,6 +76,10 @@ Component({
         this._fit().then(() => {
           if (!this.data.show) return;
           this.setData({ visible: true });
+          // 高度已落位、滑入动画开始：此时才通知外部「可以动了」。
+          // 早于此（面板还在屏外）触发，任何聚焦都会让键盘在高度预算之前弹起，
+          // 视口一缩，面板高度就按缩小的视口算错。
+          this.triggerEvent('opened');
         });
       });
     },

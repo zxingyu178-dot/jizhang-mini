@@ -169,6 +169,14 @@ includes(billWxml, 'bindtap="onHideAllCats"', '展开态有「收起」入口');
 includes(billJs, 'onHideAllCats()', '收起方法存在');
 includes(billJs, 'rememberedCategoryId(type)', '分类沿用有独立判定（归档即失效）');
 
+// ⑤ 打开弹层自动聚焦金额：省掉「打开→点金额框→弹键盘」这一步
+includes(billJs, 'focusAmount()', '金额自动聚焦入口存在');
+assert(/focusAmount\(\)\s*\{[\s\S]{0,220}if \(this\.data\.editingId\) return;/.test(billJs),
+  '编辑态不抢焦点（只在新增时自动聚焦）');
+includes(mainWxml, 'bind:opened="onBillSheetOpened"', '弹层打开事件已接线');
+assert(/visible: true[\s\S]{0,220}triggerEvent\('opened'\)/.test(sheetJs),
+  'opened 在高度落位后才触发（否则键盘先弹出会缩小视口、算错面板高度）');
+
 /* ==================== 动态行为 ==================== */
 console.log('动态行为');
 
@@ -412,6 +420,18 @@ function resetRecorders() {
   bill2._lastCategoryId = 'c-archived-gone';
   bill2.reset();
   eq(bill2.data.categoryId, 'c-food', '记住的分类已归档 / 删除则回退默认');
+
+  // 打开即聚焦金额：只在新增模式
+  const bill3 = makeInstance(billDef, true);
+  bill3.setData({ editingId: null, amountFocused: false });
+  bill3.focusAmount();
+  eq(bill3.data.amountFocused, true, '新增模式打开即聚焦金额（省一次点击）');
+  bill3.setData({ editingId: 'b-edit', amountFocused: false });
+  bill3.focusAmount();
+  eq(bill3.data.amountFocused, false, '编辑模式不抢焦点（避免键盘盖住删除 / 保存）');
+  bill3.setData({ editingId: null, amountFocused: true });
+  bill3.focusAmount();
+  eq(bill3.data.amountFocused, true, '已聚焦时重复调用不重复 setData（幂等）');
 
   /* ---------- 汇总 ---------- */
   console.log('\ninput-interaction tests: ' + pass + ' passed, ' + fail + ' failed');

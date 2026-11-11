@@ -17,7 +17,7 @@
 | 依赖 / 渲染器 | 未引入依赖、未改 Skyline |
 | 表单内容高 | 598.4 → **542.9px**（省 55.5px） |
 | 展开 12 个分类 | 保存按钮底边溢出 **9.7px → 0px** |
-| 测试 | `npm test` **53/53**；`input-interaction.test.js` **105 → 138 断言** |
+| 测试 | `npm test` **53/53**；`input-interaction.test.js` **105 → 145 断言** |
 | 发布检查 | `release:check` **FAIL 0 / WARN 0** |
 | 真机 | **未测**（模拟器 390×844） |
 
@@ -118,7 +118,24 @@ rememberedCategoryId(type) {
 - 只记**支出**分类（收入频率低，默认「工资」更符合预期）；
 - 分类被归档则自动失效。
 
-### 2.7 表单纵向瘦身（598.4 → 542.9）
+### 2.7 打开即聚焦金额
+`bottom-sheet` 在 `visible: true`（高度已落位、滑入开始）后 `triggerEvent('opened')` → 主页面调 `bill-form.focusAmount()`。
+
+```js
+focusAmount() {
+  if (this.data.editingId) return;          // 编辑态不抢焦点
+  if (this.data.amountFocused) return;      // 幂等
+  this.setData({ amountFocused: true });
+}
+```
+
+⛔ **为什么必须等 `opened`**：`onAdd` 里直接聚焦时面板还在屏外、`_fit()` 还没量完，键盘先弹会缩小视口，面板高度就按错误的视口算 —— 表现是面板突然变矮或按钮跑出屏幕。这一条是 v1.4.7 期间踩过的坑。
+
+⛔ 编辑态不聚焦：点开一笔已有账单多半是看或改商户 / 备注 / 分类，不一定是改金额；且键盘会盖住「删除此账单」与「保存修改」。
+
+⚠️ **键盘遮挡仍未验证**：模拟器不弹真键盘。自动聚焦上线后，真机必须确认「键盘弹起时金额框是否仍在可视区、分类区被遮多少」。
+
+### 2.8 表单纵向瘦身（598.4 → 542.9）
 
 | 位置 | 改动 | 省 |
 |---|---|---|
@@ -141,7 +158,7 @@ rememberedCategoryId(type) {
 | `components/bottom-sheet/bottom-sheet.js` | 新增公开方法 `refit()` |
 | `pages/main/main.wxml` | `<bottom-sheet id="billSheet">` + `<bill-form bind:resize="onBillFormResize">` |
 | `pages/main/main.js` | `onBillSaved` 加回执与跨月落位、`ymLabel`、`onBillFormResize`、`refreshPanels` 支持 `accYm` |
-| `tests/input-interaction.test.js` | +33 断言（18 静态契约 + 15 动态行为） |
+| `tests/input-interaction.test.js` | +40 断言（21 静态契约 + 17 动态行为，含自动聚焦三态） |
 | `tests/e2e/input-flow-probe.js` | 新增：7 项效率测量探针（造的数据跑完按备份还原） |
 | `tests/e2e/input-form-shots.js` | 新增：深/浅/编辑/昨日 6 帧视觉复查 + 账本零残留校验 |
 | `CHANGELOG.md` / `README.md` / `docs/BACKLOG.md` / `pages/release-notes` / `utils/version.js` / `package*.json` | 版本与文档同步 |

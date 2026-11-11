@@ -77,7 +77,7 @@
   </block>
 
   <!-- 记账表单 Bottom Sheet（新增 / 编辑） -->
-  <bottom-sheet id="billSheet" show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose">
+  <bottom-sheet id="billSheet" show="{{sheetShow}}" title="{{sheetTitle}}" bind:close="onSheetClose" bind:opened="onBillSheetOpened">
     <bill-form id="billForm" bind:saved="onBillSaved" bind:deleted="onBillDeleted" bind:resize="onBillFormResize" />
   </bottom-sheet>
 

@@ -295,6 +295,15 @@ Page({
     this.setData({ sheetShow: false });
   },
   /**
+   * 记账弹层滑入开始：新增模式自动聚焦金额，省掉「打开→点金额框」这一步。
+   * 必须等 opened 而不是在 onAdd 里直接聚焦 —— 那时面板还在屏外、高度没量完，
+   * 键盘先弹会把视口缩小，面板高度就按错误视口算。
+   */
+  onBillSheetOpened() {
+    const form = this.selectComponent('#billForm');
+    if (form && typeof form.focusAmount === 'function') form.focusAmount();
+  },
+  /**
    * 表单内容高度变化（展开 / 收起分类）：让弹层重新预算滚动区高度。
    * 不重算的后果实测过：展开 12 个分类后保存按钮底边被推到视口外 5px。
    */
