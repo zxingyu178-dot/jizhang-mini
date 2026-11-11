@@ -322,23 +322,33 @@
    3) 标题自带 margin-bottom:24rpx，结论行要贴着标题 → margin-top:-20rpx 抵掉，
       净间距 4rpx 且 24 + (-20) 相邻外边距折叠 / 相加都等于 4rpx；
       ⛔ 不改 .chart__title 的任何声明（v1.4.4 的卡片间距是验收过的）；
-   4) 单行：文案长度已在 insight.js 里按 22 字宽自保，nowrap+ellipsis 是第二道保险
-      （Skyline 对 overflow 支持有差异，所以不能只靠 CSS 裁）。 */
+   4) 折行（v1.4.6 P2 修补）：原先 nowrap + ellipsis 会把大额文案切成
+      「…月末约 ¥3,827…」——数字被砍半截比换行难读得多。
+      现在改为 flex + flex-wrap，**每个金额 / 词是一个原子的 seg（nowrap）**，
+      渲染层只能在 seg 之间换行，物理上不可能在 '¥1,234,567' 内部断开。
+      ⛔ 不用 overflow-wrap: break-word（那是「任意位置断」，数字照样会被切开）；
+      ⛔ 不做多行省略（结论行宁可占两行，也不许藏数字）。 */
 .chart__insight {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   font-size: 11px;
   line-height: 1.4;
   color: var(--text-axis);
   margin-top: -20rpx;
   margin-bottom: 20rpx;
+}
+/* 段与段之间 4px（≈ 11px 字号下一个空格），段内文字不换行 */
+.chart__insight__seg {
+  flex: 0 0 auto;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin-right: 4px;
 }
 /* 窄屏（≤360px）：Skyline 下宽度媒体查询不生效，由 JS 判定后挂本 class（与 Hero --narrow 同一做法） */
 .chart__insight--narrow {
   font-size: 10px;
 }
+
 .chart__empty {
   font-size: 24rpx;
   /* v1.4.4 终检：空态文案是「本卡主体信息」，不是可有可无的辅助字。

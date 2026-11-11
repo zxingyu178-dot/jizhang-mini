@@ -9,14 +9,22 @@
 //   1) 纯函数：不 require('wx')、不读 storage、不碰 DOM / 主题；可在 Node 里单测。
 //   2) 非法入参（null / undefined / 非数组 / 非数字 / 负数）→ 返回 '' 或安全默认值，
 //      **绝不抛异常，绝不产出 NaN / undefined / Infinity / -0**。
-//   3) 金额口径：结论行一律「整数元 + 千分位」（¥1,234）。⛔ 不用 formatAxisAmount
-//      （那是坐标轴缩略，会变 '1.2万'），⛔ 不用 money.formatCents（带 2 位小数，太长）。
+//   3) 金额口径：结论行是「整数元 + 千分位」（¥1,234）；**不足 1 元时给 2 位小数**
+//      （¥0.30）—— 记账 app 里 0.01 / 0.30 是真实存在的记录，四舍五入成「¥0」会自相矛盾。
+//      ⛔ 不用 formatAxisAmount（那是坐标轴缩略，会变 '1.2万'）；
+//      ⛔ 不用 money.formatCents（任何金额都带 2 位小数，'¥1,234.00' 太长）。
 //
-// 长度口径：结论行要单行显示在手机窄屏上，中文/¥ 按 1 字宽、数字按 0.5 字宽估算，
-//   总宽超过 maxUnits(22) 时截断并补 '…'（与坐标轴 textWidthPx 同一套估宽思路）。
+// 长度口径（v1.4.6 P2 修补后）：结论行**允许折行**（wxss 已去掉 nowrap/ellipsis），
+//   只保留一个宽松上限 MAX_UNITS(40) 兜底极端长分类名；
+//   截断时补 '…'，且**截断点绝不落在数字中间**（不许出现 '¥1,234,5…'）。
+//   另外导出 splitInsightSegments：按空格切段，供 wxml 逐段渲染（容器 flex + flex-wrap，
+//   段内 nowrap），让渲染层只能在段间换行、无法在金额内部断开。
 
-/** 结论行「显示宽度」上限（单位：字宽）。11px 字号 × 22 ≈ 242px，窄屏内容区约 306px，留余量。 */
-const MAX_UNITS = 22;
+/** 结论行「显示宽度」宽松上限（单位：字宽）。折行后允许两到三行，只在极端长文案时兜底截断。 */
+const MAX_UNITS = 40;
+
+/** 月初保护：当月已过天数 ≤ 3 时不出月末预测（1 号一笔房租会把预测放大 30 倍，是噪音不是洞察）。 */
+const EARLY_MONTH_DAYS = 3;
 
 /** 分类名最长保留字数（超出截断），避免自定义长分类名把整句挤爆 */
 const MAX_NAME_CHARS = 8;
@@ -45,15 +53,21 @@ function thousands(n) {
 }
 
 /**
- * 分 → '¥1,234'（整数元 + 千分位）。结论行专用金额格式。
- * 0 / 负数 / 非法 → '¥0'；小数四舍五入到整数元。
+ * 分 → 结论行金额字符串。**两档口径**：
+ *   - ≥ 100 分（≥ ¥1）：整数元 + 千分位，如 '¥1,234'（明细不给精度让步）
+ *   - 0 < 金额 < 100 分（¥0.01 ~ ¥0.99）：保留 2 位小数，如 '¥0.30' / '¥0.01'
+ *     ⛔ 不许四舍五入成 '¥0'：'仅 11/05 有支出 ¥0' 是自相矛盾的句子
+ *   - 0 / 负数 / 非法 → '¥0'
  * @param {number} cents
  * @returns {string}
  */
 function formatInsightYuan(cents) {
   const c = toCents(cents);
   if (c <= 0) return '¥0';
-  return '¥' + thousands(c / 100);
+  const r = Math.round(c); // 分是整数，先去掉浮点尾巴
+  if (r >= 100) return '¥' + thousands(r / 100);
+  if (r <= 0) return '¥0'; // 0 < c < 0.5 分：四舍五入后没有可显示的值
+  return '¥' + (r / 100).toFixed(2); // 0.01 ~ 0.99，两位小数不需要千分位
 }
 
 /**
@@ -70,9 +84,36 @@ function textUnits(s) {
   return u;
 }
 
+/** 是否数字字符（截断保护用：数字串不许被切开） */
+function isDigit(ch) {
+  return ch >= '0' && ch <= '9';
+}
+
+/** 是否「数字串内部」的字符（数字 / 千分位逗号 / 小数点） */
+function isNumChar(ch) {
+  return isDigit(ch) || ch === ',' || ch === '.';
+}
+
 /**
- * 结论行长度自保：超过 MAX_UNITS 就截断补 '…'（宁可少说半句，也不许换行 / 被裁切）。
- * 截断点在字符边界上（中文不会被切成半个字）。
+ * 把「估宽截断点」往回收，保证：
+ *   1) 不落在数字串中间（'¥1,234,5…' / '¥3,827…' 都不许 → 一路退到数字串起点）；
+ *   2) 不留孤零零的分隔符在句尾（'… ·' / '…,' / '…¥' 一律扫掉）。
+ * @param {string[]} chars 字符数组
+ * @param {number} cut 初始截断点（0 ~ chars.length）
+ * @returns {number} 安全截断点
+ */
+function safeCutIndex(chars, cut) {
+  let i = cut;
+  if (i > 0 && i < chars.length && isNumChar(chars[i - 1]) && (isNumChar(chars[i]) || chars[i] === '%')) {
+    while (i > 0 && isNumChar(chars[i - 1])) i -= 1;
+  }
+  while (i > 0 && /[\s·、,¥%]/.test(chars[i - 1])) i -= 1;
+  return i;
+}
+
+/**
+ * 结论行长度兜底：超过 MAX_UNITS(40) 才截断补 '…'（正常文案不触发），
+ * 截断点由 safeCutIndex 保证不切数字、不留半个分隔符。
  */
 function clampInsight(s) {
   const str = s == null ? '' : String(s);
@@ -84,7 +125,23 @@ function clampInsight(s) {
     if (textUnits(out + chars[i] + '…') > MAX_UNITS) break;
     out += chars[i];
   }
-  return out ? out + '…' : '…';
+  const cut = safeCutIndex(chars, Array.from(out).length);
+  return cut > 0 ? Array.from(str).slice(0, cut).join('') + '…' : '…';
+}
+
+/**
+ * 结论行切段（wxml 逐段渲染用）：**只在空格处切**，段首尾空白去掉。
+ * 不变式：`segments.join(' ') === 原文按空白归一后的结果`（可断言）。
+ * 目的：渲染层用 flex-wrap，段是原子的（`white-space: nowrap`），
+ * 因此**只能在段与段之间换行**，物理上无法在金额内部断开
+ * （'¥1,234,567' 永远整段落在一行）。
+ * @param {string} text
+ * @returns {string[]}
+ */
+function splitInsightSegments(text) {
+  const s = text == null ? '' : String(text);
+  if (!s) return [];
+  return s.split(/\s+/).filter((t) => t.length > 0);
 }
 
 /**
@@ -105,9 +162,10 @@ function dayLabel(day, month) {
 
 /**
  * 分类占比结论。
- * 文案（严格照任务模板，不自行发明措辞）：
- *   - 占比 ≥ 30%：'餐饮 占 42%，是最大开销'
- *   - 占比 < 30%：'餐饮 占比最高，27%'（占比不高时「最大开销」语气太重）
+ * 文案：
+ *   - 只有 1 个非零分类：'本月支出全部在餐饮'（没有比较对象，「是最大开销」是废话）
+ *   - 分类数 ≥2 且占比 ≥ 30%：'餐饮 占 42%，是最大开销'
+ *   - 分类数 ≥2 且占比 < 30%：'餐饮 占比最高，27%'（占比不高时「最大开销」语气太重）
  *   - 无数据：''
  * @param {Array<{name:string, cents:number, percent?:number}>} categories 按金额倒序的列表
  * @returns {string}
@@ -115,9 +173,13 @@ function dayLabel(day, month) {
 function buildCategoryInsight(categories) {
   const list = Array.isArray(categories) ? categories : [];
   let top = null;
+  let activeCount = 0;
   for (let i = 0; i < list.length; i++) {
     const c = list[i];
-    if (c && toCents(c.cents) > 0) { top = c; break; }
+    if (c && toCents(c.cents) > 0) {
+      activeCount += 1;
+      if (!top) top = c;
+    }
   }
   if (!top) return '';
   const cents = toCents(top.cents);
@@ -134,6 +196,9 @@ function buildCategoryInsight(categories) {
   if (!name) name = '其他';
   const nameChars = Array.from(name);
   if (nameChars.length > MAX_NAME_CHARS) name = nameChars.slice(0, MAX_NAME_CHARS).join('') + '…';
+
+  // 单分类：100% 是必然结果，不是比较结论 → 换成陈述句
+  if (activeCount === 1) return clampInsight('本月支出全部在' + name);
 
   if (pct >= 30) return clampInsight(name + ' 占 ' + pct + '%，是最大开销');
   return clampInsight(name + ' 占比最高，' + pct + '%');
@@ -213,9 +278,13 @@ function forecastCumulative(totalCents, elapsedDays, spanDays) {
 /**
  * 累计趋势结论。
  * 文案：
- *   - 当月：'已花 ¥1,234 · 按当前速度月末约 ¥3,800'
+ *   - 当月且已过天数 ≥4：'已花 ¥1,234 · 按当前速度月末约 ¥3,800'
+ *   - 当月且已过天数 ≤3：'已花 ¥1,234 · 本月才刚开始'（月初样本太小，预测会被放大几十倍）
  *   - 历史月：'已花 ¥1,234 · 日均 ¥41'（历史月已完整，不预测）
  *   - 无数据 / 非法：''
+ *
+ * ⚠️ 月初保护只作用在**文案分支**：`forecastCumulative` 的公式（已花÷已过×月长）是标准口径，
+ *   ⛔ 不许为了「别显示夸张数字」去改公式本体 —— 那样单测和别处调用都会跟着错。
  * @param {{totalCents:number, elapsedDays:number, spanDays:number, isCurrentMonth:boolean}} input
  * @returns {string}
  */
@@ -225,6 +294,11 @@ function buildCumulativeInsight(input) {
   if (total <= 0) return '';
 
   if (o.isCurrentMonth === true) {
+    const elapsed = Number(o.elapsedDays);
+    // 月初（1~3 号）不出预测：1 号记一笔房租 → 预测 = 房租 × 月长，30 倍噪音
+    if (Number.isFinite(elapsed) && elapsed >= 1 && elapsed <= EARLY_MONTH_DAYS) {
+      return clampInsight('已花 ' + formatInsightYuan(total) + ' · 本月才刚开始');
+    }
     const forecast = forecastCumulative(total, o.elapsedDays, o.spanDays);
     // 预测兜底：极端入参（已过天数非法）算出来仍是 0 时退回已花金额，绝不显示 ¥0
     const shown = forecast > 0 ? forecast : Math.round(total);
@@ -328,7 +402,10 @@ function clampPeriodDay(periodDay, lastMonthDays) {
 module.exports = {
   MAX_UNITS,
   MAX_NAME_CHARS,
+  EARLY_MONTH_DAYS,
   formatInsightYuan,
+  splitInsightSegments,
+  clampInsight, // 导出仅为单测「截断不切数字」这条不变式（生产调用都在本文件内）
   buildDailyInsight,
   buildCumulativeInsight,
   forecastCumulative,

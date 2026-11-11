@@ -55,7 +55,7 @@ function cnCount(s) {
 /** 窄屏（360px）图表卡内容区可用宽度：638rpx × 360/750 ≈ 306px */
 const NARROW_CONTENT_PX = Math.round(638 * (360 / 750));
 
-/* ==================== 1. 金额格式：整数元 + 千分位 ==================== */
+/* ==================== 1. 金额格式：整数元 + 千分位（不足 1 元给 2 位小数） ==================== */
 console.log('1. formatInsightYuan');
 {
   eq(I.formatInsightYuan(0), '¥0', '1 0 分 → ¥0');
@@ -64,17 +64,28 @@ console.log('1. formatInsightYuan');
   eq(I.formatInsightYuan(2000), '¥20', '1 2000 分 → ¥20');
   eq(I.formatInsightYuan(12700), '¥127', '1 12700 分 → ¥127');
   eq(I.formatInsightYuan(123456789), '¥1,234,568', '1 大额也带千分位');
-  eq(I.formatInsightYuan(99), '¥1', '1 0.99 元进位到 ¥1（整数元口径）');
+
+  // P2-3：小额不许被四舍五入成 ¥0（记账 app 里 0.01 / 0.30 是真实记录）
+  eq(I.formatInsightYuan(1), '¥0.01', '1 1 分 → ¥0.01（不许渲染成 ¥0）');
+  eq(I.formatInsightYuan(30), '¥0.30', '1 30 分 → ¥0.30');
+  eq(I.formatInsightYuan(99), '¥0.99', '1 99 分 → ¥0.99');
+  eq(I.formatInsightYuan(100), '¥1', '1 100 分 → ¥1（1 元整走整数档，不带 .00）');
+  eq(I.formatInsightYuan(0), '¥0', '1 0 分仍是 ¥0（真的没花钱才显示 0）');
 
   [-1, -12345, null, undefined, NaN, Infinity, -Infinity, 'abc', {}, []].forEach((v) => {
     eq(I.formatInsightYuan(v), '¥0', '1 非法/负数入参 → ¥0：' + String(v));
   });
 
-  // 不变量：永不带小数、永不出现残次品
-  [0, 1, 49, 50, 1234, 123456, 999999999].forEach((c) => {
+  // 不变量：≥100 分不带小数；0 < 金额 < 100 分必须是 2 位小数；永不带 3 位以上小数
+  [0, 100, 1234, 123456, 999999999].forEach((c) => {
     const s = I.formatInsightYuan(c);
     cleanText(s, '1 输出干净 ' + c);
-    excludes(s, '.', '1 结论行金额不带小数 ' + c);
+    excludes(s, '.', '1 ≥¥1 的金额不带小数 ' + c);
+  });
+  [1, 30, 99].forEach((c) => {
+    const s = I.formatInsightYuan(c);
+    cleanText(s, '1 小额输出干净 ' + c);
+    assert(/^¥0\.\d{2}$/.test(s), '1 不足 1 元 → 2 位小数（' + c + ' 分 → ' + s + '）');
   });
 }
 
@@ -148,6 +159,27 @@ console.log('3. buildCumulativeInsight');
   eq(I.buildCumulativeInsight(null), '', '3 null → 空串不抛');
   eq(I.buildCumulativeInsight(undefined), '', '3 undefined → 空串不抛');
   eq(I.buildCumulativeInsight({}), '', '3 空对象 → 空串不抛');
+
+  /* ---- P2-1：月初（已过天数 ≤3）不出预测，避免 1 号一笔房租放大 30 倍 ---- */
+  [1, 2, 3].forEach((d) => {
+    const s = I.buildCumulativeInsight({ totalCents: 300000, elapsedDays: d, spanDays: 30, isCurrentMonth: true });
+    includes(s, '本月才刚开始', '3P2-1 当月已过 ' + d + ' 天 → 出「本月才刚开始」');
+    excludes(s, '月末约', '3P2-1 当月已过 ' + d + ' 天 → 不出「月末约」预测');
+    excludes(s, '¥90,000', '3P2-1 当月已过 ' + d + ' 天 → 不显示被放大的 ¥90,000');
+    cleanText(s, '3P2-1 月初结论 ' + d);
+  });
+  // 4 号起恢复预测（口径不变：已花 ÷ 已过 × 月长）
+  const d4 = I.buildCumulativeInsight({ totalCents: 300000, elapsedDays: 4, spanDays: 30, isCurrentMonth: true });
+  includes(d4, '月末约', '3P2-1 当月已过 4 天 → 恢复月末预测');
+  includes(d4, I.formatInsightYuan(I.forecastCumulative(300000, 4, 30)), '3P2-1 已过 4 天 → 预测值仍等于公式结果');
+  // 历史月不受影响：本来就走「日均」，月初天数也不出预测
+  const pastEarly = I.buildCumulativeInsight({ totalCents: 300000, elapsedDays: 2, spanDays: 30, isCurrentMonth: false });
+  excludes(pastEarly, '本月才刚开始', '3P2-1 历史月不走「本月才刚开始」');
+  excludes(pastEarly, '月末约', '3P2-1 历史月仍不预测');
+  includes(pastEarly, '日均', '3P2-1 历史月仍走「日均」');
+  // 公式本体不许被改动：月初保护只作用在文案分支
+  eq(I.forecastCumulative(300000, 1, 30), 9000000,
+    '3P2-1 forecastCumulative 本体未改（300000/1*30 = 9000000 分）');
 
   // 除零保护：elapsedDays / spanDays 为 0 或非法
   [{ elapsedDays: 0 }, { spanDays: 0 }, { elapsedDays: 0, spanDays: 0 },
@@ -268,9 +300,34 @@ console.log('7. buildCategoryInsight');
   includes(small, '27%', '7 低占比仍报百分比');
   cleanText(small, '7 低占比结论');
 
-  // 边界：正好 30% 归到「最大开销」
-  includes(I.buildCategoryInsight([{ name: '餐饮', cents: 3000, percent: 30 }]), '最大开销', '7 30% 边界归高档句式');
-  includes(I.buildCategoryInsight([{ name: '餐饮', cents: 2999, percent: 29 }]), '占比最高', '7 29% 归低档句式');
+  // 边界：正好 30% 归到「最大开销」（必须多分类，否则走单分类文案）
+  includes(I.buildCategoryInsight([
+    { name: '餐饮', cents: 3000, percent: 30 },
+    { name: '交通', cents: 2999, percent: 29 },
+    { name: '购物', cents: 2001, percent: 21 },
+  ]), '最大开销', '7 30% 边界归高档句式');
+  includes(I.buildCategoryInsight([
+    { name: '餐饮', cents: 2999, percent: 29 },
+    { name: '交通', cents: 2500, percent: 25 },
+    { name: '购物', cents: 2001, percent: 21 },
+  ]), '占比最高', '7 29% 归低档句式');
+
+  /* ---- P2-2：只有一个分类时「是最大开销」没有比较对象，改陈述句 ---- */
+  const single = I.buildCategoryInsight([{ name: '餐饮', cents: 42000, percent: 100 }]);
+  eq(single, '本月支出全部在餐饮', '7P2-2 单分类 → 「本月支出全部在X」');
+  excludes(single, '最大开销', '7P2-2 单分类不说「最大开销」（没有比较对象）');
+  excludes(single, '占比最高', '7P2-2 单分类不说「占比最高」');
+  excludes(single, '%', '7P2-2 单分类不报 100%（100% 是必然结果，不是结论）');
+  cleanText(single, '7P2-2 单分类结论');
+  // 单分类且 percent 缺失 → 同样走陈述句（不因缺 percent 掉回百分比句式）
+  eq(I.buildCategoryInsight([{ name: '餐饮', cents: 5000 }]), '本月支出全部在餐饮',
+    '7P2-2 单分类缺 percent → 仍走陈述句');
+  // 其余项金额为 0（只有 1 个真实分类）也算单分类
+  eq(I.buildCategoryInsight([{ name: '餐饮', cents: 5000, percent: 100 }, { name: '交通', cents: 0 }]),
+    '本月支出全部在餐饮', '7P2-2「非零分类数 = 1」按真实分类数算，0 值分类不算比较对象');
+  // 2 个分类就必须回到百分比句式（不能被单分类规则吞掉）
+  includes(I.buildCategoryInsight([{ name: '餐饮', cents: 9999, percent: 99 }, { name: '交通', cents: 1, percent: 1 }]),
+    '最大开销', '7P2-2 两个分类（99% / 1%）→ 仍用「是最大开销」');
 
   eq(I.buildCategoryInsight([]), '', '7 空数组 → 空串');
   eq(I.buildCategoryInsight(null), '', '7 null → 空串不抛');
@@ -336,7 +393,7 @@ console.log('8. buildMoMCompare');
   eq(I.clampPeriodDay(10, NaN), 10, '8 上月天数未知 → 按本月天数走，不额外封顶');
 }
 
-/* ==================== 9. 长度约束（中文 ≤22 字 / 窄屏一行） ==================== */
+/* ==================== 9. 长度约束（常规文案一行放得下；极端数据允许折行但不许切数字） ==================== */
 console.log('9. 文案长度');
 {
   const cases = [
@@ -360,15 +417,19 @@ console.log('9. 文案长度');
       Math.round(A.textWidthPx(s, 11)) + 'px：' + s + '）');
   });
 
-  // 极端数据（万元级 + 长分类名）也不许超宽
+  // 极端数据（万元级金额）：v1.4.6 P2-4 起**允许折行**，所以「单行宽度」不再是硬约束，
+  // 换成两条更严的：①一个字都不许被 '…' 切掉；②每个金额必须完整。
+  // 折行后最多占两行（宽度 ≤ 2 × 窄屏内容区），三行说明该走截断了。
   const extreme = [
     I.buildCumulativeInsight({ totalCents: 123456789, elapsedDays: 10, spanDays: 31, isCurrentMonth: true }),
     I.buildMonthlyInsight(new Array(12).fill(123456789)),
   ];
   extreme.forEach((s, i) => {
     cleanText(s, '9 极端数据 ' + i);
-    assert(A.textWidthPx(s, 11) <= NARROW_CONTENT_PX,
-      '9 极端数据 ' + i + ' 不超宽（实际 ' + Math.round(A.textWidthPx(s, 11)) + 'px：' + s + '）');
+    excludes(s, '…', '9P2-4 极端数据 ' + i + ' 不再被截断（无省略号）：' + s);
+    assert(A.textWidthPx(s, 11) <= 2 * NARROW_CONTENT_PX,
+      '9P2-4 极端数据 ' + i + ' 折行后不超过两行宽度（实际 ' + Math.round(A.textWidthPx(s, 11)) +
+      'px，上限 ' + 2 * NARROW_CONTENT_PX + 'px：' + s + '）');
   });
 }
 
@@ -458,6 +519,93 @@ console.log('12. Hero 同期环比接线');
   includes(cjs, 'insight.clampPeriodDay(', '12 JS：上月同期按 clampPeriodDay 封顶（28/30 天月不假报 -100%）');
   includes(cjs, 'sumExpenseThroughDay(', '12 JS：两侧累计用同一个「1 日~第 N 日」求和函数');
   eq((cjs.match(/momText/g) || []).length >= 2, true, '12 JS：momText 在 data 默认值与 loadMonth 里都出现（不会残留 undefined）');
+}
+
+/* ==================== 13. P2-4：折行只发生在「段」之间，金额永不被切断 ==================== */
+console.log('13. 折行分段与截断安全');
+{
+  const fs2 = require('fs');
+  const ROOT2 = path.join(__dirname, '..');
+  const read2 = (rel) => fs2.readFileSync(path.join(ROOT2, rel), 'utf8');
+
+  /** 文案里的金额 token（¥ + 整数/千分位 [+ 2 位小数]） */
+  const moneyTokens = (s) => String(s).match(/¥[\d,]+(?:\.\d{2})?/g) || [];
+
+  // ---- 13.1 splitInsightSegments：只在空格处切，拼接可还原 ----
+  const seg = I.splitInsightSegments('已花 ¥1,234,567 · 按当前速度月末约 ¥3,827,000');
+  eq(seg.join('|'), '已花|¥1,234,567|·|按当前速度月末约|¥3,827,000', '13.1 按空格切段');
+  eq(seg.join(' '), '已花 ¥1,234,567 · 按当前速度月末约 ¥3,827,000', '13.1 段用空格拼接 === 原文');
+  eq(I.splitInsightSegments('').length, 0, '13.1 空串 → 空数组');
+  eq(I.splitInsightSegments(null).length, 0, '13.1 null → 空数组不抛');
+  eq(I.splitInsightSegments('   ').length, 0, '13.1 全空白 → 空数组');
+  eq(I.splitInsightSegments('日均   ¥20').join('|'), '日均|¥20', '13.1 连续空格不产生空段');
+
+  // ---- 13.2 四张图的真实文案：每个金额必须完整落在某一个段里 ----
+  // （渲染层是 flex-wrap + 段内 nowrap，段是原子的 → 段完整 = 金额不可能被切开）
+  const realTexts = [
+    I.buildCategoryInsight([{ name: '餐饮', cents: 42000, percent: 42 }, { name: '交通', cents: 58000, percent: 58 }]),
+    I.buildDailyInsight(Array.from({ length: 30 }, (_, i) => ({ day: i + 1, cents: i === 7 ? 12700 : (i < 10 ? 2000 : 0) })), 10, 11),
+    I.buildCumulativeInsight({ totalCents: 123456700, elapsedDays: 10, spanDays: 31, isCurrentMonth: true }),
+    I.buildMonthlyInsight([12000, 8800, 56000, 3200, 0, 0, 15000, 9900, 4500, 22000, 31000, 18000]),
+  ];
+  realTexts.forEach((text, i) => {
+    const segs = I.splitInsightSegments(text);
+    const toks = moneyTokens(text);
+    if (text.indexOf('¥') >= 0) assert(toks.length > 0, '13.2 文案 ' + i + ' 至少含一个金额：' + text);
+    toks.forEach((tok) => {
+      assert(segs.some((s) => s.indexOf(tok) >= 0),
+        '13.2 文案 ' + i + ' 的金额 ' + tok + ' 完整落在同一段（不被切断）：' + JSON.stringify(segs));
+    });
+    // 反向：任何段都不许是「半个金额」（段里出现 ¥ 就必须是完整 token）
+    segs.forEach((s) => {
+      if (s.indexOf('¥') < 0) return;
+      eq(moneyTokens(s).join(''), s.replace(/[^¥\d,.].*$/, ''), '13.2 段 ' + i + ' 里的金额是完整的：' + s);
+    });
+  });
+
+  // ---- 13.3 截断兜底：超过 MAX_UNITS 才截，且截断点绝不落在数字中间 ----
+  const longBase = '已花 ¥1,234,567 · 按当前速度月末约 ¥3,827,000';
+  eq(I.clampInsight(longBase), longBase, '13.3 常规文案（' + I.MAX_UNITS + ' 字宽内）不截断');
+  for (let pad = 0; pad <= 60; pad++) {
+    const src = '测'.repeat(pad) + longBase;
+    const out = I.clampInsight(src);
+    if (I.clampInsight(src) === src) {
+      assert(true, '13.3 未超限不截断 pad=' + pad);
+      continue;
+    }
+    assert(out.slice(-1) === '…', '13.3 超限才补省略号 pad=' + pad);
+    const body = out.slice(0, -1);
+    // 判据：截断点不能把「数字串」切成两半（数字串 = 数字 / 千分位逗号 / 小数点）
+    const nextCh = src.charAt(body.length);
+    const splitsNumber = /[0-9,.]$/.test(body) && /[0-9,.]/.test(nextCh);
+    assert(!splitsNumber, '13.3 截断不切断数字串（pad=' + pad + '，下一字符 "' + nextCh + '"）：' + out);
+    assert(!/·\s*$/.test(body), '13.3 截断点不留孤零零的分隔符（pad=' + pad + '）：' + out);
+    if (I.MAX_UNITS === undefined) assert(false, '13.3 MAX_UNITS 应已导出');
+  }
+
+  // ---- 13.4 接线契约：wxss 允许折行、wxml 逐段渲染、js 同步 segs ----
+  const wxss2 = read2('components/statistics-panel/statistics-panel.wxss');
+  const insightCss = wxss2.slice(wxss2.indexOf('.chart__insight {'), wxss2.indexOf('.chart__insight__seg'));
+  excludes(insightCss, 'white-space: nowrap', '13.4P2-4 结论行不再 nowrap');
+  excludes(insightCss, 'text-overflow: ellipsis', '13.4P2-4 结论行不再 ellipsis 裁字');
+  includes(insightCss, 'flex-wrap: wrap', '13.4P2-4 结论行改为 flex 折行容器');
+  const segCss = wxss2.slice(wxss2.indexOf('.chart__insight__seg'), wxss2.indexOf('.chart__insight--narrow'));
+  includes(segCss, 'white-space: nowrap', '13.4P2-4 段内 nowrap（段是原子的，金额不拆）');
+  excludes(segCss, 'overflow-wrap: break-word', '13.4P2-4 不用 break-word（那是任意位置断，会切数字）');
+
+  const wxml2 = read2('components/statistics-panel/statistics-panel.wxml');
+  eq((wxml2.match(/class="chart__insight /g) || []).length, 4, '13.4 WXML：4 条结论行全部改为容器 + 分段渲染');
+  ['categoryInsightSegs', 'dailyInsightSegs', 'cumInsightSegs', 'monthlyInsightSegs'].forEach((k) => {
+    includes(wxml2, 'wx:for="{{' + k + '}}"', '13.4 WXML：' + k + ' 逐段渲染');
+  });
+  excludes(wxml2, '>{{categoryInsight}}</text>', '13.4 WXML：结论行不再整串塞进一个 text（否则无法控制断点）');
+
+  const cjs2 = read2('components/statistics-panel/statistics-panel.js');
+  eq((cjs2.match(/setData\(withInsightSegs\(patch\)\)/g) || []).length, 2,
+    '13.4 JS：loadMonth / loadYear 两处都补齐分段');
+  ['categoryInsightSegs', 'dailyInsightSegs', 'cumInsightSegs', 'monthlyInsightSegs'].forEach((k) => {
+    includes(cjs2, k + ':', '13.4 JS：data 默认值含 ' + k);
+  });
 }
 
 console.log('\ninsight tests: ' + pass + ' passed, ' + fail + ' failed');

@@ -24,11 +24,12 @@
 | 同期环比 | Hero「本月支出」右侧；**比同期不比整月**；本月 0 支出 / 上月同期无支出有专门文案；两边都 0 整行不出现 |
 | 语义色 | 涨跌**统一中性色**（本项目 `--expense` 是绿、`--income` 是红，染哪个都传错语义）—— 见 §2.4 |
 | 口径一致性 | 日均 = Hero `mDailyAvg`；年度月均 = Hero `yAvg`（全年 ÷ 有支出月数）；同屏不出现两个「月均」 |
-| 精度 | 结论行金额一律整数元 + 千分位（`¥1,234`），**明细不给精度让步**；坐标轴缩略仍走 `formatAxisAmount` |
+| 精度 | 结论行金额 ≥¥1 走整数元 + 千分位（`¥1,234`），**0 < 金额 < ¥1 给 2 位小数**（`¥0.30`，v1.4.6 P2-3 起）；坐标轴缩略仍走 `formatAxisAmount` |
 | 图上参考线 | **0 条**（⛔ 明令禁止：v1.4.4 刚为消除「假水平线误导」把折线截断到截止日） |
 | 对比度（结论行 / 环比） | `--text-axis` 实测 **深色 7.21~7.78:1、浅色 5.53~5.76:1**（页面 / 卡片渐变两端三处候选背景），均 ≥4.5:1 |
-| 单元测试 | **53/53 套件通过**；`insight.test.js` **387 断言**（含 20 条 Hero 环比接线契约） |
-| 应用内更新日志 | 补 **14 个版本 / 47 条**（1.2.0~1.4.5，1.3.3 因无用户可感知变化跳过） |
+| 单元测试 | **53/53 套件通过**；`insight.test.js` **623 断言**（含 20 条 Hero 环比接线契约 + 236 条 P2 修补契约） |
+| P2 修补（同版内） | **5 条**：月初预测不再放大、单分类文案、小额 2 位小数、大额折行不切数字、更新日志去工程味 —— 见 §11 |
+| 应用内更新日志 | 补 **14 个版本 / 47 条**（1.2.0~1.4.5，1.3.3 因无用户可感知变化跳过）+ 1.4.6 的 P2 小结 1 条 |
 | 基础库版本 | `project.config.json` 的 `libVersion` 由 `latest` **固定为 3.17.4** |
 | release:check | **FAIL 0 / WARN 0**（v1.4.5 的 `libVersion=latest` 警告已消除） |
 | 真机 | **未测试**（本轮无数据链路改动，纯展示层） |
@@ -69,7 +70,7 @@ v1.4.4 解决「图表看不清」，本版解决「图表看不快」——**�
 | `buildMoMCompare(cur, last)` + `clampPeriodDay(d, lastDays)` | 同期环比 + 上月同期日封顶 | 比同期不比整月；上月同期 0 → `上月同期无支出`；两边都 0 → `text: null`；差异 <1% 至少报 1% |
 
 还有两个不变量（`insight.test.js` 硬断言）：
-- **长度自保**：文案按 22 字宽估宽（中文 1、数字 0.5），超了截断补 `…`，保证手机窄屏单行不折行（CSS 再叠 `nowrap + ellipsis` 做第二道保险）。
+- **长度自保**（P2-4 起改口径）：原先按 22 字宽把文案截断补 `…` + CSS `nowrap/ellipsis`，会把大额文案切成 `…月末约 ¥3,827…`。现在**允许折行**：只保留 40 字宽的宽松兜底截断，且**截断点绝不落在数字中间**；渲染层由 wxml 逐段 `nowrap`（`.chart__insight__seg`）+ 容器 `flex-wrap` 保证「只能在段间换行」。详见 §11 P2-4。
 - **非法入参不崩**：`null` / 非数组 / 非数字 / 负数一律返回 `''` 或安全默认值，全量扫描断言输出里没有 `NaN / undefined / Infinity / null`。
 
 ### 2.3 四张图的实际文案（实测样例）
@@ -112,7 +113,7 @@ v1.4.4 解决「图表看不清」，本版解决「图表看不快」——**�
 
 ### 2.7 测试
 
-- `tests/insight.test.js`：**387 断言**（纯函数 12 组 + 20 条 Hero 环比接线契约）。
+- `tests/insight.test.js`：**623 断言**（纯函数 12 组 + 20 条 Hero 环比接线契约 + 236 条 P2 修补契约）。
 - `tests/stats-hero-layout.test.js`：**47 条 Hero 布局契约**全绿（一条未改）。
 - `npm test`：**53/53 套件通过**。
 
@@ -124,7 +125,7 @@ v1.4.4 解决「图表看不清」，本版解决「图表看不快」——**�
 | --- | --- | --- |
 | 结论行核心 | `data/statistics/insight.js`（**新增**，13.8KB） | 7 个纯函数 + 长度自保 + 无残次品保护 |
 | Hero 环比上界面 | `components/statistics-panel/statistics-panel.{wxml,js,wxss}` | WXML 包 `.hero__head` + `.hero__mom`；JS 加 `momText/momDir` 与 `sumExpenseThroughDay`；WXSS 加 3 个新类（未改任何既有声明） |
-| 测试 | `tests/insight.test.js`（新增接线段）、`tests/run-all.js`（注册新套件）、`tests/e2e/insight-probe.js`（GUI 实拍探针，新增） | 387 断言 / 53 套件 |
+| 测试 | `tests/insight.test.js`（新增接线段 + P2 修补段）、`tests/run-all.js`（注册新套件）、`tests/e2e/insight-probe.js`（GUI 实拍探针，新增） | 623 断言 / 53 套件 |
 | 块一清理 | `.gitignore`、`pages/appearance/appearance.js`、`pages/release-notes/release-notes.js`、`project.config.json` | `reports/` 忽略；主题色顺序单一来源；更新日志补 14 版 47 条；`libVersion` 固定 3.17.4 |
 | 版本 | `utils/version.js`、`package.json`、`package-lock.json`（**仅顶层 + `packages[""]` 两处**）、`README.md` | 升版 1.4.6 + README 功能描述（图表结论 / 同期环比） |
 | 文档 | `CHANGELOG.md`、`DEV_LOG.md`、`docs/BACKLOG.md`、`docs/HANDOFF_v1.4.6.md`（新建） | 见 §4 |
@@ -150,7 +151,7 @@ v1.4.4 解决「图表看不清」，本版解决「图表看不快」——**�
 | 命令 | 结果 |
 | --- | --- |
 | `npm test` | **53/53 套件通过** |
-| `node tests/insight.test.js` | **387 passed / 0 failed** |
+| `node tests/insight.test.js` | **623 passed / 0 failed** |
 | `npm run release:check` | **FAIL 0 / WARN 0** |
 | `npm run theme:audit` | 见回传实测输出 |
 | `npm run contrast:audit` | 见回传实测输出 |
@@ -206,7 +207,7 @@ const mix=(fg,a,bg)=>fg.map((v,i)=>v*a+bg[i]*(1-a));
 3. **结论行只覆盖 4 张图**：预算日历 / 收入支出对比 / 自定义日期统计**没有**结论行（需求只点了 4 张，其余登记为待定）。
 4. **P2「按当前速度月末将达 ¥X」参考线未画**：改为**结论行文字**表达（⛔ 不在 SVG 里画参考线，理由见 §2.5）。若客户坚持要图上画线，需重新评估「假水平线误导」的风险（v1.4.4 刚因此把折线截断到截止日）。
 5. **P3 拆图不做**：累计图仍同时回答「花了多少」和「花得快不快」，靠结论行文字化解；真拆图属结构性改动，需单独立项。
-6. **`clampInsight` 是估宽截断**：中文 1 字宽、数字 0.5 字宽的估算，极端字体缩放（系统大字体）下仍可能有 ±1 字偏差，CSS `ellipsis` 兜底。
+6. **`clampInsight` 是估宽兜底，不是主防线**（P2-4 起）：中文 1 字宽、数字 0.5 字宽的估算在系统大字体下仍有 ±1 字偏差 —— 现在**靠折行化解**（40 字宽才兜底截断，且不切数字），不再靠 `ellipsis` 裁字。
 
 ---
 
@@ -224,3 +225,57 @@ const mix=(fg,a,bg)=>fg.map((v,i)=>v*a+bg[i]*(1-a));
 
 - `artifacts/`（含本轮归档的 `artifacts/releases/` 10 个历史 ZIP）与 `reports/` 均已被 `.gitignore` 排除 —— **不进版本库**。
 - `tests/e2e/insight-probe.js` 是 GUI 实拍探针，跑完会把截图落 `artifacts/e2e/insight/<时间戳>/`，同样不进版本库。
+
+---
+
+## 11. P2 修补（v1.4.6 同版内，5 条，**不升版**）
+
+背景：QA 独立验收结论「**可交付，P0=0 / P1=0**，算法口径全部正确」，另外给 5 条 P2。客户判定这 5 条都是「用户会当场指着问」的问题，**本轮全修、不往下一版推**（推下一版等于再上传审核一次）。版本号因此保持 **1.4.6**。
+
+### 11.1 逐条：问题 → 改法 → 改后 → 验收
+
+| # | 问题（改前实测） | 改法（文件 · 位置） | 改后 | 验收 |
+| --- | --- | --- | --- | --- |
+| **P2-1** 月初预测夸大 | 1 号记 ¥3,000 房租 → `forecastCumulative(300000,1,30)=9000000` → 「已花 ¥3,000 · **按当前速度月末约 ¥90,000**」（30 倍噪音）。2 号 15 倍、3 号 10 倍 | `data/statistics/insight.js` · `buildCumulativeInsight` 当月分支：新增常量 `EARLY_MONTH_DAYS=3`，`elapsedDays` 为 **1~3** 时返回「本月才刚开始」，**不再调用预测**。⛔ `forecastCumulative` 公式本体**一行未改** | 「已花 ¥3,000 · 本月才刚开始」；`elapsedDays≥4` 恢复「按当前速度月末约 ¥X」；历史月仍走「日均」 | 单测 12 条（1/2/3 天不预测、4 天恢复、历史月不受影响、公式本体仍 `=9000000`）；截图 `p2-1-*` |
+| **P2-2** 单分类说「是最大开销」 | 只有一个分类时「餐饮 占 100%，**是最大开销**」没有比较对象 | `buildCategoryInsight`：先统计**非零分类数**，`=1` 时改陈述句 | 「本月支出全部在餐饮」（单分类且 percent 缺失也走这条） | 单测 8 条（含「2 个分类 99%/1% 仍用最大开销」「0 值分类不算比较对象」）；截图 `p2-2-*` |
+| **P2-3** 小额渲染成 ¥0 | `formatInsightYuan(30)` → `'¥0'`，于是出现「**仅 11/05 有支出 ¥0**」「已花 ¥0 · …」自相矛盾 | `formatInsightYuan` 分两档：`≥100 分` 整数元 + 千分位；`0<金额<100 分` → `(r/100).toFixed(2)` | `¥0.01` / `¥0.30` / `¥0.99`；100 分 → `¥1`（不带 `.00`）；0 → `¥0` | 单测 12 条（1/30/99/100/0 分 + 「≥¥1 不带小数、<¥1 必须 2 位」）；截图 `p2-3-*` |
+| **P2-4** 大额把数字切断 | `MAX_UNITS=22` 估宽截断 + CSS `nowrap/ellipsis` → 「已花 ¥1,234,567 · 按当前速度月末约 **¥3,827…**」 | ① `insight.js`：`MAX_UNITS` 22→**40**、新增 `safeCutIndex`（截断点不落在数字串中间）与 `splitInsightSegments`；② `statistics-panel.wxss`：去掉 `nowrap/ellipsis`，改 `flex + flex-wrap`，新增 `.chart__insight__seg`（`flex:0 0 auto; white-space:nowrap`）；③ `.wxml`：4 条结论行由「一个 text 装整串」改为「container + 逐段 text」；④ `.js`：data 增 4 个 `*InsightSegs`，`withInsightSegs(patch)` 在两处 setData 前统一补齐 | 金额整段不拆。¥1,234,567 文案（279px）在 390px 模拟器一行放下且**无省略号**；¥12,345,678 压测**折 2 行**、4 个金额全部完整 | 单测 13.1~13.4（分段拼接可还原、每个金额完整落在同一段、截断不切断数字串 60 组滑窗、wxss/wxml/js 接线契约）；截图 `p2-4a-*` / `p2-4b-*` |
+| **P2-5** 更新日志工程味 | 1.4.5「对比度 **3.52:1**，已加深到 **5.70:1**」；1.3.4「按**运行 ID** 精确删除」 | `pages/release-notes/release-notes.js` L22 / L99 改写成用户话术；全文再扫一遍确认无 `x:1` 比值、无「运行 ID」、无函数/变量/文件名 | 「浅色主题下当文字用的主色太淡、看着费力，已经整体加深到清楚可读，八种配色都够清楚」/「测试数据按批次精确清理，不会误删真实账单」 | 截图 `p2-5-light-release-notes.png`（页面实拍无 `3.52:1`）+ 探针断言（页面文本不含 `\d+:\d` 比值与「运行 ID」） |
+
+> ⛔ 1.1.0 的「原子写入」属历史条目，**未动**。
+
+### 11.2 P2-4 折行方案：为什么用「segments + flex-wrap」而不是 `keep-all / break-word`
+
+- **`word-break: keep-all` + `overflow-wrap: break-word`（任务里建议的第一种）→ 不采用**：`break-word` 的定义就是「整词放不下时允许在任意位置断」，它在 Skyline 下没有任何机制保证不切数字；而单用 `keep-all` 又会让超长内容溢出容器（Skyline 对 `overflow` 裁剪支持与 WebView 不一致）。两个都不够硬。
+- **实际采用：容器 `flex + flex-wrap`，段内 `white-space: nowrap`**。文案在 JS 里按空格切段（`splitInsightSegments`），每段一个 `<text class="chart__insight__seg">`，`flex: 0 0 auto; white-space: nowrap`。段是布局的**原子单位** → 渲染层只能在段与段之间换行，**金额物理上不可能被切开**，不依赖任何字体断行规则（换字体 / 换字号 / 换渲染器都不变）。
+- **证明**（真机模拟器实拍）：`p2-4b-dark-wrap-stress.png` 里 `¥12,345,678`、`¥38,271,581`、`¥411,522`、`¥1,234,567` 四个金额各自完整落在同一行，无 `…`；元素实测高 **30px = 2 × 15px 行高**（automator 量的是真实节点尺寸，不是估算）。
+- **行数口径说明（如实）**：390px 模拟器下 `¥1,234,567` 那句只有 279px < 332px 内容区，所以**实测 1 行**——原来的 `…` 是被 `MAX_UNITS=22` 的估宽截断砍掉的，不是物理溢出。折行能力由 12 位金额的压测场景证明（2 行）。窄屏（360px 内容区 306px、320px 内容区 272px）下同样不会切数字，走的是同一条 flex 换行路径。
+- **已知小瑕疵**：折行时 `·` 会留在上一行行尾（见 `p2-4b` 第一行末）。比「金额被砍半截」好得多，保留不改。
+
+### 11.3 GUI 实拍（automator + 真机模拟器，深 / 浅各一套）
+
+探针：`artifacts/e2e/p2-probe.js`（`artifacts/` 已被 gitignore，**不进版本库**）。
+安全约定：**只 setData 注入文案，不写账本分片、不改设置**，跑完 `loadMonth()` 复原；文案本身由 Node 侧调用同一批纯函数生成（`elapsedDays` / 金额由入参指定，其余全走生产代码）。
+
+| 场景 | 文件 |
+| --- | --- |
+| P2-1 月初（`elapsedDays=1`）| `artifacts/e2e/p2/2026-11-11T01-57-50-329Z/p2-1-{dark,light}-month-start.png` |
+| P2-2 单分类 | `…/p2-2-{dark,light}-single-category.png` |
+| P2-3 小额 ¥0.30 | `…/p2-3-{dark,light}-small-amount.png` |
+| P2-4 大额 ¥1,234,567 | `…/p2-4a-{dark,light}-big-1234567.png` |
+| P2-4 折行压测（¥12,345,678） | `…/p2-4b-{dark,light}-wrap-stress.png` |
+| P2-5 更新日志 | `…/p2-5-light-release-notes.png` |
+
+实拍结论（automator 逐条断言，26 条 **0 失败**；每张截图前都断言过 `themeClass`）：月初 1 行 4 段、单分类 1 段、小额显示 `¥0.30`、大额 1 行无省略号且两个金额完整、压测 2 行（30px）无省略号；更新日志页无 `3.52:1`、无「运行 ID」。
+
+### 11.4 本轮改动面（与 §3 的差异）
+
+| 文件 | 改了什么 |
+| --- | --- |
+| `data/statistics/insight.js` | `formatInsightYuan` 两档口径、`buildCategoryInsight` 单分类分支、`buildCumulativeInsight` 月初分支、`MAX_UNITS` 22→40、新增 `safeCutIndex` / `splitInsightSegments`、导出 `clampInsight` 与 `EARLY_MONTH_DAYS`。**`forecastCumulative` 本体零改动** |
+| `components/statistics-panel/statistics-panel.wxss` | `.chart__insight` 去 `nowrap/ellipsis` 改 flex 折行；新增 `.chart__insight__seg`。**未动图表几何 / Hero 四个类** |
+| `components/statistics-panel/statistics-panel.wxml` | 4 条结论行改「container + 逐段 text」 |
+| `components/statistics-panel/statistics-panel.js` | data 增 4 个 `*InsightSegs`；新增 `toInsightSegs` / `INSIGHT_SEG_KEYS` / `withInsightSegs`，两处 `setData` 前统一补齐。**统计口径与环比接线未动** |
+| `pages/release-notes/release-notes.js` | 两条工程味文案改写 + 1.4.6 增 1 条 P2 用户视角说明 |
+| `tests/insight.test.js` | 387 → **623 断言**（P2 段 236 条） |
+| `CHANGELOG.md` / `docs/HANDOFF_v1.4.6.md` | 本版条目补「修补 5 处边界」+ 本节 |

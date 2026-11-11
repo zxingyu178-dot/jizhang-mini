@@ -224,6 +224,38 @@ function sumExpenseThroughDay(bills, lastDay) {
   return sum;
 }
 
+/**
+ * 结论行文案 → wxml 渲染分段（每段一个原子的 <text>，段内 nowrap）。
+ * 只在空格处切，所以渲染层只能在段间换行，金额永远整段落在同一行。
+ * @param {string} text
+ * @returns {Array<{k:number, t:string}>}
+ */
+function toInsightSegs(text) {
+  return insight.splitInsightSegments(text).map((t, i) => ({ k: i, t: t }));
+}
+
+/** 结论行字段 → 分段字段（一一对应；patch 里出现哪个就同步哪个） */
+const INSIGHT_SEG_KEYS = {
+  categoryInsight: 'categoryInsightSegs',
+  dailyInsight: 'dailyInsightSegs',
+  cumInsight: 'cumInsightSegs',
+  monthlyInsight: 'monthlyInsightSegs',
+};
+
+/**
+ * 给 patch 补上结论行的渲染分段。空串 → []（与 wx:if 判空口径一致）。
+ * @param {Object} patch
+ * @returns {Object} 同一个 patch（原地补齐，调用方直接交给 setData）
+ */
+function withInsightSegs(patch) {
+  const p = patch && typeof patch === 'object' ? patch : {};
+  Object.keys(INSIGHT_SEG_KEYS).forEach((textKey) => {
+    if (!Object.prototype.hasOwnProperty.call(p, textKey)) return;
+    p[INSIGHT_SEG_KEYS[textKey]] = toInsightSegs(p[textKey]);
+  });
+  return p;
+}
+
 /** 账单 → 分类明细列表项（点击支出排行时弹；只含该分类支出，收入不混入） */
 function toCatItems(bills, catId) {
   return M.listCategoryExpenseBills(bills, catId).map((b) => {
@@ -271,10 +303,12 @@ Component({
     shareSelectedId: '', // 圆环 / 图例选中的分类 id（聚合为 AGGREGATE id）
     shareAggCount: 0, // 聚合「其他」包含的真实分类数
     categoryInsight: '', // 分类占比结论行（B-2：一句话总结，空串 = 不显示）
+    categoryInsightSegs: [], // 同上按空格切段（wxml 逐段 nowrap 渲染，段间才允许换行）
     daily: [],
     dailyAxis: null, // 每日花费趋势的 Y 轴刻度（buildBarAxis 产出）
     dailyEmpty: false, // 整月无支出（显示空态文案，不画空图）
     dailyInsight: '', // 每日花费趋势结论行
+    dailyInsightSegs: [],
     // 累计消费趋势（cumulative-trend，默认关闭）
     cumPoints: [],
     cumMax: 0,
@@ -282,6 +316,7 @@ Component({
     cumGutter: 0, // 与日柱图共用的 Y 轴留白（px，0 = 组件自适应）
     cumMonth: 0, // 1-12：X 轴日期标签用（M/DD）
     cumInsight: '', // 累计消费趋势结论行（当月含月末预测）
+    cumInsightSegs: [],
     rank: [],
     cmp: { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 },
     // 预算日历 + 节奏摘要（无任何预算规则时显示轻空态）
@@ -301,6 +336,7 @@ Component({
     monthly: [],
     monthlyAxis: null, // 12 个月趋势的 Y 轴刻度
     monthlyInsight: '', // 12 个月趋势结论行
+    monthlyInsightSegs: [],
     yearRank: [],
     // 全年分类占比（复用 category-donut，使用完整年度分类列表）
     yearShareSegments: [],
@@ -714,7 +750,7 @@ Component({
         patch.crInvalid = false;
       }
 
-      this.setData(patch);
+      this.setData(withInsightSegs(patch));
     },
     /* ---------- 自定义日期统计 ---------- */
     /** 由起止日期字符串计算范围统计；开始晚于结束 → 无效（不偷偷交换） */
@@ -859,7 +895,7 @@ Component({
         ? yearShare.all.length - M.TOP_N_WHEN_AGGREGATED
         : 0;
 
-      this.setData(patch);
+      this.setData(withInsightSegs(patch));
     },
     onPrevYear() {
       this.loadYear(this.data.year - 1);
