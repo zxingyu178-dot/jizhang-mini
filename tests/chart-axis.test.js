@@ -931,22 +931,15 @@ console.log('9. 车削光影规则');
     '不传 theme 时按 dark（旧调用方行为不变）'
   );
 
-  // --- 9.3 柱状图样式：本色打底 + 硬停叠层，且组件内不出现主题选择器 ---
+  // --- 9.3 柱状图：地面槽 + 主题选择器隔离 + 渐变现状（v1.5.1 实测限制）---
   const panelWxss = read('components/statistics-panel/statistics-panel.wxss');
   const barRule = (panelWxss.match(/\.bar--exp\s*\{[\s\S]*?\n\}/) || [''])[0];
   assert(barRule.length > 0, '找到 .bar--exp 规则');
-  assert(/background-color:\s*var\(--primary\)/.test(barRule), '柱体用本色做 background-color（打底）');
-  assert(/background-image:\s*linear-gradient\(180deg/.test(barRule), '柱体用 background-image 叠明暗');
-  // 旧的两色标软过渡必须已移除（换成 6 档硬停）
-  assert(!/linear-gradient\(180deg,\s*var\(--primary\)\s*0%/.test(barRule), '旧的「本色→deep」两色标软过渡已移除');
-  // 硬停规则：每一个 --bar-* 档位都要出现两次（起止同位成对），共 6 档 12 个色标
-  const stops = barRule.match(/var\(--bar-[a-z]+\)\s*[0-9.]+%/g) || [];
-  eq(stops.length, 12, '6 档各起止一次 = 12 个色标');
-  const uniq = new Set(stops.map((s) => s.replace(/\s*[0-9.]+%$/, '')));
-  eq(uniq.size, 5, '用到 5 个 --bar-* 档位变量（none/cap/lit/shade/foot）');
-  // 最外一档必须是本色：0% 与 100% 不得是混白档（规则 3，读高度的依据）
-  assert(/var\(--bar-none\)\s*0%/.test(barRule), '柱顶 0% 起于本色（留倒角边，保轮廓）');
-  assert(/var\(--bar-none\)\s*15%/.test(barRule), '柱身起点回到本色');
+  // ⚠️ 已知限制（v1.5.1 devtools Skyline 实测）：多色标硬停渐变在 WXSS 里会被整条丢掉
+  //    （background-image / background 简写两种写法读计算样式均为 null；同样的渐变用行内样式注入则正常）。
+  //    因此柱体暂时保留 v1.4.4 的两色标过渡，本测试只锁「不许出现多色标硬停写法」（写了也不生效=假实现）。
+  const stopCount = (barRule.match(/var\(--[a-z-]+\)\s*[0-9.]+%/g) || []).length;
+  assert(stopCount <= 2, '柱体渐变不使用多色标硬停（Skyline WXSS 会整条丢弃，实际色标数 ' + stopCount + '）');
   // 样式隔离：组件 wxss 里不许出现主题类选择器（写了也不生效）
   assert(!/\.theme-(light|dark)\b/.test(panelWxss), '组件 wxss 无主题类选择器（isolated 隔离，写了不生效）');
   // 地面槽必须在 .ca__plot 里且是第一个子节点前于网格线（DOM 顺序 = 绘制顺序）
@@ -961,6 +954,7 @@ console.log('9. 车削光影规则');
     assert(plateAt >= 0 && plateAt < gridAt, '第 ' + (i + 1) + ' 个柱区：地面槽在网格线之前（不盖 0 档网格线）');
   });
   assert(/\.ca__plate\s*\{[\s\S]*?position:\s*absolute/.test(panelWxss), '.ca__plate 绝对定位（不占 flex 位、不改柱高）');
+  assert(/\.ca__plate\s*\{[\s\S]*?height:\s*6rpx/.test(panelWxss), '地面槽高 6rpx（不改变柱区高度）');
 
   // --- 9.4 深浅两套 --bar-* 变量齐备，浅色 6 个全量覆盖 ---
   const appWxss = read('app.wxss');
