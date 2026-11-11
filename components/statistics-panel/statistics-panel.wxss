@@ -81,9 +81,36 @@
   padding: 32rpx;
   margin-bottom: 28rpx;
 }
+/* 第一行（v1.4.6）：label 与「同期环比」同一基线左右分布。
+   ⚠️ 只新增容器，未改 .hero__label 的任何声明（字号 / 颜色 / 字重原样），
+   .hero__big / .hero__foot / .hero__third 也未动 —— stats-hero-layout.test.js 有 47 条契约盯着。 */
+.hero__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
 .hero__label {
   font-size: 24rpx;
   color: var(--text-secondary);
+}
+/* 同期环比（B-2 第二批）。颜色决策：
+   本项目 --expense 是绿 #3ddc8f、--income 是红 #ff6b6b（既有设计，⛔ 不改），
+   与常见记账 app 相反 —— 若按「支出变多 = 警示」染红，就和全项目的「支出=绿」打架；
+   若按「支出=绿」染色，「花得更多」又被染成好事，同样错。
+   两个方向都会传出错误语义，故统一取中性 --text-axis（= 刻度同档，
+   深色 7.23:1 / 浅色 5.74:1，见 v1.4.4 实测），涨跌只靠文字本身表达。 */
+.hero__mom {
+  font-size: 11px;
+  color: var(--text-axis);
+}
+/* 方向钩子：--up / --down 由 data 决定，本轮统一中性色（见上）；留钩子便于后续接入正确语义色 */
+.hero__mom--up,
+.hero__mom--down {
+  color: var(--text-axis);
+}
+/* 窄屏（≤360px）：Skyline 下宽度媒体查询不生效，由 JS 判定挂类（与 .hero__foot--three--narrow 同一做法） */
+.hero__mom--narrow {
+  font-size: 10px;
 }
 .hero__big {
   display: block;
@@ -287,6 +314,30 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 24rpx;
+}
+/* ---- 图表结论行（B-2 第一批）：标题下的一句话总结 ----
+   1) 字号 11px 与坐标轴刻度同档（不用 rpx：窄屏 rpx 会缩到 9px 以下，直接看不清）；
+   2) 颜色吃 --text-axis（刻度同档，v1.4.4 已验证深/浅主题对比度 4.78~7.72:1）。
+      ⛔ 不用 --text-faint：深色 2.30:1，糊在玻璃卡背景上看不见；
+   3) 标题自带 margin-bottom:24rpx，结论行要贴着标题 → margin-top:-20rpx 抵掉，
+      净间距 4rpx 且 24 + (-20) 相邻外边距折叠 / 相加都等于 4rpx；
+      ⛔ 不改 .chart__title 的任何声明（v1.4.4 的卡片间距是验收过的）；
+   4) 单行：文案长度已在 insight.js 里按 22 字宽自保，nowrap+ellipsis 是第二道保险
+      （Skyline 对 overflow 支持有差异，所以不能只靠 CSS 裁）。 */
+.chart__insight {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-axis);
+  margin-top: -20rpx;
+  margin-bottom: 20rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 窄屏（≤360px）：Skyline 下宽度媒体查询不生效，由 JS 判定后挂本 class（与 Hero --narrow 同一做法） */
+.chart__insight--narrow {
+  font-size: 10px;
 }
 .chart__empty {
   font-size: 24rpx;

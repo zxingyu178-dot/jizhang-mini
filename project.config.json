@@ -64,7 +64,7 @@
     "condition": false
   },
   "compileType": "miniprogram",
-  "libVersion": "latest",
+  "libVersion": "3.17.4",
   "appid": "wxcdcf83d9191065d9",
   "projectname": "jizhang-mini",
   "condition": {},

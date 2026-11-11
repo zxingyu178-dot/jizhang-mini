@@ -12,8 +12,13 @@ const OPTIONS = [
   { value: 'light', label: '浅色', desc: '浅灰紫毛玻璃' },
 ];
 
-/** 主题色展示顺序（与 utils/theme.ACCENTS 的 key 一致） */
-const ACCENT_ORDER = ['indigo', 'teal', 'amber', 'rose'];
+/**
+ * 主题色展示顺序：直接由 utils/theme.js 的 ACCENTS 派生（单一来源）。
+ * JS 规范保证字符串 key 按定义顺序枚举，实测 Object.keys(ACCENTS) 为
+ * ['indigo','teal','amber','rose']，与原先写死的顺序完全一致，色卡顺序不变。
+ * 将来 theme.js 新增第 5 套主题色，此处自动跟上，不会漏改导致错位。
+ */
+const ACCENT_ORDER = Object.keys(theme.ACCENTS);
 
 /**
  * 色卡实色：色卡是「色样」，展示这套主题色本身长什么样，**固定取最鲜亮那一档**

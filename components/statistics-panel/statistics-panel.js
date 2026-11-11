@@ -11,6 +11,7 @@ const dateUtil = require('../../data/date');
 const statCfg = require('../../data/statistics/config');
 const donut = require('../../data/statistics/donut');
 const axis = require('../../data/statistics/axis');
+const insight = require('../../data/statistics/insight');
 const theme = require('../../utils/theme');
 const device = require('../../utils/device');
 const viewport = require('../../utils/viewport');
@@ -201,6 +202,28 @@ function buildBarChart(points, valueOf, zoneRpx, maxXCount, opt) {
   };
 }
 
+/**
+ * 某月「1 日 ~ lastDay」的支出累计（分）。
+ * 口径与 computeMonthOverview 的「支出」一致：ledgerImpact !== 'daily-value-only' 且非收入；
+ * 只累加到 lastDay（防御未来日期的账单把「本月累计」虚增）。
+ * @param {Array} bills 该月账单
+ * @param {number} lastDay 累计到的日（1~31）；非法 → 0
+ * @returns {number}
+ */
+function sumExpenseThroughDay(bills, lastDay) {
+  const cap = Math.round(Number(lastDay));
+  if (!Number.isFinite(cap) || cap < 1) return 0;
+  let sum = 0;
+  (bills || []).forEach((b) => {
+    if (!b) return;
+    if (b.ledgerImpact === 'daily-value-only') return;
+    if (b.type === 'income') return;
+    const d = new Date(b.occurredAt).getDate();
+    if (d >= 1 && d <= cap) sum += b.amountCents;
+  });
+  return sum;
+}
+
 /** 账单 → 分类明细列表项（点击支出排行时弹；只含该分类支出，收入不混入） */
 function toCatItems(bills, catId) {
   return M.listCategoryExpenseBills(bills, catId).map((b) => {
@@ -233,6 +256,9 @@ Component({
     mTopDay: '—',
     mTopDayAmount: '—',
     mDailyAvg: '—',
+    // 同期环比（v1.4.6）：Hero「本月支出」右侧一句话；空串 = 不渲染（Hero 保持原样）
+    momText: '',
+    momDir: '', // 'up' | 'down' | ''（持平 / 上月同期无支出时为空，只决定 class，不决定颜色）
     // 月度最大单笔（独立卡，点击打开账单编辑）
     mLargest: null,
     mLargestId: '',
@@ -244,15 +270,18 @@ Component({
     fullShareList: [],
     shareSelectedId: '', // 圆环 / 图例选中的分类 id（聚合为 AGGREGATE id）
     shareAggCount: 0, // 聚合「其他」包含的真实分类数
+    categoryInsight: '', // 分类占比结论行（B-2：一句话总结，空串 = 不显示）
     daily: [],
     dailyAxis: null, // 每日花费趋势的 Y 轴刻度（buildBarAxis 产出）
     dailyEmpty: false, // 整月无支出（显示空态文案，不画空图）
+    dailyInsight: '', // 每日花费趋势结论行
     // 累计消费趋势（cumulative-trend，默认关闭）
     cumPoints: [],
     cumMax: 0,
     cumEmpty: false, // 整月无支出（同上）
     cumGutter: 0, // 与日柱图共用的 Y 轴留白（px，0 = 组件自适应）
     cumMonth: 0, // 1-12：X 轴日期标签用（M/DD）
+    cumInsight: '', // 累计消费趋势结论行（当月含月末预测）
     rank: [],
     cmp: { income: '0.00', expense: '0.00', incomeBar: 0, expenseBar: 0 },
     // 预算日历 + 节奏摘要（无任何预算规则时显示轻空态）
@@ -271,6 +300,7 @@ Component({
     lowest: '',
     monthly: [],
     monthlyAxis: null, // 12 个月趋势的 Y 轴刻度
+    monthlyInsight: '', // 12 个月趋势结论行
     yearRank: [],
     // 全年分类占比（复用 category-donut，使用完整年度分类列表）
     yearShareSegments: [],
@@ -490,6 +520,11 @@ Component({
       const config = store.getSettings().statistics;
       const on = (id) => statCfg.isEnabled(config, id);
       const toShareRow = (x) => Object.assign({}, x, { centsText: money.formatCents(x.cents) });
+      // 结论行口径（B-2）：当月 / 历史月决定「日均分母」与「要不要月末预测」
+      const now = new Date();
+      const isCurrentMonth = ym === currentYM();
+      const daysInMonth = M.monthDays(y, m); // 该月总天数（2 月 28/29、31 天月都准）
+      const elapsedDays = isCurrentMonth ? now.getDate() : daysInMonth;
 
       // —— 强制保留：Hero 概览 ——
       const ov = M.computeMonthOverview(bills);
@@ -531,6 +566,25 @@ Component({
         modMap: config.modules.reduce((acc, id) => { acc[id] = true; return acc; }, {}),
       };
 
+      // —— Hero 同期环比（v1.4.6）——
+      // 口径红线：本月 1~已过天数 vs 上月 1~同期，⛔ 绝不拿本月半月比上月整月（会假报「少 50%」）。
+      // 本月已过天数为 0 支出时不比（首日或本月还没记账，「少 100%」是凭空结论，不是洞察）。
+      // 上月同期为 0 → buildMoMCompare 返回「上月同期无支出」；两边都 0 → null，本行不渲染。
+      const momCur = sumExpenseThroughDay(bills, elapsedDays);
+      if (momCur > 0) {
+        const prevYM = shiftYM(ym, -1);
+        const [py, pm] = prevYM.split('-').map(Number);
+        // 上月只有 28/30 天而本月已过 31 天时，上月同期按上月最后一天封顶（不凭空算 -100%）
+        const prevCap = insight.clampPeriodDay(elapsedDays, M.monthDays(py, pm));
+        const momPrev = sumExpenseThroughDay(store.rangeBills(prevYM, prevYM), prevCap);
+        const mom = insight.buildMoMCompare(momCur, momPrev);
+        patch.momText = mom.text || '';
+        patch.momDir = mom.dir || '';
+      } else {
+        patch.momText = '';
+        patch.momDir = '';
+      }
+
       // —— 分类占比（category-share） ——
       patch.shareSelectedId = ''; // 切月重置选中
       if (on('category-share')) {
@@ -547,6 +601,8 @@ Component({
         // 展开列表走统一构建：前 7 原色 + 「其他」分组 + 中性色子分类
         patch.fullShareList = this.buildExpandedShareRows(share);
         patch.shareAggCount = share.aggregated ? share.all.length - M.TOP_N_WHEN_AGGREGATED : 0;
+        // 结论行复用已算好的占比数组（share.all 按金额倒序、含全部真实分类）
+        patch.categoryInsight = insight.buildCategoryInsight(share.all);
       } else {
         // 关闭：清空，避免显示上次旧结果
         patch.shareSegments = [];
@@ -555,6 +611,7 @@ Component({
         patch.shareAggregated = false;
         patch.shareExpanded = false;
         patch.shareAggCount = 0;
+        patch.categoryInsight = '';
       }
 
       // —— 每日花费趋势（daily-expense-trend） ——
@@ -575,10 +632,13 @@ Component({
         patch.dailyAxis = bc.axis;
         // 整月无支出 → 空态文案（不再画一根 0 高度的空图 + 顶部挂个 0）
         patch.dailyEmpty = !(bc.axis.maxCents > 0);
+        // 结论行：日均分母与 Hero「日均支出」同口径（当月=截至今天，历史月=整月天数）
+        patch.dailyInsight = insight.buildDailyInsight(dailyRaw.points, elapsedDays, m);
       } else {
         patch.daily = [];
         patch.dailyAxis = null;
         patch.dailyEmpty = false;
+        patch.dailyInsight = '';
       }
 
       // —— 累计消费趋势（cumulative-trend，默认关闭） ——
@@ -588,10 +648,18 @@ Component({
         patch.cumPoints = cum.points;
         patch.cumMax = cum.max;
         patch.cumEmpty = !(cum.max > 0);
+        // 结论行：当月给月末预测，历史月只报日均（历史月已完整，预测没有意义）
+        patch.cumInsight = insight.buildCumulativeInsight({
+          totalCents: cum.total,
+          elapsedDays,
+          spanDays: daysInMonth,
+          isCurrentMonth,
+        });
       } else {
         patch.cumPoints = [];
         patch.cumMax = 0;
         patch.cumEmpty = false;
+        patch.cumInsight = '';
       }
 
       // —— 收入 / 支出对比（income-expense-compare） ——
@@ -717,15 +785,20 @@ Component({
 
       // —— 12 个月支出趋势（year-monthly-trend） ——
       if (on('year-monthly-trend')) {
-        const pts = withBarHeight(Y.computeMonthlyTrend(bills, year).points, BAR_ZONE_MONTH_RPX);
+        // 趋势原始点先留一份：柱高加工（withBarHeight）不改变 expense，结论行直接复用它
+        const trendPts = Y.computeMonthlyTrend(bills, year).points;
+        const pts = withBarHeight(trendPts, BAR_ZONE_MONTH_RPX);
         // 12 个月标签必须全在（用户靠它找「哪个月没数据」）：宽度不够先缩格式再缩字号，绝不抽稀
         const bc = buildBarChart(pts, (p) => p.expense, BAR_ZONE_MONTH_RPX, 12,
           Object.assign({}, this.axisOpt(), { requireAll: true }));
         patch.monthly = bc.points;
         patch.monthlyAxis = bc.axis;
+        // 结论行：月均口径与 Hero「yAvg」（computeYearOverview.monthlyAvg）完全一致
+        patch.monthlyInsight = insight.buildMonthlyInsight(trendPts);
       } else {
         patch.monthly = [];
         patch.monthlyAxis = null;
+        patch.monthlyInsight = '';
       }
 
       // —— 年度回顾（year-review）：最大单笔 / 记录最多分类 / 最常消费月 ——

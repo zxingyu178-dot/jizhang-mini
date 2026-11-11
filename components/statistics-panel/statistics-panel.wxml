@@ -22,7 +22,12 @@
 
       <!-- Hero -->
       <view class="glass-card hero" id="staHero">
-        <text class="hero__label">本月支出</text>
+        <!-- 同期环比（B-2 第二批）：只在月度模式、且能算出有意义对比时才出现；
+             momText 为空 → 右侧 text 不渲染，Hero 与改造前完全一致 -->
+        <view class="hero__head">
+          <text class="hero__label">本月支出</text>
+          <text class="hero__mom {{momDir ? 'hero__mom--' + momDir : ''}}{{isNarrow?' hero__mom--narrow':''}}" wx:if="{{momText}}">{{momText}}</text>
+        </view>
         <text class="hero__big money-expense">¥{{mExpense}}</text>
         <view class="hero__foot">
           <view class="hero__half">
@@ -65,6 +70,8 @@
       <!-- 分类占比（环形图 + 分类列表，点击真实分类钻取 Bill Explorer） -->
       <view class="glass-card chart share" id="monthShareCard" wx:if="{{modMap['category-share']}}">
         <text class="chart__title">分类占比</text>
+        <!-- 结论行（B-2）：最大项是什么、占多少；无数据时纯函数返回空串，本行不渲染 -->
+        <text class="chart__insight {{isNarrow?'chart__insight--narrow':''}}" wx:if="{{categoryInsight}}">{{categoryInsight}}</text>
         <category-donut
           id="monthDonut"
           segments="{{shareSegments}}"
@@ -103,6 +110,8 @@
       <!-- 每日花费趋势 -->
       <view class="glass-card chart" id="dailyCard" wx:if="{{modMap['daily-expense-trend']}}">
         <text class="chart__title">每日花费趋势</text>
+        <!-- 结论行（B-2）：日均多少、哪天最高；无数据时纯函数返回空串，本行不渲染 -->
+        <text class="chart__insight {{isNarrow?'chart__insight--narrow':''}}" wx:if="{{dailyInsight}}">{{dailyInsight}}</text>
         <!-- 空态：整月无支出（口径对齐年度卡「这一年还没有支出」） -->
         <view class="chart__empty" wx:if="{{dailyEmpty}}">本月还没有支出</view>
         <view class="ca" wx:elif="{{dailyAxis}}">
@@ -137,6 +146,9 @@
       <!-- 累计消费趋势（默认关闭，在管理中开启） -->
       <view class="glass-card chart" id="cumCard" wx:if="{{modMap['cumulative-trend']}}">
         <text class="chart__title">累计消费趋势</text>
+        <!-- 结论行（B-2）：当月=已花 + 按当前速度的月末预测；历史月=已花 + 日均。
+             ⛔ 图上不画任何预测参考线（v1.4.4 刚为消除「假水平线误导」把折线截断到截止日） -->
+        <text class="chart__insight {{isNarrow?'chart__insight--narrow':''}}" wx:if="{{cumInsight}}">{{cumInsight}}</text>
         <!-- 空态：整月无支出（折线只画到数据截止日，无数据时不画空图） -->
         <view class="chart__empty" wx:if="{{cumEmpty}}">本月还没有支出</view>
         <cumulative-trend wx:else points="{{cumPoints}}" max="{{cumMax}}" month="{{cumMonth}}" gutter="{{cumGutter}}" width="320" height="180"/>
@@ -335,6 +347,8 @@
       <!-- 12 个月趋势 -->
       <view class="glass-card chart" id="yearMonthlyCard" wx:if="{{modMap['year-monthly-trend']}}">
         <text class="chart__title">12 个月支出趋势</text>
+        <!-- 结论行（B-2）：月均多少、哪个月最高；全年全 0 时纯函数返回空串，本行不渲染 -->
+        <text class="chart__insight {{isNarrow?'chart__insight--narrow':''}}" wx:if="{{monthlyInsight}}">{{monthlyInsight}}</text>
         <view class="ca" wx:if="{{monthlyAxis}}">
           <view class="ca__row">
             <!-- Y 轴金额刻度（0 / ½max / max） -->

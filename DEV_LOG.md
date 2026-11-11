@@ -1,6 +1,44 @@
 # DEV LOG — 随时随地大小记（jizhang-mini）
 
-- 当前版本：**1.4.5**
+- 当前版本：**1.4.6**
+
+---
+
+# v1.4.6 收口轮（2026-11-11）
+
+- 分支：`main`（直接提交）
+- 基线：`origin/main` = `ea98fcb`（v1.4.5 提交，工作区干净）
+- 版本：**1.4.6**
+- 本轮定位：**两块一起交付** —— B-2 图表结论行第二批（用户可见新功能）+ v1.4.5 遗留 6 项技术欠账清理（详见 `docs/HANDOFF_v1.4.6.md`、`CHANGELOG.md`）
+
+## 1. B-2 图表结论行（看不快 → 看一眼就读出结论）
+
+新增 `data/statistics/insight.js`（7 个纯函数，不 `require('wx')`、不读存储，Node 可单测）。4 张图标题下各一行结论，空数据整行不渲染。
+
+**三条口径红线（改这块前必读）**：
+1. 月末预测 = 已花 ÷ 已过天数 × **当月总天数**（⛔ 不许用 30 天，2 月会虚高 7%）；
+2. 环比**比同期不比整月**（⛔ 拿半月比整月会假报「少 50%」），上月天数不足时 `clampPeriodDay` 封顶；
+3. 12 个月「月均」= 全年 ÷ **有支出月数**（与 Hero `yAvg` 同口径，⛔ 不许改 ÷12，否则同屏两个月均）。
+
+**精度**：结论行金额一律整数元 + 千分位（`¥1,234`），⛔ 不用 `formatAxisAmount`（那会变 `1.2万`）；坐标轴缩略仍走原函数 —— **明细不给精度让步**。
+
+**图上零参考线**：P2 原本想在累计图画「按当前速度月末将达 ¥X」虚线，改为**结论行文字**表达。理由：v1.4.4 刚为消除「假水平线误导」把折线截断到截止日，再画一条无数据支撑的水平线是往回走。
+
+## 2. 同期环比上界面（Hero「本月支出」右侧）
+
+- WXML 把 `hero__label` 包进 `.hero__head`（`flex` + `align-items:baseline` + `space-between`），右侧放 `.hero__mom`。
+- **⛔ 没动 Hero 既有样式**：`.hero__label` / `.hero__big` / `.hero__foot` / `.hero__third` 声明一行未改 —— `stats-hero-layout.test.js` 47 条契约全绿。
+- **颜色**：统一中性 `--text-axis`。本项目 `--expense` 是绿、`--income` 是红（既有设计不改），按「支出变多 = 警告」染红会撞全项目语义，按「支出 = 绿」染色又会把「花更多」染成好事 —— 两个方向都错，故中性。判据：**宁可中性，也不引入错误语义**。
+- **不显示**：本月 0 支出（首日「少 100%」是凭空结论）、两边都 0（`buildMoMCompare` 返回 `null`）→ 整行不渲染，Hero 像素级不变。
+- 本月 / 上月两侧累计用**同一个** `sumExpenseThroughDay`，口径与 `computeMonthOverview` 的「支出」一致（`ledgerImpact !== 'daily-value-only'` 且非收入）。
+
+## 3. 技术欠账 6 项（v1.4.5 遗留，随本版一起发）
+
+更新日志补 14 版 / 47 条（1.2.0~1.4.5，1.3.3 无用户可感知变化跳过）；`libVersion` `latest` → **3.17.4**（本地实际调试版本）；外观页 `ACCENT_ORDER` 改 `Object.keys(theme.ACCENTS)` 单一来源；`.gitignore` 加 `reports/`；10 个历史 ZIP（约 86.2 MiB）归档 `artifacts/releases/` + `MANIFEST.md`（**内容零改动**）；删 4 个空 pip 残留目录。
+
+## 4. 回归
+
+`npm test` **53/53**；`insight.test.js` **387 断言**（含 20 条环比接线契约）；`release:check` **FAIL 0 / WARN 0**（v1.4.5 的 `libVersion=latest` 警告消除）；结论行 / 环比颜色实测深色 **7.21~7.78:1**、浅色 **5.53~5.76:1**（三处候选背景，均 ≥4.5:1）；`theme:audit` / `contrast:audit` / `perf` 实测输出见本轮回传。真机未测。
 
 ---
 
