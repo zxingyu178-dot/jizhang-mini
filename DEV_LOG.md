@@ -347,3 +347,33 @@ tests/recurring.test.js                 | 131 +++++++++++++++
 **未改动**（已用 diff 确认输出为空）：`package.json`、`package-lock.json`、`project.config.json`。
 **数据合同未变**：Bill **V3** / Backup **V3**（恢复兼容 V1、V2、V3）/ Recurring Store **V1**，字段集合均未变。
 **依赖未新增**：`devDependencies` 仍只有 `miniprogram-automator`（仅测试用）。
+
+---
+
+# v1.5.3 柱状图 6 档明暗台阶（2026-11-11）
+
+**目标**：把 1.5.1 没做成的柱体立体感补上，让统计页四张图是同一套材质。
+
+**做法**：柱子从「31 个 view」改为「每张图 1 个 `<image>`」，图源是 `utils/bar-shading.js` 生成的 SVG（base64 成 data-URI）。档位 `3/5/7/65/13/7 %`，明暗在 JS 里用 `mixHex()` 算成实色 `#rrggbb` 再写进 SVG —— SVG 不支持 `rgba()`，`stroke-opacity` 又是「和卡片混」不是「和白色混」。
+
+**为什么没用 Canvas（客户原定）**：`<canvas type="2d">` 放进统计页后 `createSelectorQuery` 回调不返回 node、`panel.$$('canvas')` 为 0、柱区截图全空（画布尺寸查得到，一个像素都画不出来）。同卡片里 SVG 路径一直正常。**已向客户说明，待确认**。
+
+**怎么验的**：新增 `tests/e2e/bar-shading-shots.js` + `png-lite.js`（零依赖 PNG 编解码）+ `bar-analyze.js`，模拟器截四张图（年度/月度 × 深/浅）并逐像素采样：
+
+| 阶段 | 柱高 | 档数 | 最小跳变 |
+|---|---|---|---|
+| 年度 深色 | 121px | 6 | 19.0 |
+| 年度 浅色 | 121px | 6 | 10.3 |
+| 月度 深色 | 102px | 6 | 19.0 |
+| 月度 浅色 | 102px | 6 | 10.3 |
+
+顺序全部「本色 → 顶光 → 受光 → 柱身 → 背光 → 接触暗」。截图与 `report.json` 在 `docs/screenshots/bar-shading/`。
+
+**取证自身的三次误判（防复发）**
+1. `offset()` × `devicePixelRatio` 换算裁剪区是错的：截图缩放 455/390≈1.167，不是 dpr 3 → 改按档位色自动定位。
+2. 「接触暗」当锚点会被「月度/年度」分段按钮的抗锯齿边缘抢走（1px 混色恰好落进容差）→ 改逐列找最长连续色段。
+3. Skyline 下截图滞后于 `setData`，且滞后不止一帧（组件自报 light 而像素仍是深色底；像素对了但画面还停在上一模式）→ 改「背景亮度 + 能否解析出柱区」双条件验收每一帧。
+
+**结果**：`npm test` 53/53、`release:check` FAIL 0 / WARN 0、四阶段取证全过。提交 `0fdc8df`，已推送并上传开发版（main 446,660 字节，较 1.5.2 的 441,030 增加 5,630 字节，主要是新增的 `utils/bar-shading.js` 8,865 字节源码）。
+
+**未做 / 待办**：真机全部未测；`app.wxss` 的 `--bar-cap/-lit/-shade/-foot` 四变量已无人消费（值被测试锁住当文档）；进程内三份 `mixHex` 未合并；柱顶要做 hover / 生长动画需改回元素方案。
