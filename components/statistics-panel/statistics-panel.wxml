@@ -128,6 +128,8 @@
             </view>
             <!-- 柱区：柱高与刻度共用同一比例尺（value / 顶档 × 柱区高，不越过顶线） -->
             <view class="ca__plot" style="height:{{dailyAxis.zoneRpx}}rpx;">
+              <!-- 柱脚槽（v1.5.1）：必须是 .ca__plot 第一个子节点，否则会盖住 0 档网格线 -->
+              <view class="ca__plate"></view>
               <block wx:for="{{dailyAxis.ticks}}" wx:key="key">
                 <view class="ca__grid" wx:if="{{item.showGrid}}" style="bottom:{{item.bottomRpx}}rpx;"></view>
               </block>
@@ -366,6 +368,8 @@
               </block>
             </view>
             <view class="ca__plot" style="height:{{monthlyAxis.zoneRpx}}rpx;">
+              <!-- 柱脚槽（v1.5.1）：与日支出柱共用同一个 class，一套参数服务两张图 -->
+              <view class="ca__plate"></view>
               <block wx:for="{{monthlyAxis.ticks}}" wx:key="key">
                 <view class="ca__grid" wx:if="{{item.showGrid}}" style="bottom:{{item.bottomRpx}}rpx;"></view>
               </block>

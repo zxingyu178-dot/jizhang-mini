@@ -86,6 +86,14 @@ Component({
       try { t = theme.getEffectiveTheme(); } catch (e) { t = 'dark'; }
       return GRID_COLORS[t] || GRID_COLORS.dark;
     },
+    /** 当前生效主题（'light' | 'dark'）：车削折线的暗缘/高光混色比例按它取 */
+    resolveThemeKey() {
+      try {
+        return theme.getEffectiveTheme() === 'light' ? 'light' : 'dark';
+      } catch (e) {
+        return 'dark';
+      }
+    },
     /** 折线主色：跟随当前主题色（v1.4.5，不再写死靛蓝）；取不到退回默认靛蓝 */
     resolveLineColor() {
       try {
@@ -171,6 +179,7 @@ Component({
             tickCount: C.TICK_COUNT,
             spanDays: spanDays,
             lineColor: this.resolveLineColor(),
+            theme: this.resolveThemeKey(),
           })
         : '';
 

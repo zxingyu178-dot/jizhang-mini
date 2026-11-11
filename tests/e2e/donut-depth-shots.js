@@ -71,18 +71,43 @@ async function main() {
       await sleep(2600);
       cur = await mp.currentPage();
     }
-    const tabs = await cur.$$('.tabs__item');
-    if (!tabs.length) throw new Error('找不到 .tabs__item');
-    await tabs[0].tap();
-    await sleep(1000);
+    // 三个 tab 是 swiper + current 索引：直接置 current=0（统计页），比点 tab 稳
+    // （实测点 tab 偶尔不生效，截到的会是「记账」页，圆环根本不在画面里）；
+    // 同时关掉「记一笔」底部浮层——它会盖住整页，导致截图里看不到圆环。
+    await cur.setData({ current: 0, sheetShow: false });
+    await sleep(1400);
+    let d = await cur.data();
+    if (d.current !== 0) {
+      const tabs = await cur.$$('.tabs__item');
+      if (tabs.length) await tabs[0].tap();
+      await sleep(1200);
+      d = await cur.data();
+    }
+    if (d.current !== 0) throw new Error('切不到统计页（current=' + d.current + '）');
     return cur;
   };
 
   const getDonut = async () => {
-    const cur = await mp.currentPage();
-    const p = await cur.$('#statisticsPanel');
+    let p = null;
+    for (let i = 0; i < 6 && !p; i++) {
+      const cur = await mp.currentPage();
+      p = await cur.$('#statisticsPanel');
+      if (!p) {
+        // 懒加载 / 页面还在切换：把 swiper 归位到统计页再等一会儿
+        try { await cur.setData({ current: 0 }); } catch (e) { /* ignore */ }
+        await sleep(1000);
+      }
+    }
     if (!p) throw new Error('找不到 #statisticsPanel');
-    const d = await p.$('#monthDonut');
+    let d = await p.$('#monthDonut');
+    if (!d) {
+      // 面板可能停在年度模式（上轮用例遗留）→ 切回月度再取
+      try { await p.callMethod('onModeMonth'); } catch (e) { /* 无此方法就继续 */ }
+      await sleep(1200);
+      try { await p.callMethod('refresh'); } catch (e) { /* ignore */ }
+      await sleep(1200);
+      d = await p.$('#monthDonut');
+    }
     if (!d) throw new Error('找不到 #monthDonut');
     return { panel: p, donut: d };
   };
@@ -166,11 +191,16 @@ async function main() {
         await h.panel.callMethod('refresh');
         await sleep(1600);
 
-        // ③ 注入目标状态
-        if (segs) {
-          await h.donut.setData({ segments: segs });
-          await sleep(1400);
-        }
+        // ③ 注入目标状态。实测坑：Skyline 下 <image> 换了 data-URI 后，
+        // automator 的 screenshot 会一直返回旧帧（image 图层不重绘）。
+        // 绕法 = 先清空面板 segments 让组件销毁、再重新赋值让它整体重建（触发图层重绘）。
+        const realSegs = (await h.panel.data()).shareSegments || [];
+        const targetSegs = segs || realSegs;
+        await h.panel.setData({ shareSegments: [] });
+        await sleep(600);
+        await h.panel.setData({ shareSegments: targetSegs });
+        await sleep(1600);
+        h = await getDonut();
         if (opt && typeof opt.selection === 'number') {
           await h.donut.callMethod('applySelection', opt.selection);
           await sleep(1200);
@@ -227,27 +257,47 @@ async function main() {
       log('屏幕 ' + JSON.stringify(report.screen) + ' 圆环盒 ' + JSON.stringify(report.geometry));
     });
 
+    // DEPTH_ONLY=label1,label2 可只跑指定阶段（调试探路用，不影响正式取证）
+    const only = (process.env.DEPTH_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const want = (label) => !only.length || only.indexOf(label) >= 0;
+    // DEPTH_SET_THEME=light|dark：只切主题、不截图（供「每阶段一个会话」的取证方式预热主题）
+    const setTheme = (process.env.DEPTH_SET_THEME || '').trim();
+    // DEPTH_KEEP_THEME=1：结束时不要把主题恢复成 dark（跨会话取证要保住当前主题）
+    const keepTheme = process.env.DEPTH_KEEP_THEME === '1';
+
+    if (setTheme) {
+      const ok = await switchTheme(setTheme);
+      report.ok = ok;
+      log('主题已设为 ' + setTheme + '（不截图）');
+      throw new Error('__set_theme_only__');
+    }
+
     // —— 深色 ——（真实数据 / 6 段 / 6 段选中态 / 12 段）
-    await capture('real5_dark', null, { theme: 'dark', expectSegs: 5 });
-    await capture('seg6_dark', makeSegs(R6), { theme: 'dark' });
-    await capture('seg6_dark_selected', makeSegs(R6), { theme: 'dark', selection: 1 });
-    await capture('seg12_dark', makeSegs(R12), { theme: 'dark' });
+    if (want('real5_dark')) await capture('real5_dark', null, { theme: 'dark', expectSegs: 5 });
+    if (want('seg6_dark')) await capture('seg6_dark', makeSegs(R6), { theme: 'dark' });
+    if (want('seg6_dark_selected')) await capture('seg6_dark_selected', makeSegs(R6), { theme: 'dark', selection: 1 });
+    if (want('seg12_dark')) await capture('seg12_dark', makeSegs(R12), { theme: 'dark' });
 
     // —— 浅色 ——（6 段 / 12 段）
-    await capture('seg6_light', makeSegs(R6), { theme: 'light' });
-    await capture('seg12_light', makeSegs(R12), { theme: 'light' });
+    if (want('seg6_light')) await capture('seg6_light', makeSegs(R6), { theme: 'light' });
+    if (want('seg12_light')) await capture('seg12_light', makeSegs(R12), { theme: 'light' });
 
     // 收尾：清种子、恢复深色
     try {
       const cur = await mp.currentPage();
       await cur.callMethod('__e2eClearDonut');
     } catch (e) { log('clearDonut 失败 ' + e.message); }
-    try { await switchTheme('dark'); } catch (e) { log('恢复深色失败 ' + e.message); }
+    if (!keepTheme) {
+      try { await switchTheme('dark'); } catch (e) { log('恢复深色失败 ' + e.message); }
+    }
 
     report.ok = report.phases.length >= 4;
   } catch (e) {
-    report.error = (e && e.message) || String(e);
-    log('异常：' + report.error);
+    const msg = (e && e.message) || String(e);
+    if (msg !== '__set_theme_only__') {
+      report.error = msg;
+      log('异常：' + report.error);
+    }
   } finally {
     report.consoleLogs = consoleLogs;
     report.exceptions = exceptions;

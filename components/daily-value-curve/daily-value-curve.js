@@ -6,12 +6,17 @@ const store = require('../../data/index');
 const dv = require('../../data/daily-value/index');
 const money = require('../../data/money');
 const theme = require('../../utils/theme');
+const { mixHex } = require('../../utils/color-mix');
 
 /**
  * Canvas 配色（Canvas 无法读取 CSS 变量，需按主题显式传入）：
  * 网格 / 标签 / 面积 / 高亮点随主题；折线主色 + 面积 / 高亮环随**主题色**（accent）。
  * v1.4.5：主线不再写死靛蓝，改为运行时从 theme.getAccentPalette() 取，
  *         再拼 rgba（Canvas 只认具体字符串）。换主题色时 subscribe 会重画。
+ * v1.5.1 车削折线：新增 rimMix / specMix / specDy / specW / rimExtra / floorAlpha 六个参数。
+ *   折线的「截面」是线的粗细 —— 明暗只在这个方向排布，长度方向不加明暗。
+ *   暗缘 / 高光由 mixHex(primary) 派生实色，色相一位不动（颜色合同不变）。
+ *   Canvas 不是 SVG，rgba() 与 createLinearGradient 都是原生能力，可以照常使用。
  */
 const PALETTES = {
   dark: {
@@ -19,16 +24,28 @@ const PALETTES = {
     gridLabel: 'rgba(255,255,255,0.4)',
     xLabel: 'rgba(255,255,255,0.45)',
     hlDot: '#ffffff',
-    areaAlpha: 0.32,
+    areaAlpha: 0.26,
     hlRingAlpha: 0.5,
+    rimMix: 0.34,
+    specMix: 0.40,
+    specDy: -0.55,
+    specW: 0.9,
+    rimExtra: 1.4,
+    floorAlpha: 0.30,
   },
   light: {
     grid: 'rgba(80,90,130,0.12)',
     gridLabel: 'rgba(32,35,52,0.5)',
     xLabel: 'rgba(32,35,52,0.5)',
     hlDot: '', // 空 = 用主色（浅色下实心点用主色更清楚）
-    areaAlpha: 0.22,
+    areaAlpha: 0.18,
     hlRingAlpha: 0.35,
+    rimMix: 0.28,
+    specMix: 0.50,
+    specDy: -0.50,
+    specW: 0.9,
+    rimExtra: 1.4,
+    floorAlpha: 0.26,
   },
 };
 
@@ -62,6 +79,13 @@ function palette() {
     areaBottom: 'rgba(' + rgb + ',0)',
     hlDot: base.hlDot || primary,
     hlRing: 'rgba(' + rgb + ',' + base.hlRingAlpha + ')',
+    // 车削折线三描边（v1.5.1）：暗缘 / 高光是从主色派生的实色 hex，色相不变
+    rim: mixHex(primary, '#000000', base.rimMix),
+    spec: mixHex(primary, '#FFFFFF', base.specMix),
+    specDy: base.specDy,
+    specW: base.specW,
+    rimW: 2 + base.rimExtra,
+    floor: 'rgba(' + rgb + ',' + base.floorAlpha + ')',
   };
 }
 
@@ -203,18 +227,46 @@ Component({
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // 折线
+      // 折线：v1.5.1 车削三描边 —— 同一个 path 画三遍（暗缘 / 本体 / 高光）。
+      // 坐标仍由同一套 xAt/yAt 给出，数据几何零变更；0 个新增元素（Canvas 无 DOM）。
+      const tracePath = () => {
+        ctx.beginPath();
+        points.forEach((p, i) => {
+          const x = xAt(i);
+          const y = yAt(p.valueCents);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+      };
+      ctx.lineJoin = 'round';
+
+      // 0 档地面线：面积落地处的一条「接触线」，比网格线实一档（叠加在 0 档网格上）
       ctx.beginPath();
-      points.forEach((p, i) => {
-        const x = xAt(i);
-        const y = yAt(p.valueCents);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
+      ctx.moveTo(L.padL, L.padT + L.ch);
+      ctx.lineTo(L.padL + L.cw, L.padT + L.ch);
+      ctx.strokeStyle = pal.floor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      tracePath(); // 暗缘：比本体每边宽 0.7px，垫在底下
+      ctx.strokeStyle = pal.rim;
+      ctx.lineWidth = pal.rimW;
+      ctx.stroke();
+
+      tracePath(); // 本体：2px，盖住暗缘中线
       ctx.strokeStyle = pal.line;
       ctx.lineWidth = 2;
-      ctx.lineJoin = 'round';
       ctx.stroke();
+
+      // 高光：整体上移半个像素，落在线顶沿内侧；0.9px 宽不改变线的视觉粗细。
+      // 注意不要改 lineCap（默认 butt）：改 round 会让线两端各多出 0.45px 圆头，形态就变了。
+      ctx.save();
+      ctx.translate(0, pal.specDy);
+      tracePath();
+      ctx.strokeStyle = pal.spec;
+      ctx.lineWidth = pal.specW;
+      ctx.stroke();
+      ctx.restore();
 
       // X 轴标签（最多 5 个）
       const labelCount = Math.min(5, points.length);

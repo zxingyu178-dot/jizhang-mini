@@ -741,12 +741,16 @@ async function run() {
 
   function drawColors(accent, mode) {
     freshInit({ theme: mode, accent });
-    const calls = { stroke: [], fill: [], stops: [] };
+    const calls = { stroke: [], fill: [], stops: [], strokeW: [], translate: [] };
+    // v1.5.1：车削三描边用到 save / translate / restore（Canvas 2D 官方 API），
+    // 假 ctx 必须一并提供，否则测不到真实绘制路径。
     const ctx = {
-      strokeStyle: '', fillStyle: '', lineWidth: 0, lineJoin: '', font: '', textAlign: '', textBaseline: '',
+      strokeStyle: '', fillStyle: '', lineWidth: 0, lineJoin: '', lineCap: '', font: '', textAlign: '', textBaseline: '',
       clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, arc() {},
+      save() {}, restore() {},
+      translate(x, y) { calls.translate.push([x, y]); },
       fill() { calls.fill.push(this.fillStyle); },
-      stroke() { calls.stroke.push(this.strokeStyle); },
+      stroke() { calls.stroke.push(this.strokeStyle); calls.strokeW.push(this.lineWidth); },
       fillText() {},
       createLinearGradient() {
         return { addColorStop(pos, color) { calls.stops.push(color); } };
@@ -775,6 +779,13 @@ async function run() {
       assert(colors.stroke.indexOf(primary) >= 0, 'ACCENT-13d 日价曲线折线用主题色 ' + a + '/' + m + '（实测 ' + colors.stroke.join('|') + '）');
       const areaHit = colors.stops.concat(colors.fill).some((f) => String(f).indexOf(rgb) >= 0);
       assert(areaHit, 'ACCENT-13d 日价曲线面积/高亮点用主题色 rgb(' + rgb + ') ' + a + '/' + m + '（实测 ' + colors.stops.concat(colors.fill).join('|') + '）');
+      // v1.5.1 车削三描边：暗缘 > 本体 > 高光 的线宽关系（规则，不是死值）
+      const strokes = colors.stroke.map((s, i) => ({ s, w: colors.strokeW[i] })).filter((x) => x.w >= 0.5);
+      const rim = strokes.find((x) => x.w > 3);
+      const spec = strokes.find((x) => x.w < 1.2);
+      assert(rim && spec, 'ACCENT-13e 日价曲线有暗缘（宽 >3）与高光（宽 <1.2）两道描边 ' + a + '/' + m +
+        '（实测宽度 ' + colors.strokeW.join('|') + '）');
+      assert(colors.translate.some((t) => t[1] < 0), 'ACCENT-13e 高光整体上移（translate 的 y 为负）' + a + '/' + m);
     });
   });
 

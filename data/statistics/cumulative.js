@@ -20,6 +20,7 @@
 //     <text> 叠加，坐标系通过 computeGeometry / tickY / xAt 与本文件共用同一套数学。
 
 const axis = require('./axis');
+const { mixHex } = require('../../utils/color-mix');
 
 /** 兜底线色（默认靛蓝）：仅当调用方没传 lineColor 时使用。本模块不读主题（纯计算，不依赖 wx）。 */
 const LINE_COLOR = '#7c86ff';
@@ -113,10 +114,12 @@ function xAt(geo, i, n) {
  * @param {number} max 累计最大值（分）
  * @param {string} gridColor 网格线颜色（组件按主题传入）
  * @param {{w:number,h:number}} [box] 显示盒尺寸（px）；缺省用 320×180
- * @param {{padLeft?:number,tickCount?:number,spanDays?:number,lineColor?:string}} [opts]
+ * @param {{padLeft?:number,tickCount?:number,spanDays?:number,lineColor?:string,theme?:string}} [opts]
  *        spanDays：横轴总跨度（整月天数）；缺省 = points.length（旧行为）
  *        lineColor：主线 / 面积 / 末端圆点颜色（组件传 theme.getAccentPalette().primary）；
  *                   缺省 / 非法值 → LINE_COLOR（默认靛蓝），保持旧调用方行为不变
+ *        theme：'light' | 'dark'（缺省 'dark'）。只决定暗缘/高光的混色比例与高光位移。
+ *               由组件传入 —— 本模块是纯计算，不读 wx / 不读主题。
  * @returns {string}
  */
 function buildCumulativeSVG(points, max, gridColor, box, opts) {
@@ -163,12 +166,31 @@ function buildCumulativeSVG(points, max, gridColor, box, opts) {
   // 末端圆点：半径 ≤3px，实心品牌色，标出「数据到此为止」
   const dotR = r2(Math.max(1.6, Math.min(3, geo.strokeW * 1.6)));
 
+  // ---- v1.5.1 车削折线：同一条 d 描三遍（暗缘 / 本体 / 高光）----
+  // 折线的「截面」是线的粗细：明暗只在这一个方向上排布，长度方向（折线走向）一律不加明暗，
+  // 否则等于沿线多画一条假趋势。颜色全部由一个 mixHex 从 lineColor 派生 → 色相不动。
+  // SVG 内禁 hsl 色函数 / rgba / filter，所以混色一律在 JS 里算成实色 hex。
+  const isLight = o.theme === 'light';
+  const rimW = r2(geo.strokeW + 1.5); // 暗缘比本体每边宽 0.75px
+  const specW = r2(Math.max(0.8, geo.strokeW * 0.46)); // 319×180 下 = 0.99
+  const RIM = mixHex(lineColor, '#000000', isLight ? 0.28 : 0.34);
+  const SPEC = mixHex(lineColor, '#FFFFFF', isLight ? 0.52 : 0.42);
+  const specDy = isLight ? -0.55 : -0.62; // px，向 y 负方向 = 上移
+
   return (
     open +
     grids +
-    '<path d="' + area + '" fill="' + lineColor + '" fill-opacity="0.18" stroke="none"/>' +
+    // 1 面积：单档平铺（不做台阶），线加了两道描边后透明度下调，避免面积压住线
+    '<path d="' + area + '" fill="' + lineColor + '" fill-opacity="' + (isLight ? 0.13 : 0.15) + '" stroke="none"/>' +
+    // 2 暗缘：宽 1.5 的暗描边垫在底下，本体压上去后两侧各露 0.75px
+    '<path d="' + line + '" fill="none" stroke="' + RIM + '" stroke-width="' + rimW + '" ' +
+    'stroke-linejoin="round" stroke-linecap="round"/>' +
+    // 3 本体
     '<path d="' + line + '" fill="none" stroke="' + lineColor + '" stroke-width="' + geo.strokeW + '" ' +
     'stroke-linejoin="round" stroke-linecap="round"/>' +
+    // 4 高光：上移 specDy，落在线顶沿内侧（0.99px 宽，不改变线的视觉粗细）
+    '<path d="' + line + '" fill="none" stroke="' + SPEC + '" stroke-width="' + specW + '" ' +
+    'stroke-linejoin="round" stroke-linecap="round" transform="translate(0 ' + specDy + ')"/>' +
     '<circle cx="' + last.x + '" cy="' + last.y + '" r="' + dotR + '" fill="' + lineColor + '"/>' +
     '</svg>'
   );

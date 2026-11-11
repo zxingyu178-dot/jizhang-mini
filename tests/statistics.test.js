@@ -458,7 +458,10 @@ console.log('累计消费趋势 computeCumulativeTrend / buildCumulativeSVG');
   // SVG 结构
   const svg = C.buildCumulativeSVG(cum.points, cum.max, 'rgba(255,255,255,0.12)');
   eq(svg.indexOf('<svg'), 0, '累计 SVG 以 <svg 开头');
-  eq((svg.match(/<path/g) || []).length, 2, 'SVG 含面积 + 折线两个 path');
+  eq((svg.match(/<path/g) || []).length, 4, 'v1.5.1 车削三层：面积 + 暗缘 + 本体 + 高光 = 4 个 path');
+  // 规则：三条描边的 d 必须完全一致（同一条线描三遍，几何零变更）
+  const dList = [...svg.matchAll(/<path d="([^"]+)" fill="none"/g)].map((m) => m[1]);
+  eq(new Set(dList).size, 1, '三条描边共用同一条 d（不改数据几何）');
   assert(svg.indexOf(C.LINE_COLOR) >= 0, 'SVG 使用品牌线色');
   const emptySvg = C.buildCumulativeSVG([], 0, '#g');
   eq((emptySvg.match(/<path/g) || []).length, 0, '空数据无 path');

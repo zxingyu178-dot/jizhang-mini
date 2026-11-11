@@ -164,15 +164,25 @@ console.log('C. cumulative-trend');
   const svgDark = decode(inst.data.uri, 'cumulative dark');
   checkSvg(svgDark, 'cumulative dark');
   eq((svgDark.match(/<line /g) || []).length, 3, '3 条水平网格线');
-  eq((svgDark.match(/<path /g) || []).length, 2, '面积 + 折线两条 path');
+  // v1.5.1 车削三层：面积 + 暗缘 + 本体 + 高光 = 4 条 path（不再是旧的 2 条）
+  eq((svgDark.match(/<path /g) || []).length, 4, '面积 + 三描边共 4 条 path');
+  // 规则断言（不是死值）：三条描边的 d 必须完全一致 —— 「同一条线描三遍」的几何前提
+  const ds = [...svgDark.matchAll(/<path d="([^"]+)" fill="none"/g)].map((m) => m[1]);
+  eq(ds.length, 3, '三条描边 path（fill=none）');
+  eq(new Set(ds).size, 1, '三条描边的 d 完全一致（几何零变更）');
   assert(svgDark.indexOf('stroke="rgba(255,255,255,0.12)"') >= 0, '深色网格使用既有 rgba');
-  assert(svgDark.indexOf('fill-opacity="0.18"') >= 0, '面积透明度保留');
+  assert(svgDark.indexOf('fill-opacity="0.15"') >= 0, '深色面积透明度降到 0.15（线加粗后降面积）');
+  assert(svgDark.indexOf('transform="translate(0 -0.62)"') >= 0, '深色高光上移 0.62px');
 
   currentTheme = 'light';
   inst.refresh();
   const svgLight = decode(inst.data.uri, 'cumulative light');
   checkSvg(svgLight, 'cumulative light');
   assert(svgLight.indexOf('stroke="rgba(80,90,130,0.20)"') >= 0, '浅色网格使用 --chart-grid 同口径 rgba（0.20，1.35:1）');
+  assert(svgLight.indexOf('fill-opacity="0.13"') >= 0, '浅色面积透明度 0.13');
+  assert(svgLight.indexOf('transform="translate(0 -0.55)"') >= 0, '浅色高光上移 0.55px');
+  // 深浅两套必须是不同值，否则等于「只做了一套」
+  assert(svgDark !== svgLight, '深浅两套 SVG 不同（明暗值真的分了主题）');
 
   // v1.4.3：断言改为测「规则」而不是记死写法——
   // 图表必须在布局完成后铺满容器整宽（组件量容器真实宽度生成同比例 viewBox），

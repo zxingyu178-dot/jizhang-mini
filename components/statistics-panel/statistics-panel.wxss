@@ -430,13 +430,48 @@
 .bar {
   width: 60%;
   border-radius: 8rpx 8rpx 0 0;
-  background: var(--surface);
+  /* 用 background-color 而不是 background 简写：简写会把 background-image 重置成 none，
+     Skyline 下简写与 .bar--exp 的 background-image 长写同元素共存时，长写会被简写清掉
+     （实测：只写 background: var(--surface) 时 .bar--exp 的渐变整条不生效）。
+     这里只声明颜色，颜色与图片各走各的属性，互不覆盖。 */
+  background-color: var(--surface);
 }
 .bar--exp {
-  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-deep) 100%);
-  /* v1.4.4 终检：去掉柱体发光。原来 0 0 12rpx 的光晕在 13 根柱、柱距 4.5px 的图上
+  /* v1.5.1 车削柱：本色做底，白/黑半透明做「硬停」叠层，6 档明度全落在同一个元素里。
+     rgba 白压本色 ≡ 把本色朝纯白插值同一个 α（＝ mixHex），与环形图同一口径；色相一位不动，只改明度。
+     深浅差异由 app.wxss 的 --bar-* 变量提供 —— 组件是 isolated 样式隔离，
+     页面级主题类选择器进不来（写了也不生效），所以这里一律不许写主题选择器。
+     档位（占柱高）：0-3% 顶倒角边（本色，保轮廓）/ 3-8% 顶光 / 8-15% 受光 /
+     15-80% 柱身（本色）/ 80-93% 背光 / 93-100% 接触暗。
+     最外一档必须是本色：高光顶到轮廓线上时（浅色混白 40% 只有 2.01:1）柱子轮廓会消失，
+     读高度就变成猜。参数唯一事实源：docs/design/chart-light-spec.md §2.2/§2.3。 */
+  background-color: var(--primary);
+  background-image: linear-gradient(180deg,
+    var(--bar-none) 0%, var(--bar-none) 3%,
+    var(--bar-cap) 3%, var(--bar-cap) 8%,
+    var(--bar-lit) 8%, var(--bar-lit) 15%,
+    var(--bar-none) 15%, var(--bar-none) 80%,
+    var(--bar-shade) 80%, var(--bar-shade) 93%,
+    var(--bar-foot) 93%, var(--bar-foot) 100%);
+  /* v1.4.4 终检：去掉柱体发光。原来 0 0 12rpx 的光晕在 31 根柱、柱距 4.5px 的图上
      会把整片糊成紫雾（柱外 1px 与底色差 Δ=18），肉眼数不清几根柱 */
   box-shadow: none;
+}
+
+/* ---- 柱后地面槽（v1.5.1）----
+   让柱子「站在一条浅槽里」，不是贴在卡片上。中性黑/白，不参与主题色色相合同。
+   必须是 .ca__plot 的第一个子节点（DOM 顺序 = 绘制顺序）：放在网格线之后会盖住 0 档网格线，
+   数据底线的读数依据就没了；放在网格线之前，网格线与柱子都压在它上面，
+   槽只在柱间空隙露出来 —— 正是要的效果。 */
+.ca__plate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6rpx;
+  background: var(--bar-plate);
+  border-top: 1rpx solid var(--bar-lip);
+  pointer-events: none;
 }
 .bar-label {
   /* 不再写死 60rpx（≈34px）：12 列时列宽只有 ≈26px，写死会让相邻标签的可点区域重叠 8px，

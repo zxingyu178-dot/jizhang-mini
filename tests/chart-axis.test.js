@@ -869,5 +869,140 @@ console.log('8. statistics-panel 接入与极端数据');
   global.Component = saved;
 }
 
+/* ==================== 9. v1.5.1 车削光影（柱 / 折线 / Canvas）规则 ==================== */
+// 只测规则，不测死值：明度单调性、色标同位成对、组件内无主题选择器、元素预算不超。
+console.log('9. 车削光影规则');
+{
+  const fs = require('fs');
+  const ROOT = path.join(__dirname, '..');
+  const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const { mixHex } = require(path.join(ROOT, 'utils', 'color-mix'));
+
+  // --- 9.1 mixHex：混白变亮、混黑变暗、端点不动、色相不跳、非法输入不抛 ---
+  const base = '#7C86FF';
+  eq(mixHex(base, '#000000', 0), '#7c86ff', 'mixHex t=0 原样返回基准色');
+  eq(mixHex(base, '#FFFFFF', 1), '#ffffff', 'mixHex t=1 混到目标色');
+  eq(mixHex(base, '#000000', 1), '#000000', 'mixHex 混黑到 1 = 纯黑');
+  const lum = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114;
+  };
+  [[0.16, 0.26], [0.38, 0.34], [0.40, 0.48]].forEach(([w, k], i) => {
+    const light = mixHex(base, '#FFFFFF', w);
+    const dark = mixHex(base, '#000000', k);
+    assert(lum(light) > lum(base), '第 ' + i + ' 组：混白后更亮（' + light + '）');
+    assert(lum(dark) < lum(base), '第 ' + i + ' 组：混黑后更暗（' + dark + '）');
+    // 色相不跳：蓝通道始终是最大分量（靛蓝系），只改明度
+    [light, dark].forEach((h) => {
+      assert(/^#[0-9a-f]{6}$/.test(h), 'mixHex 输出 #rrggbb（' + h + '）');
+      const v = parseInt(h.slice(1), 16);
+      const b = v & 255, g = (v >> 8) & 255, r = (v >> 16) & 255;
+      assert(b > r && b > g, '混色后仍是蓝主导（色相没变）：' + h);
+    });
+  });
+  eq(mixHex('bad', '#FFFFFF', 0.5), 'bad', '非法输入原样返回，不抛');
+  eq(mixHex('#7C86FF', '#FFFFFF', 5), '#ffffff', 't 越界夹到 1');
+  eq(mixHex('#7C86FF', '#FFFFFF', -3), '#7c86ff', 't 越界夹到 0');
+
+  // --- 9.2 累计折线：三条描边的明度关系（暗缘 < 本体 < 高光），深/浅各一套且不同 ---
+  const CUM = require(path.join(ROOT, 'data', 'statistics', 'cumulative'));
+  const pts = [];
+  for (let d = 1; d <= 20; d++) pts.push({ day: d, cumCents: d * 1500 });
+  const svgOf = (themeKey) => CUM.buildCumulativeSVG(pts, 30000, '#333333', { w: 319, h: 180 }, {
+    padLeft: 34, spanDays: 30, lineColor: base, theme: themeKey,
+  });
+  const strokesOf = (svg) => [...svg.matchAll(/<path d="[^"]+" fill="none" stroke="(#[0-9a-fA-F]{6})"/g)].map((m) => m[1]);
+  ['dark', 'light'].forEach((t) => {
+    const st = strokesOf(svgOf(t));
+    eq(st.length, 3, t + '：折线描三遍（暗缘 / 本体 / 高光）');
+    eq(st[1].toLowerCase(), '#7c86ff', t + '：中间那道必须是本体本色（高光不许顶到轮廓线上）');
+    assert(lum(st[0]) < lum(st[1]), t + '：第一道比本体暗（暗缘）');
+    assert(lum(st[2]) > lum(st[1]), t + '：最后一道比本体亮（高光）');
+  });
+  assert(svgOf('dark') !== svgOf('light'), '折线深浅两套不同（真给了两套值）');
+  // 单点退化：三条同 d 且不含 NaN
+  const onePoint = CUM.buildCumulativeSVG([{ day: 1, cumCents: 100 }], 100, '#333333', { w: 319, h: 180 }, { padLeft: 34, theme: 'light' });
+  assert(!/NaN/.test(onePoint), '单点数据不出 NaN');
+  eq(strokesOf(onePoint).length, 3, '单点也画三道（退化为同心圆点，不糊）');
+  // 默认（不传 theme）与 dark 同值 —— 旧调用方行为不变
+  eq(
+    CUM.buildCumulativeSVG(pts, 30000, '#333333', { w: 319, h: 180 }, { padLeft: 34, spanDays: 30, lineColor: base }),
+    svgOf('dark'),
+    '不传 theme 时按 dark（旧调用方行为不变）'
+  );
+
+  // --- 9.3 柱状图样式：本色打底 + 硬停叠层，且组件内不出现主题选择器 ---
+  const panelWxss = read('components/statistics-panel/statistics-panel.wxss');
+  const barRule = (panelWxss.match(/\.bar--exp\s*\{[\s\S]*?\n\}/) || [''])[0];
+  assert(barRule.length > 0, '找到 .bar--exp 规则');
+  assert(/background-color:\s*var\(--primary\)/.test(barRule), '柱体用本色做 background-color（打底）');
+  assert(/background-image:\s*linear-gradient\(180deg/.test(barRule), '柱体用 background-image 叠明暗');
+  // 旧的两色标软过渡必须已移除（换成 6 档硬停）
+  assert(!/linear-gradient\(180deg,\s*var\(--primary\)\s*0%/.test(barRule), '旧的「本色→deep」两色标软过渡已移除');
+  // 硬停规则：每一个 --bar-* 档位都要出现两次（起止同位成对），共 6 档 12 个色标
+  const stops = barRule.match(/var\(--bar-[a-z]+\)\s*[0-9.]+%/g) || [];
+  eq(stops.length, 12, '6 档各起止一次 = 12 个色标');
+  const uniq = new Set(stops.map((s) => s.replace(/\s*[0-9.]+%$/, '')));
+  eq(uniq.size, 5, '用到 5 个 --bar-* 档位变量（none/cap/lit/shade/foot）');
+  // 最外一档必须是本色：0% 与 100% 不得是混白档（规则 3，读高度的依据）
+  assert(/var\(--bar-none\)\s*0%/.test(barRule), '柱顶 0% 起于本色（留倒角边，保轮廓）');
+  assert(/var\(--bar-none\)\s*15%/.test(barRule), '柱身起点回到本色');
+  // 样式隔离：组件 wxss 里不许出现主题类选择器（写了也不生效）
+  assert(!/\.theme-(light|dark)\b/.test(panelWxss), '组件 wxss 无主题类选择器（isolated 隔离，写了不生效）');
+  // 地面槽必须在 .ca__plot 里且是第一个子节点前于网格线（DOM 顺序 = 绘制顺序）
+  const panelWxml = read('components/statistics-panel/statistics-panel.wxml');
+  const plateCount = (panelWxml.match(/class="ca__plate"/g) || []).length;
+  eq(plateCount, 2, '两张柱状图各 1 个地面槽（日支出 + 年度 12 月）');
+  const plotBlocks = panelWxml.split('class="ca__plot"').slice(1);
+  eq(plotBlocks.length, 2, '两处 ca__plot');
+  plotBlocks.forEach((blk, i) => {
+    const plateAt = blk.indexOf('ca__plate');
+    const gridAt = blk.indexOf('ca__grid');
+    assert(plateAt >= 0 && plateAt < gridAt, '第 ' + (i + 1) + ' 个柱区：地面槽在网格线之前（不盖 0 档网格线）');
+  });
+  assert(/\.ca__plate\s*\{[\s\S]*?position:\s*absolute/.test(panelWxss), '.ca__plate 绝对定位（不占 flex 位、不改柱高）');
+
+  // --- 9.4 深浅两套 --bar-* 变量齐备，浅色 6 个全量覆盖 ---
+  const appWxss = read('app.wxss');
+  const blockOf = (sel) => {
+    const i = appWxss.indexOf(sel);
+    if (i < 0) return '';
+    return appWxss.slice(i, appWxss.indexOf('\n}', i));
+  };
+  const darkBlock = blockOf('page, .theme-dark {');
+  const lightIdx = appWxss.indexOf('.theme-light {');
+  const lightBlock = lightIdx < 0 ? '' : appWxss.slice(lightIdx, appWxss.indexOf('\n}', lightIdx));
+  const SIX = ['--bar-cap', '--bar-lit', '--bar-shade', '--bar-foot', '--bar-plate', '--bar-lip'];
+  SIX.forEach((v) => {
+    assert(darkBlock.indexOf(v + ':') >= 0, '深色块定义 ' + v);
+    assert(lightBlock.indexOf(v + ':') >= 0, '浅色块覆盖 ' + v);
+  });
+  assert(darkBlock.indexOf('--bar-none:') >= 0, '--bar-none 在深色块定义（page 选择器让浅色也继承得到）');
+  // 浅色块不许重复定义 --bar-none（透明不随主题变，重复定义就是维护隐患）
+  assert(lightBlock.indexOf('--bar-none:') < 0, '浅色块不重复定义 --bar-none');
+
+  // --- 9.5 日价曲线（Canvas）：三描边参数齐 + 数据几何零变更 ---
+  const dvSrc = read('components/daily-value-curve/daily-value-curve.js');
+  const dvWxss = null; // Canvas 无 DOM 子节点，元素预算 0
+  assert(dvWxss === null, 'Canvas 图不靠 WXML 叠层（0 新增元素）');
+  // 两个主题块里的字段数必须各 1（别的地方引用 base.xxx 不算定义）
+  ['rimMix', 'specMix', 'specDy', 'specW', 'rimExtra', 'floorAlpha', 'areaAlpha'].forEach((k) => {
+    const n = (dvSrc.match(new RegExp(k + ':\\s', 'g')) || []).length;
+    assert(n >= 2, k + ' 深浅两套都定义（实际出现 ' + n + ' 次)');
+  });
+  ['pal.rim', 'pal.spec', 'pal.floor'].forEach((k) => {
+    assert(dvSrc.indexOf(k) >= 0, '绘制时用到 ' + k);
+  });
+  // 三描边必须复用同一个 tracePath，不许各写一遍坐标（否则几何会走偏）
+  const traceCount = (dvSrc.match(/tracePath\(\);/g) || []).length;
+  eq(traceCount, 3, '折线画三遍（暗缘 / 本体 / 高光）');
+  const inlineLoop = (dvSrc.match(/if \(i === 0\) ctx\.moveTo/g) || []).length;
+  eq(inlineLoop, 2, '只有面积 + tracePath 两处坐标循环（折线不再各写一遍）');
+  // 高光用 save/translate/restore，且不许改 lineCap（round 会多出 0.45px 圆头）
+  assert(/ctx\.save\(\)[\s\S]{0,400}translate\(0, pal\.specDy\)[\s\S]{0,400}ctx\.restore\(\)/.test(dvSrc),
+    '高光整体上移用 save/translate/restore，不动其它绘制状态');
+  assert(dvSrc.indexOf("lineCap = 'round'") < 0, '不改 lineCap（保持 butt，端点形态不变）');
+}
+
 console.log('\nchart-axis tests: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);
